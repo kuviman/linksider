@@ -1,0 +1,19 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - uses: jetli/trunk-action@v0.4.0
+      - run: rustup target add wasm32-unknown-unknown
+      - run: trunk build --release
+      - uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
