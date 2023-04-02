@@ -2,6 +2,7 @@
 name = "bevyjam3"
 version = "0.1.0"
 edition = "2021"
+default-run = "bevyjam3"
 
 [dependencies]
 bevy = "0.10.1"
