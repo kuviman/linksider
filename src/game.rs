@@ -23,21 +23,7 @@ impl bevy::app::Plugin for Plugin {
             .add_system(update_sides)
             .add_event::<SideEvent>()
             .add_system(side_events)
-            .add_system(jump_effect)
-            .add_system(display_events);
-    }
-}
-/* A system that displays the events. */
-fn display_events(
-    mut collision_events: EventReader<CollisionEvent>,
-    mut contact_force_events: EventReader<ContactForceEvent>,
-) {
-    for collision_event in collision_events.iter() {
-        println!("Received collision event: {:?}", collision_event);
-    }
-
-    for contact_force_event in contact_force_events.iter() {
-        println!("Received contact force event: {:?}", contact_force_event);
+            .add_system(jump_effect);
     }
 }
 
@@ -119,14 +105,18 @@ fn setup(
             Collider::cuboid(player_radius, player_radius),
             ColliderMassProperties::Density(1.0),
             ExternalForce::default(),
+            ExternalImpulse::default(),
         ))
         .id();
-    let sensor_width = player_size * 0.1;
+    let sensor_length = player_size * 0.01;
+    let sensor_width = player_size * 0.01;
     commands.spawn((
-        Collider::cuboid(player_radius, sensor_width),
+        Collider::cuboid(sensor_length / 2.0, sensor_width),
         TransformBundle::IDENTITY,
+        JumpEffect,
         Sensor,
         ActiveEvents::COLLISION_EVENTS,
+        ActiveCollisionTypes::all(),
         Side(Transform::from_translation(Vec3::new(
             0.0,
             player_radius,
@@ -145,14 +135,15 @@ fn update_sides(
     }
 }
 
+#[derive(Debug)]
 enum SideEvent {
     Started(Entity),
     Stopped(Entity),
 }
 
 fn side_events(
-    sides: Query<(), With<Side>>,
-    side_triggers: Query<(), With<SideEffectTrigger>>,
+    sides: Query<Entity, With<Side>>,
+    side_triggers: Query<Entity, With<SideEffectTrigger>>,
     mut collisions: EventReader<CollisionEvent>,
     mut events: EventWriter<SideEvent>,
 ) {
@@ -172,7 +163,6 @@ fn side_events(
     for event in collisions.iter() {
         match *event {
             CollisionEvent::Started(a, b, _) => {
-                info!("{a:?}, {b:?}");
                 process(a, b, SideEvent::Started);
             }
             CollisionEvent::Stopped(a, b, _) => {
@@ -183,21 +173,26 @@ fn side_events(
 }
 
 fn jump_effect(
-    mut player: Query<(&Transform, &mut ExternalImpulse), With<Player>>,
+    mut player: Query<(&Transform, &mut Velocity), With<Player>>,
     sides: Query<&Side, With<JumpEffect>>,
     mut events: EventReader<SideEvent>,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
-    let Some((transform, mut impulse)) = player.iter_mut().next() else { return };
+    let Some((transform, mut velocity)) = player.iter_mut().next() else { return };
     for event in events.iter() {
         match *event {
             SideEvent::Started(side) => {
                 let Ok(side) = sides.get(side) else { continue; };
-                impulse.impulse += transform
+                let normal = -transform
                     .with_translation(Vec3::ZERO)
                     .mul_transform(side.0)
                     .transform_point(Vec3::ZERO)
                     .xy()
-                    * 100.0;
+                    .normalize();
+                let vel_change = -normal * Vec2::dot(normal, velocity.linvel) + normal * 15.0;
+                velocity.linvel += vel_change;
+                audio.play(asset_server.load("hehehe.ogg"));
             }
             SideEvent::Stopped(_) => {}
         }
