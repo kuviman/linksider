@@ -6,3 +6,7 @@ playground:
 
 web:
     trunk serve --open
+
+publish:
+    trunk build --release playground.html
+    butler push dist kuviman/bevy-jam-3:html5
