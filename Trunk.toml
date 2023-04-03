@@ -1,0 +1,6 @@
+[build]
+public_url = "./"
+filehash = false
+
+[tools]
+sass = "1.54.9" # Fixes ruby-sass being used instead of dart-sass
