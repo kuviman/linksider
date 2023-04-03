@@ -6,11 +6,21 @@ pub struct Plugin;
 #[derive(Component)]
 struct Player;
 
+#[derive(Component)]
+struct SideEffectTrigger;
+
+#[derive(Component)]
+struct JumpEffect;
+
+#[derive(Component)]
+struct Side(Transform);
+
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(update_player_input)
-            .add_system(update_camera);
+            .add_system(update_camera)
+            .add_system(update_sides);
     }
 }
 
@@ -53,35 +63,68 @@ fn setup(
             }
         }
     }
-    commands.spawn(Collider::trimesh(
-        (0..h + 1)
-            .flat_map(|y| (0..w + 1).map(move |x| Vec2::new(x as _, y as _)))
-            .collect(),
-        trimesh_indices,
+    commands.spawn((
+        Collider::trimesh(
+            (0..h + 1)
+                .flat_map(|y| (0..w + 1).map(move |x| Vec2::new(x as _, y as _)))
+                .collect(),
+            trimesh_indices,
+        ),
+        SideEffectTrigger,
     ));
 
-    let player_size = 0.7;
-    commands.spawn((
-        Player,
-        SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::splat(player_size)),
+    let player_size = 1.0;
+    let player_radius = player_size / 2.0;
+    let player_border_radius = player_radius * 0.5;
+    let player = commands
+        .spawn((
+            Player,
+            SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::splat(player_size)),
+                    ..default()
+                },
+                transform: {
+                    let (x, y) = player_location.unwrap();
+                    Transform::from_xyz(x as f32 + 0.5, y as f32 + 0.5, 0.0)
+                },
+                texture: asset_server.load("texture.png"),
                 ..default()
             },
-            transform: {
-                let (x, y) = player_location.unwrap();
-                Transform::from_xyz(x as f32 + 0.5, y as f32 + 0.5, 0.0)
-            },
-            texture: asset_server.load("texture.png"),
-            ..default()
-        },
-        RigidBody::Dynamic,
-        Velocity::zero(),
-        Friction::new(1.5),
-        Collider::round_cuboid(player_size / 2.0, player_size / 2.0, player_size * 0.1),
-        ColliderMassProperties::Density(1.0),
-        ExternalForce::default(),
+            RigidBody::Dynamic,
+            Velocity::zero(),
+            Friction::new(1.5),
+            // Collider::round_cuboid(
+            //     player_radius, // - player_border_radius,
+            //     player_radius, // - player_border_radius,
+            //     player_border_radius,
+            // ),
+            Collider::cuboid(player_radius, player_radius),
+            ColliderMassProperties::Density(1.0),
+            ExternalForce::default(),
+        ))
+        .id();
+    let sensor_width = player_size * 0.1;
+    commands.spawn((
+        Collider::cuboid(player_radius, sensor_width),
+        TransformBundle::IDENTITY,
+        Sensor,
+        Side(Transform::from_translation(Vec3::new(
+            0.0,
+            player_radius,
+            0.0,
+        ))),
     ));
+}
+
+fn update_sides(
+    mut sides: Query<(&mut Transform, &Side), Without<Player>>,
+    player: Query<&Transform, With<Player>>,
+) {
+    let Some(player) = player.iter().next() else { return };
+    for (mut transform, side) in sides.iter_mut() {
+        *transform = player.mul_transform(side.0);
+    }
 }
 
 fn update_player_input(
