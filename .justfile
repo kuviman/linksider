@@ -1,8 +1,8 @@
-run:
-    cargo run --features bevy/dynamic_linking
+run *OPTIONS:
+    cargo run --features bevy/dynamic_linking {{OPTIONS}}
 
-playground:
-    cargo run --features bevy/dynamic_linking --bin playground
+playground *OPTIONS:
+    cargo run --features bevy/dynamic_linking --bin playground {{OPTIONS}}
 
-web:
-    trunk serve --open
+web *OPTIONS:
+    trunk serve --open {{OPTIONS}}
