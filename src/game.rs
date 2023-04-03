@@ -18,7 +18,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut rapier_config: ResMut<RapierConfiguration>,
 ) {
-    rapier_config.gravity = Vec2::ZERO;
+    rapier_config.gravity = Vec2::new(0.0, -30.0);
     commands.spawn({
         let mut bundle = Camera2dBundle::default();
         bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::FixedVertical(10.0);
@@ -36,8 +36,14 @@ fn setup(
         },
         RigidBody::Dynamic,
         Velocity::zero(),
+        Friction::new(1.5),
         Collider::round_cuboid(1.0, 1.0, 0.1),
+        ColliderMassProperties::Density(0.1),
         ExternalForce::default(),
+    ));
+    commands.spawn((
+        TransformBundle::from_transform(Transform::from_xyz(0.0, -2.0, 0.0)),
+        Collider::halfspace(Vec2::Y).unwrap(),
     ));
 }
 
@@ -45,17 +51,19 @@ fn update(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Velocity, &mut ExternalForce), With<Player>>,
 ) {
-    let target_angvel = {
-        let mut res = 0.0;
+    for (vel, mut force) in query.iter_mut() {
+        let mut target_dir = None::<f32>;
         if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
-            res = 1.0;
+            *target_dir.get_or_insert(0.0) += 1.0;
         }
         if keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]) {
-            res = -1.0;
+            *target_dir.get_or_insert(0.0) -= 1.0;
         }
-        res * 2.0 * std::f32::consts::PI
-    };
-    for (vel, mut force) in query.iter_mut() {
-        force.torque = (target_angvel - vel.angvel) * 10.0;
+        if let Some(dir) = target_dir {
+            let target_angvel = dir * 2.0 * std::f32::consts::PI;
+            force.torque = (target_angvel - vel.angvel) * 10.0;
+        } else {
+            force.torque = 0.0;
+        }
     }
 }
