@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 
-mod daivy;
 mod hehehe;
-mod kuvi;
 
 fn main() {
     App::new()
@@ -22,8 +20,6 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(daivy::Stuff)
-        .add_plugin(kuvi::Stuff)
         .add_plugin(hehehe::Plugin)
         .run();
 }
