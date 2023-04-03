@@ -5,11 +5,6 @@ pub struct Stuff;
 #[derive(Component)]
 struct Position(Vec2);
 
-#[derive(Resource)]
-struct Sounds {
-    hehehe: Handle<AudioSource>,
-}
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
@@ -30,9 +25,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Position(Vec2::new(0.0, 0.0)),
     ));
-    commands.insert_resource(Sounds {
-        hehehe: asset_server.load("hehehe.ogg"),
-    })
 }
 
 #[derive(WorldQuery)]
@@ -45,10 +37,7 @@ fn movement(
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     time: Res<Time>,
-    sounds: Res<Sounds>,
-    audio: Res<Audio>,
     mut query: Query<MovementQuery>,
-    asset_server: Res<AssetServer>,
 ) {
     for mut entity in query.iter_mut() {
         if keyboard_input.any_pressed([KeyCode::Left, KeyCode::A])
@@ -61,10 +50,6 @@ fn movement(
         {
             entity.position.0.x += time.delta_seconds();
         }
-    }
-
-    if keyboard_input.any_just_pressed([KeyCode::Space]) {
-        audio.play(sounds.hehehe.clone());
     }
 }
 

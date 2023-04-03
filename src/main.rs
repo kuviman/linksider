@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 mod daivy;
+mod hehehe;
 mod kuvi;
 
 fn main() {
@@ -23,5 +24,6 @@ fn main() {
         }))
         .add_plugin(daivy::Stuff)
         .add_plugin(kuvi::Stuff)
+        .add_plugin(hehehe::Plugin)
         .run();
 }
