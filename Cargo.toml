@@ -6,6 +6,7 @@ default-run = "bevyjam3"
 
 [dependencies]
 bevy = "0.10.1"
+bevy_rapier2d = "0.21.0"
 clap = "4.2.1"
 
 # Enable a small amount of optimization in debug mode
