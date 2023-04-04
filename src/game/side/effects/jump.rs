@@ -28,7 +28,7 @@ fn jump_effect(
                 .xy();
             let vel_change = -normal * Vec2::dot(normal, parent_velocity.linvel) + normal * 30.0;
             parent_velocity.linvel += vel_change;
-            audio.play(asset_server.load("hehehe.ogg"));
+            audio.play(asset_server.load("woohoo.ogg"));
         }
     }
 }
