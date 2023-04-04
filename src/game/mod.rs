@@ -13,7 +13,8 @@ impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(update_player_input)
-            .add_system(update_camera);
+            .add_system(update_camera)
+            .add_startup_system(music);
         side::init(app);
     }
 }
@@ -125,6 +126,17 @@ fn setup(
         ),
         side::Trigger,
     ));
+}
+
+fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    audio.play_with_settings(
+        asset_server.load("music.ogg"),
+        PlaybackSettings {
+            repeat: true,
+            volume: 0.5,
+            speed: 1.0,
+        },
+    );
 }
 
 fn update_player_input(
