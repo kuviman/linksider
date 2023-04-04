@@ -1,5 +1,8 @@
 [build]
-public_url = "./"
+# Setting public_url here breaks trunk serve
+# so instead use trunk build --public-url "./" instead until fixed
+# https://github.com/thedodd/trunk/issues/395
+# public_url = "./"
 filehash = false
 
 [tools]

@@ -5,7 +5,7 @@ web *OPTIONS:
     trunk serve --open {{OPTIONS}}
 
 publish:
-    trunk build --release
+    trunk build --release --public-url "./"
     butler push dist kuviman/bevy-jam-3:html5
 
 clean:
