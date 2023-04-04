@@ -1,5 +1,7 @@
+use std::f32::consts::PI;
+
 use bevy::{math::Vec3Swizzles, prelude::*};
-use bevy_rapier2d::prelude::*;
+use bevy_rapier2d::{na::Vector2, prelude::*, rapier::prelude::Shape};
 
 pub struct Plugin;
 
@@ -8,6 +10,12 @@ struct Player;
 
 #[derive(Component)]
 struct SideEffectTrigger;
+
+#[derive(Component)]
+struct Powerup;
+
+#[derive(Component)]
+struct BlankSideEffect;
 
 #[derive(Component)]
 struct JumpEffect;
@@ -22,8 +30,11 @@ impl bevy::app::Plugin for Plugin {
             .add_system(update_camera)
             .add_system(update_sides)
             .add_event::<SideEvent>()
+            .add_event::<PowerupEvent>()
             .add_system(side_events)
-            .add_system(jump_effect);
+            .add_system(jump_effect)
+            .add_system(collect_powerup)
+            .add_system(jump_powerup);
     }
 }
 
@@ -47,7 +58,6 @@ fn setup(
     let map = |x: usize, y: usize| map[h - 1 - y].get(x).copied().unwrap_or(' ');
     let index = |x, y| (x + y * (w + 1)) as u32;
     let mut trimesh_indices = Vec::new();
-    let mut player_location = None;
     #[allow(clippy::needless_range_loop)]
     for x in 0..w {
         for y in 0..h {
@@ -59,7 +69,79 @@ fn setup(
                 'L' => trimesh_indices.push([index(x, y), index(x + 1, y), index(x + 1, y + 1)]),
                 'R' => trimesh_indices.push([index(x, y), index(x + 1, y), index(x, y + 1)]),
                 'S' => {
-                    player_location = Some((x, y));
+                    let player_size = 1.0;
+                    let player_radius = player_size / 2.0;
+                    let player_border_radius = player_radius * 0.2;
+                    let player = commands
+                        .spawn((
+                            Player,
+                            SpriteBundle {
+                                sprite: Sprite {
+                                    custom_size: Some(Vec2::splat(player_size)),
+                                    ..default()
+                                },
+                                transform: {
+                                    Transform::from_xyz(x as f32 + 0.5, y as f32 + 0.5, 0.0)
+                                },
+                                texture: asset_server.load("texture.png"),
+                                ..default()
+                            },
+                            RigidBody::Dynamic,
+                            Velocity::zero(),
+                            Friction::new(1.5),
+                            Collider::round_cuboid(
+                                player_radius - player_border_radius,
+                                player_radius - player_border_radius,
+                                player_border_radius,
+                            ),
+                            // TODO: https://github.com/dimforge/parry/issues/138
+                            // ColliderMassProperties::Density(1.0),
+                            ColliderMassProperties::Mass(
+                                bevy_rapier2d::parry::shape::Cuboid::new(Vector2::new(
+                                    player_radius,
+                                    player_radius,
+                                ))
+                                .mass_properties(1.0)
+                                .mass(),
+                            ),
+                            ExternalForce::default(),
+                            ExternalImpulse::default(),
+                        ))
+                        .id();
+                    for i in 0..4 {
+                        let sensor_length = player_size * 0.01;
+                        let sensor_width = player_size * 0.01;
+                        commands.spawn((
+                            Collider::cuboid(sensor_length / 2.0, sensor_width),
+                            TransformBundle::IDENTITY,
+                            BlankSideEffect,
+                            Sensor,
+                            ActiveEvents::COLLISION_EVENTS,
+                            ActiveCollisionTypes::all(),
+                            Side(
+                                Transform::from_rotation(Quat::from_rotation_z(
+                                    i as f32 * PI / 2.0,
+                                ))
+                                .mul_transform(
+                                    Transform::from_translation(Vec3::new(0.0, player_radius, 0.0)),
+                                ),
+                            ),
+                        ));
+                    }
+                }
+                'J' => {
+                    // powerup
+                    commands.spawn((
+                        TransformBundle::from_transform(Transform::from_xyz(
+                            x as f32 + 0.5,
+                            y as f32 + 0.5,
+                            0.0,
+                        )),
+                        Collider::ball(0.3),
+                        Powerup,
+                        Sensor,
+                        JumpEffect,
+                    ));
                 }
                 ' ' => {}
                 _ => unreachable!(),
@@ -74,54 +156,6 @@ fn setup(
             trimesh_indices,
         ),
         SideEffectTrigger,
-    ));
-
-    let player_size = 1.0;
-    let player_radius = player_size / 2.0;
-    let player_border_radius = player_radius * 0.5;
-    let player = commands
-        .spawn((
-            Player,
-            SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(Vec2::splat(player_size)),
-                    ..default()
-                },
-                transform: {
-                    let (x, y) = player_location.unwrap();
-                    Transform::from_xyz(x as f32 + 0.5, y as f32 + 0.5, 0.0)
-                },
-                texture: asset_server.load("texture.png"),
-                ..default()
-            },
-            RigidBody::Dynamic,
-            Velocity::zero(),
-            Friction::new(1.5),
-            // Collider::round_cuboid(
-            //     player_radius, // - player_border_radius,
-            //     player_radius, // - player_border_radius,
-            //     player_border_radius,
-            // ),
-            Collider::cuboid(player_radius, player_radius),
-            ColliderMassProperties::Density(1.0),
-            ExternalForce::default(),
-            ExternalImpulse::default(),
-        ))
-        .id();
-    let sensor_length = player_size * 0.01;
-    let sensor_width = player_size * 0.01;
-    commands.spawn((
-        Collider::cuboid(sensor_length / 2.0, sensor_width),
-        TransformBundle::IDENTITY,
-        JumpEffect,
-        Sensor,
-        ActiveEvents::COLLISION_EVENTS,
-        ActiveCollisionTypes::all(),
-        Side(Transform::from_translation(Vec3::new(
-            0.0,
-            player_radius,
-            0.0,
-        ))),
     ));
 }
 
@@ -169,6 +203,27 @@ fn side_events(
                 process(a, b, SideEvent::Stopped);
             }
         }
+    }
+}
+
+fn jump_powerup(
+    mut commands: Commands,
+    sides: Query<(With<Side>, With<BlankSideEffect>)>,
+    powerups: Query<(With<Powerup>, With<JumpEffect>)>,
+    mut events: EventReader<PowerupEvent>,
+) {
+    for event in events.iter() {
+        if !sides.contains(event.side) {
+            continue;
+        }
+        if !powerups.contains(event.powerup) {
+            continue;
+        }
+        commands.entity(event.powerup).despawn();
+        commands
+            .entity(event.side)
+            .insert(JumpEffect)
+            .remove::<BlankSideEffect>();
     }
 }
 
@@ -227,4 +282,35 @@ fn update_camera(
     let Some(mut camera) = camera.iter_mut().next() else { return };
     let Some(player) = player.iter().next() else { return };
     camera.translation = player.translation;
+}
+
+struct PowerupEvent {
+    side: Entity,
+    powerup: Entity,
+}
+
+fn collect_powerup(
+    sides: Query<Entity, With<Side>>,
+    powerups: Query<Entity, With<Powerup>>,
+    mut collisions: EventReader<CollisionEvent>,
+    mut events: EventWriter<PowerupEvent>,
+) {
+    for event in collisions.iter() {
+        if let CollisionEvent::Started(a, b, _) = *event {
+            let mut check = |a, b| {
+                if !sides.contains(a) {
+                    return;
+                }
+                if !powerups.contains(b) {
+                    return;
+                }
+                events.send(PowerupEvent {
+                    side: a,
+                    powerup: b,
+                });
+            };
+            check(a, b);
+            check(b, a);
+        }
+    }
 }
