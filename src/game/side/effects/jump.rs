@@ -52,13 +52,14 @@ fn jump_powerup(
         commands.entity(event.side).insert(Effect).remove::<Blank>();
 
         // TODO: different system?
-        commands.entity(event.side).insert(SpriteBundle {
-            sprite: Sprite {
+        commands.entity(event.side).insert((
+            Sprite {
                 custom_size: Some(Vec2::new(1.0, 0.25)),
                 ..default()
             },
-            texture: asset_server.load("side_effects/jump.png"),
-            ..default()
-        });
+            asset_server.load::<Image, _>("side_effects/jump.png"),
+            Visibility::default(),
+            ComputedVisibility::default(),
+        ));
     }
 }
