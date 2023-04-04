@@ -21,7 +21,10 @@ struct BlankSideEffect;
 struct JumpEffect;
 
 #[derive(Component)]
-struct Side(Transform);
+struct Side {
+    transform: Transform,
+    parent: Entity,
+}
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
@@ -118,14 +121,15 @@ fn setup(
                             Sensor,
                             ActiveEvents::COLLISION_EVENTS,
                             ActiveCollisionTypes::all(),
-                            Side(
-                                Transform::from_rotation(Quat::from_rotation_z(
+                            Side {
+                                transform: Transform::from_rotation(Quat::from_rotation_z(
                                     i as f32 * PI / 2.0,
                                 ))
                                 .mul_transform(
                                     Transform::from_translation(Vec3::new(0.0, player_radius, 0.0)),
                                 ),
-                            ),
+                                parent: player,
+                            },
                         ));
                     }
                 }
@@ -160,12 +164,13 @@ fn setup(
 }
 
 fn update_sides(
-    mut sides: Query<(&mut Transform, &Side), Without<Player>>,
-    player: Query<&Transform, With<Player>>,
+    mut sides: Query<(&mut Transform, &Side)>,
+    parents: Query<&Transform, Without<Side>>,
 ) {
-    let Some(player) = player.iter().next() else { return };
-    for (mut transform, side) in sides.iter_mut() {
-        *transform = player.mul_transform(side.0);
+    for (mut side_transform, side) in sides.iter_mut() {
+        if let Ok(parent_transform) = parents.get(side.parent) {
+            *side_transform = parent_transform.mul_transform(side.transform);
+        }
     }
 }
 
@@ -228,25 +233,26 @@ fn jump_powerup(
 }
 
 fn jump_effect(
-    mut player: Query<(&Transform, &mut Velocity), With<Player>>,
+    mut parents: Query<(&Transform, &mut Velocity)>,
     sides: Query<&Side, With<JumpEffect>>,
     mut events: EventReader<SideEvent>,
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
 ) {
-    let Some((transform, mut velocity)) = player.iter_mut().next() else { return };
     for event in events.iter() {
         match *event {
             SideEvent::Started(side) => {
                 let Ok(side) = sides.get(side) else { continue; };
-                let normal = -transform
+                let Ok((parent_transform, mut parent_velocity)) = parents.get_mut(side.parent) else { continue };
+                let normal = -parent_transform
                     .with_translation(Vec3::ZERO)
-                    .mul_transform(side.0)
+                    .mul_transform(side.transform)
                     .transform_point(Vec3::ZERO)
                     .xy()
                     .normalize();
-                let vel_change = -normal * Vec2::dot(normal, velocity.linvel) + normal * 15.0;
-                velocity.linvel += vel_change;
+                let vel_change =
+                    -normal * Vec2::dot(normal, parent_velocity.linvel) + normal * 15.0;
+                parent_velocity.linvel += vel_change;
                 audio.play(asset_server.load("hehehe.ogg"));
             }
             SideEvent::Stopped(_) => {}
@@ -279,9 +285,15 @@ fn update_camera(
     mut camera: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
     player: Query<&Transform, With<Player>>,
 ) {
-    let Some(mut camera) = camera.iter_mut().next() else { return };
-    let Some(player) = player.iter().next() else { return };
-    camera.translation = player.translation;
+    let mut camera = camera.single_mut();
+    camera.translation = {
+        let (sum, num) = player
+            .iter()
+            .fold((Vec3::ZERO, 0), |(sum, num), transform| {
+                (sum + transform.translation, num + 1)
+            });
+        sum / num as f32
+    };
 }
 
 struct PowerupEvent {
