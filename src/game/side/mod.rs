@@ -12,13 +12,11 @@ pub fn init(app: &mut App) {
         .add_event::<SideActivateEvent>();
     powerup::init(app);
     effects::jump::init(app);
+    effects::slide::init(app);
 }
 
 #[derive(Component)]
 pub struct Blank;
-
-#[derive(Component)]
-pub struct Trigger;
 
 #[derive(Component)]
 pub struct Side {
@@ -37,10 +35,24 @@ fn update_side_transforms(
     }
 }
 
+#[derive(Component)]
+pub struct Trigger;
+
+#[derive(Component)]
+pub struct Active;
+
 #[derive(Debug)]
 enum SideActivateEvent {
     Activated(Entity),
     Deactivated(Entity),
+}
+
+impl SideActivateEvent {
+    fn side(&self) -> Entity {
+        match *self {
+            SideActivateEvent::Activated(side) | SideActivateEvent::Deactivated(side) => side,
+        }
+    }
 }
 
 fn side_activation(
@@ -48,6 +60,7 @@ fn side_activation(
     side_triggers: Query<Entity, With<Trigger>>,
     mut collisions: EventReader<CollisionEvent>,
     mut events: EventWriter<SideActivateEvent>,
+    mut commands: Commands,
 ) {
     let mut process = |a, b, f: fn(Entity) -> SideActivateEvent| {
         let mut check = |a, b| {
@@ -57,7 +70,13 @@ fn side_activation(
             if !side_triggers.contains(b) {
                 return;
             }
-            events.send(f(a));
+            let side = a;
+            let event = f(side);
+            match event {
+                SideActivateEvent::Activated(_) => commands.entity(side).insert(Active),
+                SideActivateEvent::Deactivated(_) => commands.entity(side).remove::<Active>(),
+            };
+            events.send(event);
         };
         check(a, b);
         check(b, a);

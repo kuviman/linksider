@@ -13,6 +13,7 @@ impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(update_player_input)
+            .add_system(player_rotation_control)
             .add_system(update_camera)
             .add_startup_system(music);
         side::init(app);
@@ -55,6 +56,7 @@ fn setup(
                     let player = commands
                         .spawn((
                             Player,
+                            PlayerInput(0.0),
                             SpriteBundle {
                                 sprite: Sprite {
                                     custom_size: Some(Vec2::splat(player_size)),
@@ -74,6 +76,7 @@ fn setup(
                             ColliderMassProperties::Density(1.0),
                             ExternalForce::default(),
                             ExternalImpulse::default(),
+                            Name::new("Player".to_owned()),
                         ))
                         .id();
                     for i in 0..4 {
@@ -95,11 +98,11 @@ fn setup(
                                 ),
                                 parent: player,
                             },
+                            Name::new(format!("Side {i}")),
                         ));
                     }
                 }
                 'J' => {
-                    // powerup
                     commands.spawn((
                         TransformBundle::from_transform(Transform::from_xyz(
                             x as f32 + 0.5,
@@ -110,6 +113,21 @@ fn setup(
                         side::Powerup,
                         Sensor,
                         side::effects::jump::Effect,
+                        Name::new("Jump".to_owned()),
+                    ));
+                }
+                '_' => {
+                    commands.spawn((
+                        TransformBundle::from_transform(Transform::from_xyz(
+                            x as f32 + 0.5,
+                            y as f32 + 0.5,
+                            0.0,
+                        )),
+                        Collider::ball(0.3),
+                        side::Powerup,
+                        Sensor,
+                        side::effects::slide::Effect,
+                        Name::new("Slide".to_owned()),
                     ));
                 }
                 ' ' => {}
@@ -125,6 +143,7 @@ fn setup(
             trimesh_indices,
         ),
         side::Trigger,
+        Name::new("Level".to_owned()),
     ));
 }
 
@@ -139,22 +158,36 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     );
 }
 
+#[derive(Component)]
+pub struct PlayerInput(pub f32);
+
 fn update_player_input(
-    time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Velocity, With<Player>>,
+    mut inputs: Query<&mut PlayerInput, With<Player>>,
 ) {
-    for mut vel in query.iter_mut() {
-        let mut target_dir = None::<f32>;
-        if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
-            *target_dir.get_or_insert(0.0) += 1.0;
-        }
-        if keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]) {
-            *target_dir.get_or_insert(0.0) -= 1.0;
-        }
-        if let Some(dir) = target_dir {
-            let target_angvel = dir * 2.0 * PI;
-            let max_delta = 2.0 * PI * time.elapsed_seconds();
+    let mut dir = 0.0;
+    if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
+        dir -= 1.0;
+    }
+    if keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]) {
+        dir += 1.0;
+    }
+    for mut input in inputs.iter_mut() {
+        input.0 = dir;
+    }
+}
+
+#[derive(Component)]
+pub struct DisableRotationControl;
+
+fn player_rotation_control(
+    time: Res<Time>,
+    mut query: Query<(&PlayerInput, &mut Velocity), Without<DisableRotationControl>>,
+) {
+    for (input, mut vel) in query.iter_mut() {
+        if input.0 != 0.0 {
+            let target_angvel = -input.0 * 2.0 * PI;
+            let max_delta = 2.0 * PI * time.delta_seconds() * 50.0;
             vel.angvel += (target_angvel - vel.angvel).clamp(-max_delta, max_delta);
         }
     }
