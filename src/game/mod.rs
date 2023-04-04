@@ -1,43 +1,20 @@
+use bevy::prelude::*;
+use bevy_rapier2d::{na::Vector2, prelude::*, rapier::prelude::Shape};
 use std::f32::consts::PI;
 
-use bevy::{math::Vec3Swizzles, prelude::*};
-use bevy_rapier2d::{na::Vector2, prelude::*, rapier::prelude::Shape};
+mod side;
 
 pub struct Plugin;
 
 #[derive(Component)]
 struct Player;
 
-#[derive(Component)]
-struct SideEffectTrigger;
-
-#[derive(Component)]
-struct Powerup;
-
-#[derive(Component)]
-struct BlankSideEffect;
-
-#[derive(Component)]
-struct JumpEffect;
-
-#[derive(Component)]
-struct Side {
-    transform: Transform,
-    parent: Entity,
-}
-
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(update_player_input)
-            .add_system(update_camera)
-            .add_system(update_sides)
-            .add_event::<SideEvent>()
-            .add_event::<PowerupEvent>()
-            .add_system(side_events)
-            .add_system(jump_effect)
-            .add_system(collect_powerup)
-            .add_system(jump_powerup);
+            .add_system(update_camera);
+        side::init(app);
     }
 }
 
@@ -52,7 +29,7 @@ fn setup(
         bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::FixedVertical(10.0);
         bundle
     });
-    let map: Vec<Vec<char>> = include_str!("level.txt")
+    let map: Vec<Vec<char>> = include_str!("../level.txt")
         .lines()
         .map(|line| line.chars().collect())
         .collect();
@@ -117,11 +94,11 @@ fn setup(
                         commands.spawn((
                             Collider::cuboid(sensor_length / 2.0, sensor_width),
                             TransformBundle::IDENTITY,
-                            BlankSideEffect,
+                            side::Blank,
                             Sensor,
                             ActiveEvents::COLLISION_EVENTS,
                             ActiveCollisionTypes::all(),
-                            Side {
+                            side::Side {
                                 transform: Transform::from_rotation(Quat::from_rotation_z(
                                     i as f32 * PI / 2.0,
                                 ))
@@ -142,9 +119,9 @@ fn setup(
                             0.0,
                         )),
                         Collider::ball(0.3),
-                        Powerup,
+                        side::Powerup,
                         Sensor,
-                        JumpEffect,
+                        side::effects::jump::Effect,
                     ));
                 }
                 ' ' => {}
@@ -159,105 +136,8 @@ fn setup(
                 .collect(),
             trimesh_indices,
         ),
-        SideEffectTrigger,
+        side::Trigger,
     ));
-}
-
-fn update_sides(
-    mut sides: Query<(&mut Transform, &Side)>,
-    parents: Query<&Transform, Without<Side>>,
-) {
-    for (mut side_transform, side) in sides.iter_mut() {
-        if let Ok(parent_transform) = parents.get(side.parent) {
-            *side_transform = parent_transform.mul_transform(side.transform);
-        }
-    }
-}
-
-#[derive(Debug)]
-enum SideEvent {
-    Started(Entity),
-    Stopped(Entity),
-}
-
-fn side_events(
-    sides: Query<Entity, With<Side>>,
-    side_triggers: Query<Entity, With<SideEffectTrigger>>,
-    mut collisions: EventReader<CollisionEvent>,
-    mut events: EventWriter<SideEvent>,
-) {
-    let mut process = |a, b, f: fn(Entity) -> SideEvent| {
-        let mut check = |a, b| {
-            if !sides.contains(a) {
-                return;
-            }
-            if !side_triggers.contains(b) {
-                return;
-            }
-            events.send(f(a));
-        };
-        check(a, b);
-        check(b, a);
-    };
-    for event in collisions.iter() {
-        match *event {
-            CollisionEvent::Started(a, b, _) => {
-                process(a, b, SideEvent::Started);
-            }
-            CollisionEvent::Stopped(a, b, _) => {
-                process(a, b, SideEvent::Stopped);
-            }
-        }
-    }
-}
-
-fn jump_powerup(
-    mut commands: Commands,
-    sides: Query<(With<Side>, With<BlankSideEffect>)>,
-    powerups: Query<(With<Powerup>, With<JumpEffect>)>,
-    mut events: EventReader<PowerupEvent>,
-) {
-    for event in events.iter() {
-        if !sides.contains(event.side) {
-            continue;
-        }
-        if !powerups.contains(event.powerup) {
-            continue;
-        }
-        commands.entity(event.powerup).despawn();
-        commands
-            .entity(event.side)
-            .insert(JumpEffect)
-            .remove::<BlankSideEffect>();
-    }
-}
-
-fn jump_effect(
-    mut parents: Query<(&Transform, &mut Velocity)>,
-    sides: Query<&Side, With<JumpEffect>>,
-    mut events: EventReader<SideEvent>,
-    audio: Res<Audio>,
-    asset_server: Res<AssetServer>,
-) {
-    for event in events.iter() {
-        match *event {
-            SideEvent::Started(side) => {
-                let Ok(side) = sides.get(side) else { continue; };
-                let Ok((parent_transform, mut parent_velocity)) = parents.get_mut(side.parent) else { continue };
-                let normal = -parent_transform
-                    .with_translation(Vec3::ZERO)
-                    .mul_transform(side.transform)
-                    .transform_point(Vec3::ZERO)
-                    .xy()
-                    .normalize();
-                let vel_change =
-                    -normal * Vec2::dot(normal, parent_velocity.linvel) + normal * 15.0;
-                parent_velocity.linvel += vel_change;
-                audio.play(asset_server.load("hehehe.ogg"));
-            }
-            SideEvent::Stopped(_) => {}
-        }
-    }
 }
 
 fn update_player_input(
@@ -294,35 +174,4 @@ fn update_camera(
             });
         sum / num as f32
     };
-}
-
-struct PowerupEvent {
-    side: Entity,
-    powerup: Entity,
-}
-
-fn collect_powerup(
-    sides: Query<Entity, With<Side>>,
-    powerups: Query<Entity, With<Powerup>>,
-    mut collisions: EventReader<CollisionEvent>,
-    mut events: EventWriter<PowerupEvent>,
-) {
-    for event in collisions.iter() {
-        if let CollisionEvent::Started(a, b, _) = *event {
-            let mut check = |a, b| {
-                if !sides.contains(a) {
-                    return;
-                }
-                if !powerups.contains(b) {
-                    return;
-                }
-                events.send(PowerupEvent {
-                    side: a,
-                    powerup: b,
-                });
-            };
-            check(a, b);
-            check(b, a);
-        }
-    }
 }
