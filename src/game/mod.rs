@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::{na::Vector2, prelude::*, rapier::prelude::Shape};
+use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
 mod side;
@@ -51,7 +51,6 @@ fn setup(
                 'S' => {
                     let player_size = 1.0;
                     let player_radius = player_size / 2.0;
-                    let player_border_radius = player_radius * 0.25;
                     let player = commands
                         .spawn((
                             Player,
@@ -62,6 +61,7 @@ fn setup(
                                 },
                                 transform: {
                                     Transform::from_xyz(x as f32 + 0.5, y as f32 + 0.5, 0.0)
+                                        .with_scale(Vec3::splat(1.0))
                                 },
                                 texture: asset_server.load("player.png"),
                                 ..default()
@@ -69,21 +69,8 @@ fn setup(
                             RigidBody::Dynamic,
                             Velocity::zero(),
                             Friction::new(1.5),
-                            Collider::round_cuboid(
-                                player_radius - player_border_radius,
-                                player_radius - player_border_radius,
-                                player_border_radius,
-                            ),
-                            // TODO: https://github.com/dimforge/parry/issues/138
-                            // ColliderMassProperties::Density(1.0),
-                            ColliderMassProperties::Mass(
-                                bevy_rapier2d::parry::shape::Cuboid::new(Vector2::new(
-                                    player_radius,
-                                    player_radius,
-                                ))
-                                .mass_properties(1.0)
-                                .mass(),
-                            ),
+                            Collider::cuboid(player_radius, player_radius),
+                            ColliderMassProperties::Density(1.0),
                             ExternalForce::default(),
                             ExternalImpulse::default(),
                         ))
@@ -141,10 +128,11 @@ fn setup(
 }
 
 fn update_player_input(
+    time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Velocity, &mut ExternalForce), With<Player>>,
+    mut query: Query<&mut Velocity, With<Player>>,
 ) {
-    for (vel, mut force) in query.iter_mut() {
+    for mut vel in query.iter_mut() {
         let mut target_dir = None::<f32>;
         if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
             *target_dir.get_or_insert(0.0) += 1.0;
@@ -153,10 +141,9 @@ fn update_player_input(
             *target_dir.get_or_insert(0.0) -= 1.0;
         }
         if let Some(dir) = target_dir {
-            let target_angvel = dir * 2.0 * std::f32::consts::PI;
-            force.torque = (target_angvel - vel.angvel) * 10.0;
-        } else {
-            force.torque = 0.0;
+            let target_angvel = dir * 2.0 * PI;
+            let max_delta = 2.0 * PI * time.elapsed_seconds();
+            vel.angvel += (target_angvel - vel.angvel).clamp(-max_delta, max_delta);
         }
     }
 }
