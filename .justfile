@@ -12,7 +12,7 @@ clean:
     cargo clean
 
 prepare *OPTIONS:
-    cargo check {{OPTIONS}}
+    cargo check --features bevy/dynamic_linking {{OPTIONS}}
     cargo check --target wasm32-unknown-unknown {{OPTIONS}}
     cargo build --features bevy/dynamic_linking {{OPTIONS}}
     cargo build --target wasm32-unknown-unknown {{OPTIONS}}
