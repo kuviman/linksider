@@ -16,17 +16,38 @@ pub fn init(app: &mut App) {
 pub struct Effect;
 
 fn effect_toggle(
-    sides: Query<&Side, With<Effect>>,
+    sides: Query<(&Side, Option<&Handle<AudioSink>>), With<Effect>>,
     mut events: EventReader<SideActivateEvent>,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
+    audio_sinks: Res<Assets<AudioSink>>,
     mut commands: Commands,
 ) {
     for event in events.iter() {
-        let Ok(side) = sides.get(event.side()) else { continue };
+        let Ok((side, audio_sink)) = sides.get(event.side()) else { continue };
         // let Ok(mut parent) = parents.get_mut(side.parent) else { continue };
-        let mut parent = commands.entity(side.parent);
         match event {
-            SideActivateEvent::Activated(_) => parent.insert(DisableRotationControl),
-            SideActivateEvent::Deactivated(_) => parent.remove::<DisableRotationControl>(),
+            SideActivateEvent::Activated(_) => {
+                if let Some(sink) = audio_sink.and_then(|sink| audio_sinks.get(sink)) {
+                    sink.stop();
+                }
+                commands.entity(event.side()).insert(
+                    audio_sinks.get_handle(audio.play_with_settings(
+                        asset_server.load("slide.ogg"),
+                        PlaybackSettings::LOOP,
+                    )),
+                );
+                commands.entity(side.parent).insert(DisableRotationControl);
+            }
+            SideActivateEvent::Deactivated(_) => {
+                if let Some(sink) = audio_sink.and_then(|sink| audio_sinks.get(sink)) {
+                    sink.stop();
+                }
+                commands.entity(event.side()).remove::<Handle<AudioSink>>();
+                commands
+                    .entity(side.parent)
+                    .remove::<DisableRotationControl>();
+            }
         };
     }
 }
@@ -34,9 +55,10 @@ fn effect_toggle(
 fn effect(
     time: Res<Time>,
     mut parents: Query<(Option<&PlayerInput>, &Transform, &mut Velocity)>,
-    sides: Query<&Side, (With<side::Active>, With<Effect>)>,
+    sides: Query<(&Side, &Handle<AudioSink>), (With<side::Active>, With<Effect>)>,
+    audio_sinks: Res<Assets<AudioSink>>,
 ) {
-    for side in sides.iter() {
+    for (side, audio_sink) in sides.iter() {
         let Ok((input, transform, mut velocity)) = parents.get_mut(side.parent) else { continue };
         let direction = transform
             .with_translation(Vec3::ZERO)
@@ -45,8 +67,12 @@ fn effect(
             .xy();
         velocity.linvel += direction * time.delta_seconds() * 10.0;
         if let Some(input) = input {
-            velocity.linvel +=
-                direction.rotate(Vec2::new(0.0, 1.0)) * time.delta_seconds() * input.0 * 100.0;
+            let move_direction = direction.rotate(Vec2::new(0.0, 1.0));
+            velocity.linvel += move_direction * time.delta_seconds() * input.0 * 100.0;
+
+            if let Some(sink) = audio_sinks.get(audio_sink) {
+                sink.set_volume(Vec2::dot(velocity.linvel, move_direction).abs().min(1.0));
+            }
         }
     }
 }
