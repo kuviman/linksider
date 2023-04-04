@@ -51,7 +51,7 @@ fn setup(
                 'S' => {
                     let player_size = 1.0;
                     let player_radius = player_size / 2.0;
-                    let player_border_radius = player_radius * 0.2;
+                    let player_border_radius = player_radius * 0.25;
                     let player = commands
                         .spawn((
                             Player,
@@ -63,7 +63,7 @@ fn setup(
                                 transform: {
                                     Transform::from_xyz(x as f32 + 0.5, y as f32 + 0.5, 0.0)
                                 },
-                                texture: asset_server.load("texture.png"),
+                                texture: asset_server.load("player.png"),
                                 ..default()
                             },
                             RigidBody::Dynamic,
