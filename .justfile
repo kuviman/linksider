@@ -1,5 +1,5 @@
 run *OPTIONS:
-    cargo run --features bevy/dynamic_linking {{OPTIONS}}
+    cargo run {{OPTIONS}}
 
 web *OPTIONS:
     trunk serve --open {{OPTIONS}}
@@ -12,7 +12,7 @@ clean:
     cargo clean
 
 prepare *OPTIONS:
-    cargo check --features bevy/dynamic_linking {{OPTIONS}}
+    cargo check {{OPTIONS}}
     cargo check --target wasm32-unknown-unknown {{OPTIONS}}
-    cargo build --features bevy/dynamic_linking {{OPTIONS}}
+    cargo build {{OPTIONS}}
     cargo build --target wasm32-unknown-unknown {{OPTIONS}}
