@@ -1,4 +1,7 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
+use bevy_ecs_ldtk::EntityInstance;
 use bevy_rapier2d::prelude::*;
 
 pub mod effects;
@@ -6,36 +9,61 @@ pub mod powerup;
 
 pub use powerup::Powerup;
 
+#[derive(Component)]
+pub struct HasSides(pub usize);
+
+impl Default for HasSides {
+    fn default() -> Self {
+        Self(4)
+    }
+}
+
 pub fn init(app: &mut App) {
-    app.add_system(side_activation)
-        .add_system(update_side_transforms)
+    app.add_system(side_setup)
+        .add_system(side_activation)
         .add_event::<SideActivateEvent>();
     powerup::init(app);
     effects::jump::init(app);
     effects::slide::init(app);
 }
 
-#[derive(Component)]
-pub struct Blank;
-
-#[derive(Component)]
-pub struct Side {
-    pub transform: Transform,
-    pub parent: Entity,
-}
-
-fn update_side_transforms(
-    mut sides: Query<(&mut Transform, &Side)>,
-    parents: Query<&Transform, Without<Side>>,
+fn side_setup(
+    parents: Query<(Entity, &EntityInstance, &HasSides), Added<HasSides>>,
+    mut commands: Commands,
 ) {
-    for (mut side_transform, side) in sides.iter_mut() {
-        if let Ok(parent_transform) = parents.get(side.parent) {
-            *side_transform = parent_transform.mul_transform(side.transform);
+    for (parent, entity_instance, &HasSides(sides)) in parents.iter() {
+        let tile = entity_instance.tile.as_ref().unwrap();
+        for i in 0..sides {
+            let side = commands
+                .spawn((
+                    Collider::cuboid(0.5, 0.2),
+                    TransformBundle::from_transform(
+                        Transform::from_scale(Vec3::new(tile.w as f32, tile.h as f32, 1.0))
+                            * Transform::from_rotation(Quat::from_rotation_z(
+                                i as f32 * 2.0 * PI / sides as f32,
+                            ))
+                            * Transform::from_translation(Vec3::new(0.0, 0.5, 0.0)),
+                    ),
+                    Side,
+                    Blank,
+                    Sensor,
+                    ActiveEvents::COLLISION_EVENTS,
+                    ActiveCollisionTypes::all(),
+                    Name::new(format!("Side {i}")),
+                ))
+                .id();
+            commands.entity(parent).add_child(side);
         }
     }
 }
 
 #[derive(Component)]
+pub struct Blank;
+
+#[derive(Component)]
+pub struct Side;
+
+#[derive(Default, Component)]
 pub struct Trigger;
 
 #[derive(Component)]
@@ -72,6 +100,7 @@ fn side_activation(
             }
             let side = a;
             let event = f(side);
+            info!("{event:?}");
             match event {
                 SideActivateEvent::Activated(_) => commands.entity(side).insert(Active),
                 SideActivateEvent::Deactivated(_) => commands.entity(side).remove::<Active>(),

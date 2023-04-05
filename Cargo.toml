@@ -6,6 +6,8 @@ default-run = "bevyjam3"
 
 [dependencies]
 bevy = "0.10.1"
+bevy-inspector-egui = "0.18.3"
+bevy_ecs_ldtk = { version = "0.6.0", features = ["atlas"] }
 bevy_rapier2d = "0.21.0"
 clap = "4.2.1"
 

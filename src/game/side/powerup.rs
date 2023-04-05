@@ -2,7 +2,7 @@ use super::Side;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-#[derive(Component)]
+#[derive(Default, Component)]
 pub struct Powerup;
 
 pub struct Event {
