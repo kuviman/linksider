@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{math::Vec3Swizzles, prelude::*};
 use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
@@ -201,9 +201,13 @@ fn update_camera(
     camera.translation = {
         let (sum, num) = player
             .iter()
-            .fold((Vec3::ZERO, 0), |(sum, num), transform| {
-                (sum + transform.translation, num + 1)
+            .fold((Vec2::ZERO, 0), |(sum, num), transform| {
+                (sum + transform.translation.xy(), num + 1)
             });
-        sum / num as f32
+        if num == 0 {
+            warn!("No players??");
+            return;
+        }
+        (sum / num as f32).extend(camera.translation.z)
     };
 }
