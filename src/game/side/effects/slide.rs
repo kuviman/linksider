@@ -10,46 +10,56 @@ use crate::game::{
 pub fn init(app: &mut App) {
     app.add_system(effect)
         .add_system(powerup)
-        .add_system(effect_toggle);
+        .add_system(effect_toggle)
+        .add_system(sound);
 }
 
 #[derive(Default, Component)]
 pub struct Effect;
 
-fn effect_toggle(
-    sides: Query<(&Parent, Option<&Handle<AudioSink>>), (With<Side>, With<Effect>)>,
-    mut events: EventReader<SideActivateEvent>,
+fn sound(
+    need_start: Query<Entity, (With<Effect>, With<side::Active>, Without<Handle<AudioSink>>)>,
+    need_stop: Query<(Entity, &Handle<AudioSink>), (With<Effect>, Without<side::Active>)>,
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
     audio_sinks: Res<Assets<AudioSink>>,
     mut commands: Commands,
 ) {
+    for entity in need_start.iter() {
+        let source = asset_server.load("slide.ogg");
+        let weak_handle = audio.play(source);
+        let strong_handle = audio_sinks.get_handle(&weak_handle);
+        commands.entity(entity).insert(strong_handle);
+    }
+    for (entity, sink) in need_stop.iter() {
+        audio_sinks.get(sink).unwrap().stop();
+        commands.entity(entity).remove::<Handle<AudioSink>>();
+    }
+}
+
+fn effect_toggle(
+    sides: Query<(&Parent, Option<&Handle<AudioSink>>), (With<Side>, With<Effect>)>,
+    mut events: EventReader<SideActivateEvent>,
+    mut commands: Commands,
+) {
+    let mut observed = Vec::new();
     for event in events.iter() {
         let Ok((parent, audio_sink)) = sides.get(event.side()) else { continue };
+        observed.push(event.clone());
         // let Ok(mut parent) = parents.get_mut(side.parent) else { continue };
         match event {
             SideActivateEvent::Activated(_) => {
-                if let Some(sink) = audio_sink.and_then(|sink| audio_sinks.get(sink)) {
-                    sink.stop();
-                }
-                commands.entity(event.side()).insert(
-                    audio_sinks.get_handle(audio.play_with_settings(
-                        asset_server.load("slide.ogg"),
-                        PlaybackSettings::LOOP,
-                    )),
-                );
                 commands.entity(parent.get()).insert(DisableRotationControl);
             }
             SideActivateEvent::Deactivated(_) => {
-                if let Some(sink) = audio_sink.and_then(|sink| audio_sinks.get(sink)) {
-                    sink.stop();
-                }
-                commands.entity(event.side()).remove::<Handle<AudioSink>>();
                 commands
                     .entity(parent.get())
                     .remove::<DisableRotationControl>();
             }
         };
+    }
+    if !observed.is_empty() {
+        info!("{observed:?}");
     }
 }
 
