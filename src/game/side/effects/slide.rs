@@ -33,10 +33,12 @@ fn sound(
     }
     for (entity, sink) in need_stop.iter() {
         match audio_sinks.get(sink) {
-            Some(sink) => sink.stop(),
+            Some(sink) => {
+                sink.stop();
+                commands.entity(entity).remove::<Handle<AudioSink>>();
+            }
             None => warn!("No sink found WUT"),
         }
-        commands.entity(entity).remove::<Handle<AudioSink>>();
     }
 }
 
