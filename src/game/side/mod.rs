@@ -20,6 +20,7 @@ impl Default for HasSides {
 
 pub fn init(app: &mut App) {
     app.add_system(side_setup)
+        .add_system(side_trigger_collision_counter)
         .add_system(side_activation)
         .add_event::<SideActivateEvent>();
     powerup::init(app);
@@ -45,6 +46,7 @@ fn side_setup(
                             * Transform::from_translation(Vec3::new(0.0, 0.5, 0.0)),
                     ),
                     Side,
+                    TriggerCollisionNumber(0),
                     Blank,
                     Sensor,
                     ActiveEvents::COLLISION_EVENTS,
@@ -69,7 +71,40 @@ pub struct Trigger;
 #[derive(Component)]
 pub struct Active;
 
-#[derive(Debug)]
+#[derive(Component)]
+struct TriggerCollisionNumber(i32);
+
+fn side_trigger_collision_counter(
+    mut sides: Query<&mut TriggerCollisionNumber, With<Side>>,
+    side_triggers: Query<Entity, With<Trigger>>,
+    mut collisions: EventReader<CollisionEvent>,
+) {
+    let mut process = |a, b, inc: i32| {
+        let mut check = |side, trigger| {
+            let Ok(mut collision_number) = sides.get_mut(side) else {
+                return;
+            };
+            if !side_triggers.contains(trigger) {
+                return;
+            }
+            collision_number.0 += inc;
+        };
+        check(a, b);
+        check(b, a);
+    };
+    for event in collisions.iter() {
+        match *event {
+            CollisionEvent::Started(a, b, _) => {
+                process(a, b, 1);
+            }
+            CollisionEvent::Stopped(a, b, _) => {
+                process(a, b, -1);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 enum SideActivateEvent {
     Activated(Entity),
     Deactivated(Entity),
@@ -84,39 +119,21 @@ impl SideActivateEvent {
 }
 
 fn side_activation(
-    sides: Query<Entity, With<Side>>,
-    side_triggers: Query<Entity, With<Trigger>>,
-    mut collisions: EventReader<CollisionEvent>,
+    sides: Query<
+        (Entity, Option<&Active>, &TriggerCollisionNumber),
+        (With<Side>, Changed<TriggerCollisionNumber>),
+    >,
     mut events: EventWriter<SideActivateEvent>,
     mut commands: Commands,
 ) {
-    let mut process = |a, b, f: fn(Entity) -> SideActivateEvent| {
-        let mut check = |a, b| {
-            if !sides.contains(a) {
-                return;
-            }
-            if !side_triggers.contains(b) {
-                return;
-            }
-            let side = a;
-            let event = f(side);
-            match event {
-                SideActivateEvent::Activated(_) => commands.entity(side).insert(Active),
-                SideActivateEvent::Deactivated(_) => commands.entity(side).remove::<Active>(),
-            };
-            events.send(event);
-        };
-        check(a, b);
-        check(b, a);
-    };
-    for event in collisions.iter() {
-        match *event {
-            CollisionEvent::Started(a, b, _) => {
-                process(a, b, SideActivateEvent::Activated);
-            }
-            CollisionEvent::Stopped(a, b, _) => {
-                process(a, b, SideActivateEvent::Deactivated);
-            }
+    for (entity, active, number) in sides.iter() {
+        if number.0 == 0 && active.is_some() {
+            commands.entity(entity).remove::<Active>();
+            events.send(SideActivateEvent::Deactivated(entity));
+        }
+        if number.0 != 0 && active.is_none() {
+            commands.entity(entity).insert(Active);
+            events.send(SideActivateEvent::Activated(entity));
         }
     }
 }
