@@ -1,0 +1,13 @@
+{
+    "player_rotation_speed": 180,
+    "player_rotation_accel": 3000,
+    "jump_effect": {
+        "particle_vel": 50,
+        "impulse": 100,
+        "force": 200
+    },
+    "slide_effect": {
+        "stick_force": 10,
+        "move_force": 500
+    }
+}

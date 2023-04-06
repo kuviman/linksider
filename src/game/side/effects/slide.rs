@@ -2,6 +2,7 @@ use bevy::{math::Vec3Swizzles, prelude::*};
 use bevy_rapier2d::prelude::*;
 
 use crate::game::{
+    config::Config,
     side::{self, powerup, Blank, Powerup, Side, SideActivateEvent},
     DisableRotationControl, PlayerInput,
 };
@@ -53,6 +54,7 @@ fn effect_toggle(
 }
 
 fn effect(
+    config: Res<Config>,
     time: Res<Time>,
     mut parents: Query<(Option<&PlayerInput>, &Transform, &mut Velocity)>,
     sides: Query<
@@ -64,10 +66,11 @@ fn effect(
     for (parent, transform, audio_sink) in sides.iter() {
         let Ok((input, parent_transform, mut velocity)) = parents.get_mut(parent.get()) else { continue };
         let direction = (parent_transform.rotation * transform.rotation * Vec3::Y).xy();
-        velocity.linvel += direction * time.delta_seconds() * 10.0;
+        velocity.linvel += direction * time.delta_seconds() * config.slide_effect.stick_force;
         if let Some(input) = input {
             let move_direction = direction.rotate(Vec2::new(0.0, 1.0));
-            velocity.linvel += move_direction * time.delta_seconds() * input.0 * 500.0;
+            velocity.linvel +=
+                move_direction * time.delta_seconds() * input.0 * config.slide_effect.move_force;
 
             if let Some(sink) = audio_sinks.get(audio_sink) {
                 sink.set_volume(Vec2::dot(velocity.linvel, move_direction).abs().min(1.0));

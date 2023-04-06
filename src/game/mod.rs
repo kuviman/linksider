@@ -5,20 +5,29 @@ use bevy::{
 };
 use bevy_ecs_ldtk::prelude::*;
 use bevy_rapier2d::prelude::*;
-use std::f32::consts::PI;
 
-use self::side::HasSides;
+use self::{config::Config, side::HasSides};
 
+pub mod config;
 mod side;
 
 pub struct Plugin;
+
+impl Default for Config {
+    fn default() -> Self {
+        serde_json::from_str(include_str!("config.json")).unwrap()
+    }
+}
 
 #[derive(Default, Component)]
 struct Player;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
+        app.init_resource::<Config>()
+            .register_type::<Config>()
+            .add_plugin(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Config>::default())
+            .add_startup_system(setup)
             .add_system(update_player_input)
             .add_system(player_rotation_control)
             .add_system(update_camera)
@@ -336,13 +345,14 @@ fn update_player_input(
 pub struct DisableRotationControl;
 
 fn player_rotation_control(
+    config: Res<Config>,
     time: Res<Time>,
     mut query: Query<(&PlayerInput, &mut Velocity), Without<DisableRotationControl>>,
 ) {
     for (input, mut vel) in query.iter_mut() {
         if input.0 != 0.0 {
-            let target_angvel = -input.0 * PI;
-            let max_delta = 2.0 * PI * time.delta_seconds() * 10.0;
+            let target_angvel = -input.0 * config.player_rotation_speed.to_radians();
+            let max_delta = time.delta_seconds() * config.player_rotation_accel.to_radians();
             vel.angvel += (target_angvel - vel.angvel).clamp(-max_delta, max_delta);
         }
     }
