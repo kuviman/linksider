@@ -323,7 +323,9 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
 }
 
 #[derive(Default, Component)]
-pub struct PlayerInput(pub f32);
+pub struct PlayerInput {
+    pub direction: f32,
+}
 
 fn update_player_input(
     keyboard_input: Res<Input<KeyCode>>,
@@ -337,7 +339,7 @@ fn update_player_input(
         dir += 1.0;
     }
     for mut input in inputs.iter_mut() {
-        input.0 = dir;
+        input.direction = dir;
     }
 }
 
@@ -350,8 +352,8 @@ fn player_rotation_control(
     mut query: Query<(&PlayerInput, &mut Velocity), Without<DisableRotationControl>>,
 ) {
     for (input, mut vel) in query.iter_mut() {
-        if input.0 != 0.0 {
-            let target_angvel = -input.0 * config.player_rotation_speed.to_radians();
+        if input.direction != 0.0 {
+            let target_angvel = -input.direction * config.player_rotation_speed.to_radians();
             let max_delta = time.delta_seconds() * config.player_rotation_accel.to_radians();
             vel.angvel += (target_angvel - vel.angvel).clamp(-max_delta, max_delta);
         }

@@ -79,8 +79,10 @@ fn effect(
         velocity.linvel += direction * time.delta_seconds() * config.slide_effect.stick_force;
         if let Some(input) = input {
             let move_direction = direction.rotate(Vec2::new(0.0, 1.0));
-            velocity.linvel +=
-                move_direction * time.delta_seconds() * input.0 * config.slide_effect.move_force;
+            velocity.linvel += move_direction
+                * time.delta_seconds()
+                * input.direction
+                * config.slide_effect.move_force;
 
             if let Some(sink) = audio_sinks.get(audio_sink) {
                 sink.set_volume(Vec2::dot(velocity.linvel, move_direction).abs().min(1.0));
