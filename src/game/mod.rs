@@ -325,6 +325,7 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
 #[derive(Default, Component)]
 pub struct PlayerInput {
     pub direction: f32,
+    pub deactivate: bool,
 }
 
 fn update_player_input(
@@ -340,6 +341,7 @@ fn update_player_input(
     }
     for mut input in inputs.iter_mut() {
         input.direction = dir;
+        input.deactivate = keyboard_input.any_pressed([KeyCode::Space, KeyCode::W, KeyCode::Up]);
     }
 }
 

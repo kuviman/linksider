@@ -9,6 +9,8 @@ pub mod powerup;
 
 pub use powerup::Powerup;
 
+use super::PlayerInput;
+
 #[derive(Component)]
 pub struct HasSides(pub usize);
 
@@ -119,15 +121,17 @@ impl SideActivateEvent {
 }
 
 fn side_activation(
-    sides: Query<
-        (Entity, Option<&Active>, &TriggerCollisionNumber),
-        (With<Side>, Changed<TriggerCollisionNumber>),
-    >,
+    parents: Query<&PlayerInput>,
+    sides: Query<(Entity, &Parent, Option<&Active>, &TriggerCollisionNumber), With<Side>>,
     mut events: EventWriter<SideActivateEvent>,
     mut commands: Commands,
 ) {
-    for (entity, active, number) in sides.iter() {
-        let should_be_active = number.0 != 0;
+    for (entity, parent, active, collision_number) in sides.iter() {
+        let Ok(input) = parents.get(parent.get()) else {
+            warn!("No parent for the side WUT");
+            continue;
+        };
+        let should_be_active = collision_number.0 != 0 && !input.deactivate;
         let actually_active = active.is_some();
         if !should_be_active && actually_active {
             commands.entity(entity).remove::<Active>();
