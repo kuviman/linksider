@@ -4,6 +4,7 @@ use bevy::{
     utils::{HashMap, HashSet},
 };
 use bevy_ecs_ldtk::prelude::*;
+use bevy_ecs_tilemap::prelude::TilemapGridSize;
 use bevy_rapier2d::prelude::*;
 
 use self::{config::Config, side::HasSides};
@@ -42,7 +43,6 @@ impl bevy::app::Plugin for Plugin {
                 set_clear_color: SetClearColor::FromLevelBackground,
                 ..Default::default()
             })
-            .register_ldtk_int_cell::<BlockBundle>(1)
             .add_system(spawn_wall_collision)
             .register_ldtk_entity::<PlayerBundle>("Player")
             .register_ldtk_entity::<PowerupBundle<side::effects::jump::Effect>>("JumpPower")
@@ -51,188 +51,107 @@ impl bevy::app::Plugin for Plugin {
     }
 }
 
-#[derive(Default, Component)]
-struct Block;
-
-#[derive(Bundle, LdtkIntCell)]
-struct BlockBundle {
-    block: Block,
-    // side_effect_trigger: side::Trigger,
-    // #[with(block_collider)]
-    // collider: Collider,
-}
-
-fn block_collider(_: IntGridCell) -> Collider {
-    Collider::cuboid(8.0, 8.0)
-}
-
-/// Copypasta from https://github.com/Trouv/bevy_ecs_ldtk/blob/main/examples/platformer/systems.rs
-///
-/// Spawns heron collisions for the walls of a level
-///
-/// You could just insert a ColliderBundle in to the WallBundle,
-/// but this spawns a different collider for EVERY wall tile.
-/// This approach leads to bad performance.
-///
-/// Instead, by flagging the wall tiles and spawning the collisions later,
-/// we can minimize the amount of colliding entities.
-///
-/// The algorithm used here is a nice compromise between simplicity, speed,
-/// and a small number of rectangle colliders.
-/// In basic terms, it will:
-/// 1. consider where the walls are
-/// 2. combine wall tiles into flat "plates" in each individual row
-/// 3. combine the plates into rectangles across multiple rows wherever possible
-/// 4. spawn colliders for each rectangle
 fn spawn_wall_collision(
+    cells: Query<(&Parent, &GridCoords, &IntGridCell), Added<IntGridCell>>,
+    layers: Query<&TilemapGridSize>,
     mut commands: Commands,
-    wall_query: Query<(&GridCoords, &Parent), Added<Block>>,
-    parent_query: Query<&Parent, Without<Block>>,
-    level_query: Query<(Entity, &Handle<LdtkLevel>)>,
-    levels: Res<Assets<LdtkLevel>>,
 ) {
-    /// Represents a wide wall that is 1 tile tall
-    /// Used to spawn wall collisions
-    #[derive(Clone, Eq, PartialEq, Debug, Default, Hash)]
-    struct Plate {
-        left: i32,
-        right: i32,
+    #[derive(Default)]
+    struct ColliderBuilder {
+        edges: HashMap<(i32, i32), HashSet<(i32, i32)>>,
     }
 
-    /// A simple rectangle type representing a wall of any size
-    struct Rect {
-        left: i32,
-        right: i32,
-        top: i32,
-        bottom: i32,
-    }
-
-    // Consider where the walls are
-    // storing them as GridCoords in a HashSet for quick, easy lookup
-    //
-    // The key of this map will be the entity of the level the wall belongs to.
-    // This has two consequences in the resulting collision entities:
-    // 1. it forces the walls to be split along level boundaries
-    // 2. it lets us easily add the collision entities as children of the appropriate level entity
-    let mut level_to_wall_locations: HashMap<Entity, HashSet<GridCoords>> = HashMap::new();
-
-    wall_query.for_each(|(&grid_coords, parent)| {
-        // An intgrid tile's direct parent will be a layer entity, not the level entity
-        // To get the level entity, you need the tile's grandparent.
-        // This is where parent_query comes in.
-        if let Ok(grandparent) = parent_query.get(parent.get()) {
-            level_to_wall_locations
-                .entry(grandparent.get())
-                .or_default()
-                .insert(grid_coords);
-        }
-    });
-
-    if !wall_query.is_empty() {
-        level_query.for_each(|(level_entity, level_handle)| {
-            if let Some(level_walls) = level_to_wall_locations.get(&level_entity) {
-                let level = levels
-                    .get(level_handle)
-                    .expect("Level should be loaded by this point");
-
-                let LayerInstance {
-                    c_wid: width,
-                    c_hei: height,
-                    grid_size,
-                    ..
-                } = level
-                    .level
-                    .layer_instances
-                    .clone()
-                    .expect("Level asset should have layers")[0];
-
-                // combine wall tiles into flat "plates" in each individual row
-                let mut plate_stack: Vec<Vec<Plate>> = Vec::new();
-
-                for y in 0..height {
-                    let mut row_plates: Vec<Plate> = Vec::new();
-                    let mut plate_start = None;
-
-                    // + 1 to the width so the algorithm "terminates" plates that touch the right edge
-                    for x in 0..width + 1 {
-                        match (plate_start, level_walls.contains(&GridCoords { x, y })) {
-                            (Some(s), false) => {
-                                row_plates.push(Plate {
-                                    left: s,
-                                    right: x - 1,
-                                });
-                                plate_start = None;
-                            }
-                            (None, true) => plate_start = Some(x),
-                            _ => (),
-                        }
-                    }
-
-                    plate_stack.push(row_plates);
-                }
-
-                // combine "plates" into rectangles across multiple rows
-                let mut rect_builder: HashMap<Plate, Rect> = HashMap::new();
-                let mut prev_row: Vec<Plate> = Vec::new();
-                let mut wall_rects: Vec<Rect> = Vec::new();
-
-                // an extra empty row so the algorithm "finishes" the rects that touch the top edge
-                plate_stack.push(Vec::new());
-
-                for (y, current_row) in plate_stack.into_iter().enumerate() {
-                    for prev_plate in &prev_row {
-                        if !current_row.contains(prev_plate) {
-                            // remove the finished rect so that the same plate in the future starts a new rect
-                            if let Some(rect) = rect_builder.remove(prev_plate) {
-                                wall_rects.push(rect);
-                            }
-                        }
-                    }
-                    for plate in &current_row {
-                        rect_builder
-                            .entry(plate.clone())
-                            .and_modify(|e| e.top += 1)
-                            .or_insert(Rect {
-                                bottom: y as i32,
-                                top: y as i32,
-                                left: plate.left,
-                                right: plate.right,
-                            });
-                    }
-                    prev_row = current_row;
-                }
-
-                commands.entity(level_entity).with_children(|level| {
-                    // Spawn colliders for every rectangle..
-                    // Making the collider a child of the level serves two purposes:
-                    // 1. Adjusts the transforms to be relative to the level for free
-                    // 2. the colliders will be despawned automatically when levels unload
-                    for wall_rect in wall_rects {
-                        level
-                            .spawn_empty()
-                            .insert(Collider::cuboid(
-                                (wall_rect.right as f32 - wall_rect.left as f32 + 1.)
-                                    * grid_size as f32
-                                    / 2.,
-                                (wall_rect.top as f32 - wall_rect.bottom as f32 + 1.)
-                                    * grid_size as f32
-                                    / 2.,
-                            ))
-                            .insert(RigidBody::Fixed)
-                            .insert(Friction::new(1.0))
-                            .insert(Transform::from_xyz(
-                                (wall_rect.left + wall_rect.right + 1) as f32 * grid_size as f32
-                                    / 2.,
-                                (wall_rect.bottom + wall_rect.top + 1) as f32 * grid_size as f32
-                                    / 2.,
-                                0.,
-                            ))
-                            .insert(GlobalTransform::default())
-                            .insert(side::Trigger);
-                    }
-                });
+    let mut layer_map = HashMap::<Entity, ColliderBuilder>::new();
+    for (parent, coords, cell) in cells.iter() {
+        let grid_size = layers.get(parent.get()).unwrap();
+        let builder = layer_map.entry(parent.get()).or_default();
+        // TODO No way to get names instead of integers???
+        let GridCoords { x, y } = *coords;
+        let TilemapGridSize { x: w, y: h } = *grid_size;
+        let (w, h) = (w as i32, h as i32);
+        let (x, y) = (x * w, y * h);
+        let corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)];
+        let loop_indices = match cell.value {
+            1 => {
+                // block
+                vec![0, 1, 2, 3]
             }
-        });
+            2 => {
+                // slopeLT
+                vec![0, 1, 2]
+            }
+            3 => {
+                // slopeRT
+                vec![0, 1, 3]
+            }
+            4 => {
+                // slopeLB
+                vec![1, 2, 3]
+            }
+            5 => {
+                // slopeRB
+                vec![0, 2, 3]
+            }
+            _ => {
+                unreachable!()
+            }
+        };
+        for i in 0..loop_indices.len() {
+            let a = loop_indices[i];
+            let b = loop_indices[(i + 1) % loop_indices.len()];
+            let a = corners[a];
+            let b = corners[b];
+            builder.edges.entry(a).or_default().insert(b);
+        }
+    }
+
+    for (layer, builder) in layer_map {
+        let vertices: Vec<(i32, i32)> = builder.edges.keys().copied().collect();
+        let vertex_to_index: HashMap<(i32, i32), u32> = vertices
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(index, vertex)| (vertex, index as u32))
+            .collect();
+        let mut edges = builder.edges;
+        let mut to_remove = Vec::new();
+        for (&a, out) in &edges {
+            for &b in out {
+                if edges.get(&b).map_or(false, |b_out| b_out.contains(&a)) {
+                    to_remove.push((a, b));
+                }
+            }
+        }
+        for (a, b) in to_remove {
+            assert!(edges.get_mut(&a).unwrap().remove(&b));
+        }
+        let indices = edges
+            .into_iter()
+            .flat_map(|(a, out)| {
+                let a = vertex_to_index[&a];
+                let vertex_to_index = &vertex_to_index;
+                out.into_iter().map(move |b| {
+                    let b = vertex_to_index[&b];
+                    [a, b]
+                })
+            })
+            .collect();
+        let grid_size = layers.get(layer).unwrap();
+        commands
+            .spawn((
+                TransformBundle::from_transform(Transform::from_translation(
+                    -Vec3::new(grid_size.x, grid_size.y, 0.0) / 2.0,
+                )),
+                Collider::polyline(
+                    vertices
+                        .into_iter()
+                        .map(|(x, y)| Vec2::new(x as f32, y as f32))
+                        .collect(),
+                    Some(indices),
+                ),
+                side::Trigger,
+            ))
+            .set_parent(layer);
     }
 }
 
