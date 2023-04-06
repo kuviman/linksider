@@ -6,7 +6,8 @@ use crate::game::side::{self, powerup, Blank, Powerup, Side, SideActivateEvent};
 pub fn init(app: &mut App) {
     app.add_system(activation)
         .add_system(continious_effect)
-        .add_system(powerup);
+        .add_system(powerup)
+        .add_system(particle_system);
 }
 
 #[derive(Default, Component)]
@@ -15,6 +16,7 @@ pub struct Effect;
 #[derive(Component)]
 struct JumpTimer {
     time: f32,
+    timer: Timer,
 }
 
 fn activation(
@@ -33,27 +35,64 @@ fn activation(
             let vel_change =
                 -direction * Vec2::dot(direction, parent_velocity.linvel) - direction * 100.0;
             parent_velocity.linvel += vel_change;
-            commands
-                .entity(event.side())
-                .insert(JumpTimer { time: 0.0 });
+            commands.entity(event.side()).insert(JumpTimer {
+                time: 0.0,
+                timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+            });
             audio.play(asset_server.load("jump.ogg"));
         }
     }
 }
 
+#[derive(Component)]
+struct Particle(Timer);
+
 fn continious_effect(
     time: Res<Time>,
-    mut sides: Query<(Entity, &Parent, &Transform, &mut JumpTimer)>,
+    mut sides: Query<(
+        Entity,
+        &Parent,
+        &Transform,
+        &GlobalTransform,
+        &mut JumpTimer,
+    )>,
     mut parents: Query<(&Transform, &mut Velocity)>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
-    for (side, parent, transform, mut jump_timer) in sides.iter_mut() {
+    for (side, parent, transform, global_transform, mut jump_timer) in sides.iter_mut() {
         let Ok((parent_transform, mut parent_velocity)) = parents.get_mut(parent.get()) else { continue };
         let direction = (parent_transform.rotation * transform.rotation * Vec3::Y).xy();
         parent_velocity.linvel += -direction * time.delta_seconds() * 200.0;
         jump_timer.time += time.delta_seconds();
+        if jump_timer.timer.tick(time.delta()).just_finished() {
+            commands.spawn((
+                SpriteBundle {
+                    transform: Transform::from_translation(global_transform.translation()),
+                    texture: asset_server.load("jump_particle.png"),
+                    ..default()
+                },
+                RigidBody::KinematicVelocityBased,
+                Velocity::linear(parent_velocity.linvel + direction * 50.0),
+                Particle(Timer::from_seconds(1.0, TimerMode::Once)),
+            ));
+        }
         if jump_timer.time > 1.0 {
             commands.entity(side).remove::<JumpTimer>();
+        }
+    }
+}
+
+fn particle_system(
+    time: Res<Time>,
+    mut particles: Query<(Entity, &mut Sprite, &mut Particle)>,
+    mut commands: Commands,
+) {
+    for (entity, mut sprite, mut particle) in particles.iter_mut() {
+        let opacity = 1.0 - particle.0.elapsed_secs() / particle.0.duration().as_secs_f32();
+        sprite.color.set_a(opacity);
+        if particle.0.tick(time.delta()).finished() {
+            commands.entity(entity).despawn();
         }
     }
 }
