@@ -127,11 +127,13 @@ fn side_activation(
     mut commands: Commands,
 ) {
     for (entity, active, number) in sides.iter() {
-        if number.0 == 0 && active.is_some() {
+        let should_be_active = number.0 != 0;
+        let actually_active = active.is_some();
+        if !should_be_active && actually_active {
             commands.entity(entity).remove::<Active>();
             events.send(SideActivateEvent::Deactivated(entity));
         }
-        if number.0 != 0 && active.is_none() {
+        if should_be_active && !actually_active {
             commands.entity(entity).insert(Active);
             events.send(SideActivateEvent::Activated(entity));
         }
