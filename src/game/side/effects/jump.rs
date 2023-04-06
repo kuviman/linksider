@@ -13,7 +13,9 @@ pub fn init(app: &mut App) {
 pub struct Effect;
 
 #[derive(Component)]
-struct JumpTimer(f32);
+struct JumpTimer {
+    time: f32,
+}
 
 fn activation(
     mut parents: Query<(&Transform, &mut Velocity)>,
@@ -31,7 +33,9 @@ fn activation(
             let vel_change =
                 -direction * Vec2::dot(direction, parent_velocity.linvel) - direction * 100.0;
             parent_velocity.linvel += vel_change;
-            commands.entity(event.side()).insert(JumpTimer(0.0));
+            commands
+                .entity(event.side())
+                .insert(JumpTimer { time: 0.0 });
             audio.play(asset_server.load("jump.ogg"));
         }
     }
@@ -47,8 +51,8 @@ fn continious_effect(
         let Ok((parent_transform, mut parent_velocity)) = parents.get_mut(parent.get()) else { continue };
         let direction = (parent_transform.rotation * transform.rotation * Vec3::Y).xy();
         parent_velocity.linvel += -direction * time.delta_seconds() * 200.0;
-        jump_timer.0 += time.delta_seconds();
-        if jump_timer.0 > 1.0 {
+        jump_timer.time += time.delta_seconds();
+        if jump_timer.time > 1.0 {
             commands.entity(side).remove::<JumpTimer>();
         }
     }
