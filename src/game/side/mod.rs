@@ -100,7 +100,6 @@ fn side_activation(
             }
             let side = a;
             let event = f(side);
-            info!("{event:?}");
             match event {
                 SideActivateEvent::Activated(_) => commands.entity(side).insert(Active),
                 SideActivateEvent::Deactivated(_) => commands.entity(side).remove::<Active>(),
