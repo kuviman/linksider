@@ -1,0 +1,6 @@
+bevy_inspector_egui changing value and hitting Enter doesnt work on web
+adding Velocity was not enough, need to add RigidBody::KinematicVelocityBased
+adding Transform does nothing if you dont add GlobalTransform
+ecs is too dynamic and its really easy to create a buggy system
+compilation time is now 40s, it was 20s before and it was faster with dynamic linking but dynamic linking breaks constantly
+loading assets
