@@ -41,15 +41,12 @@ fn sound(
 }
 
 fn effect_toggle(
-    sides: Query<(&Parent, Option<&Handle<AudioSink>>), (With<Side>, With<Effect>)>,
+    sides: Query<&Parent, (With<Side>, With<Effect>)>,
     mut events: EventReader<SideActivateEvent>,
     mut commands: Commands,
 ) {
-    let mut observed = Vec::new();
     for event in events.iter() {
-        let Ok((parent, audio_sink)) = sides.get(event.side()) else { continue };
-        observed.push(event.clone());
-        // let Ok(mut parent) = parents.get_mut(side.parent) else { continue };
+        let Ok(parent) = sides.get(event.side()) else { continue };
         match event {
             SideActivateEvent::Activated(_) => {
                 commands.entity(parent.get()).insert(DisableRotationControl);
@@ -60,9 +57,6 @@ fn effect_toggle(
                     .remove::<DisableRotationControl>();
             }
         };
-    }
-    if !observed.is_empty() {
-        info!("{observed:?}");
     }
 }
 
