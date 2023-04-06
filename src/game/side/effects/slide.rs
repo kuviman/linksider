@@ -27,7 +27,7 @@ fn sound(
 ) {
     for entity in need_start.iter() {
         let source = asset_server.load("slide.ogg");
-        let weak_handle = audio.play(source);
+        let weak_handle = audio.play_with_settings(source, PlaybackSettings::LOOP);
         let strong_handle = audio_sinks.get_handle(&weak_handle);
         commands.entity(entity).insert(strong_handle);
     }
