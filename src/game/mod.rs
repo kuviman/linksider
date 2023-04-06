@@ -341,8 +341,8 @@ fn player_rotation_control(
 ) {
     for (input, mut vel) in query.iter_mut() {
         if input.0 != 0.0 {
-            let target_angvel = -input.0 * 2.0 * PI;
-            let max_delta = 2.0 * PI * time.delta_seconds() * 20.0;
+            let target_angvel = -input.0 * PI;
+            let max_delta = 2.0 * PI * time.delta_seconds() * 10.0;
             vel.angvel += (target_angvel - vel.angvel).clamp(-max_delta, max_delta);
         }
     }
