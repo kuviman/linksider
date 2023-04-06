@@ -304,7 +304,7 @@ fn setup(
 
 fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     audio.play_with_settings(
-        asset_server.load("music.ogg"),
+        asset_server.load("game_music.ogg"),
         PlaybackSettings {
             repeat: true,
             volume: 0.5,
