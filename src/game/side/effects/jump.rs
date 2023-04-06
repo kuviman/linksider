@@ -25,7 +25,7 @@ fn jump_effect(
             let vel_change =
                 -direction * Vec2::dot(direction, parent_velocity.linvel) - direction * 200.0;
             parent_velocity.linvel += vel_change;
-            audio.play(asset_server.load("woohoo.ogg"));
+            audio.play(asset_server.load("jump.ogg"));
         }
     }
 }
