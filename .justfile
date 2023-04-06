@@ -4,8 +4,8 @@ run *OPTIONS:
 web *OPTIONS:
     trunk serve --open {{OPTIONS}}
 
-publish:
-    trunk --config Trunk.itch-io.toml build --release
+publish *OPTIONS:
+    trunk --config Trunk.itch-io.toml build {{OPTIONS}}
     butler push dist kuviman/bevy-jam-3:html5
 
 clean:
