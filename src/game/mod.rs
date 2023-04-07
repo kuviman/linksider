@@ -6,6 +6,7 @@ use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 use self::config::Config;
 
 pub mod config;
+mod side;
 
 pub struct Plugin;
 
@@ -36,7 +37,6 @@ impl bevy::app::Plugin for Plugin {
             .add_plugin(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Config>::default())
             .add_startup_system(setup)
             .add_system(level_restart)
-            .add_system(update_player_input)
             .add_startup_system(music)
             .insert_resource(LevelSelection::Index(0))
             .insert_resource(LdtkSettings {
@@ -46,7 +46,12 @@ impl bevy::app::Plugin for Plugin {
             .register_ldtk_entity::<PlayerBundle>("Player")
             .add_state::<GameState>()
             .add_system(update_camera.after(update_transforms))
-            .add_system(player_move.in_set(OnUpdate(GameState::WaitingForInput)))
+            .add_system(update_player_input.in_set(OnUpdate(GameState::WaitingForInput)))
+            .add_system(
+                player_move
+                    .in_set(OnUpdate(GameState::WaitingForInput))
+                    .after(update_player_input),
+            )
             .add_system(start_animation.in_schedule(OnEnter(GameState::Animation)))
             .add_system(stop_animation.in_set(OnUpdate(GameState::Animation)))
             .add_system(process_animation.in_set(OnUpdate(GameState::Animation)));
@@ -60,13 +65,18 @@ impl bevy::app::Plugin for Plugin {
 
         app.add_system(init_prev_coords.in_schedule(OnEnter(GameState::Turn)));
         app.add_system(update_transforms.in_set(OnUpdate(GameState::Animation)));
-        // .register_ldtk_entity::<PowerupBundle<side::effects::jump::Effect>>("JumpPower")
+
+        app.register_ldtk_entity::<PowerupBundle<side::Jump>>("JumpPower");
         // .register_ldtk_entity::<PowerupBundle<side::effects::slide::Effect>>("SlidePower");
+
+        app.add_event::<MoveEvent>();
+
+        side::init(app);
     }
 }
 
-#[derive(Default, Component, Clone, Copy)]
-struct Rotation(i32);
+#[derive(Debug, Default, Component, Clone, Copy)]
+pub struct Rotation(i32);
 
 impl Rotation {
     pub fn to_radians(self) -> f32 {
@@ -79,6 +89,16 @@ impl Rotation {
     pub fn rotate_left(&mut self) {
         self.0 += 1;
         self.0 %= 4;
+    }
+
+    pub fn rotated(&self, direction: Direction) -> Self {
+        let mut res = *self;
+        match direction {
+            Direction::Left => res.rotate_left(),
+            Direction::None => {}
+            Direction::Right => res.rotate_right(),
+        }
+        res
     }
 }
 
@@ -105,7 +125,10 @@ fn entity_name(instance: &EntityInstance) -> Name {
 struct PowerupBundle<T: 'static + Send + Sync + Component + Default> {
     #[sprite_sheet_bundle]
     sprite_sheet: SpriteSheetBundle,
+    #[grid_coords]
+    position: GridCoords,
     effect: T,
+    powerup: side::Powerup,
     #[with(entity_name)]
     name: Name,
 }
@@ -137,10 +160,21 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     );
 }
 
+#[derive(Clone, Copy)]
 pub enum Direction {
     Left,
     None,
     Right,
+}
+
+impl Direction {
+    fn delta(&self) -> i32 {
+        match self {
+            Direction::Left => -1,
+            Direction::None => 0,
+            Direction::Right => 1,
+        }
+    }
 }
 
 impl Default for Direction {
@@ -293,10 +327,11 @@ fn init_prev_coords(
 }
 
 fn falling_system(
-    cells: Query<(&GridCoords, &IntGridCell), Without<Player>>,
-    mut players: Query<&mut GridCoords, With<Player>>,
+    cells: Query<(&GridCoords, &IntGridCell)>,
+    players: Query<(Entity, &GridCoords, &Rotation), With<Player>>,
+    mut events: EventWriter<MoveEvent>,
 ) {
-    for mut coords in players.iter_mut() {
+    for (player, coords, rotation) in players.iter() {
         let mut new_coords = *coords;
         new_coords.y -= 1;
         // TODO: bad performance
@@ -308,23 +343,36 @@ fn falling_system(
             }
         });
         if cell.map_or(true, |cell| cell.value != BLOCK) {
-            *coords = new_coords;
+            events.send(MoveEvent(player, new_coords, *rotation));
         }
     }
 }
 
-fn end_turn(mut next_state: ResMut<NextState<GameState>>, changes: Query<(), Changed<GridCoords>>) {
-    if !changes.is_empty() {
-        info!("Animation started");
-        next_state.set(GameState::Animation);
-    } else {
+fn end_turn(
+    mut next_state: ResMut<NextState<GameState>>,
+    mut coords: Query<(&mut GridCoords, &mut Rotation)>,
+    mut events: EventReader<MoveEvent>,
+    mut commands: Commands,
+) {
+    if events.is_empty() {
         info!("Waiting for input now");
         next_state.set(GameState::WaitingForInput);
+    } else {
+        info!("Animation started");
+        for event in events.iter() {
+            if let Ok((mut coords, mut rot)) = coords.get_mut(event.0) {
+                *coords = event.1;
+                *rot = event.2;
+            }
+        }
+        next_state.set(GameState::Animation);
     }
 }
 
 #[derive(Resource)]
 struct TurnAnimationTimer(Timer);
+
+pub struct MoveEvent(pub Entity, pub GridCoords, pub Rotation);
 
 fn start_animation(mut commands: Commands) {
     commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(

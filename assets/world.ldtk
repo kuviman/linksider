@@ -1148,7 +1148,7 @@
 						},
 						{
 							"__identifier": "JumpPower",
-							"__grid": [17,14],
+							"__grid": [18,14],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": { "tilesetUid": 6, "x": 48, "y": 80, "w": 16, "h": 16 },
@@ -1157,7 +1157,7 @@
 							"width": 16,
 							"height": 16,
 							"defUid": 9,
-							"px": [272,224],
+							"px": [288,224],
 							"fieldInstances": []
 						},
 						{
@@ -1200,6 +1200,62 @@
 							"height": 16,
 							"defUid": 12,
 							"px": [80,144],
+							"fieldInstances": []
+						},
+						{
+							"__identifier": "JumpPower",
+							"__grid": [15,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 6, "x": 48, "y": 80, "w": 16, "h": 16 },
+							"__smartColor": "#FEAE34",
+							"iid": "f1cc2150-c640-11ed-9c68-9b0cef6b5f61",
+							"width": 16,
+							"height": 16,
+							"defUid": 9,
+							"px": [240,224],
+							"fieldInstances": []
+						},
+						{
+							"__identifier": "JumpPower",
+							"__grid": [1,13],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 6, "x": 48, "y": 80, "w": 16, "h": 16 },
+							"__smartColor": "#FEAE34",
+							"iid": "a2d5f020-c640-11ed-9c68-7336705ebcff",
+							"width": 16,
+							"height": 16,
+							"defUid": 9,
+							"px": [16,208],
+							"fieldInstances": []
+						},
+						{
+							"__identifier": "JumpPower",
+							"__grid": [6,13],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 6, "x": 48, "y": 80, "w": 16, "h": 16 },
+							"__smartColor": "#FEAE34",
+							"iid": "a4c2a4f0-c640-11ed-9c68-97717a8390ab",
+							"width": 16,
+							"height": 16,
+							"defUid": 9,
+							"px": [96,208],
+							"fieldInstances": []
+						},
+						{
+							"__identifier": "JumpPower",
+							"__grid": [8,13],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 6, "x": 48, "y": 80, "w": 16, "h": 16 },
+							"__smartColor": "#FEAE34",
+							"iid": "a4fbb650-c640-11ed-9c68-27d32dbae5d5",
+							"width": 16,
+							"height": 16,
+							"defUid": 9,
+							"px": [128,208],
 							"fieldInstances": []
 						}
 					]
