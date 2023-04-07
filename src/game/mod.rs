@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{math::Vec3Swizzles, prelude::*};
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
@@ -54,7 +56,7 @@ impl bevy::app::Plugin for Plugin {
             .add_system(process_animation.in_set(OnUpdate(GameState::Animation)));
 
         app.add_systems(
-            (falling_system, slopes)
+            (falling_system,)
                 .in_set(OnUpdate(GameState::Turn))
                 .before(end_turn),
         );
@@ -67,11 +69,29 @@ impl bevy::app::Plugin for Plugin {
     }
 }
 
+#[derive(Default, Component, Clone, Copy)]
+struct Rotation(i32);
+
+impl Rotation {
+    pub fn to_radians(&self) -> f32 {
+        self.0 as f32 * PI / 2.0
+    }
+    pub fn rotate_right(&mut self) {
+        self.0 += 3;
+        self.0 %= 4;
+    }
+    pub fn rotate_left(&mut self) {
+        self.0 += 1;
+        self.0 %= 4;
+    }
+}
+
 #[derive(Bundle, LdtkEntity)]
 struct PlayerBundle {
     player: Player,
     #[grid_coords]
     position: GridCoords,
+    rotation: Rotation,
     #[from_entity_instance]
     entity_instance: EntityInstance,
     player_input: PlayerInput,
@@ -193,9 +213,9 @@ fn level_restart(
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
     cells: Query<(&GridCoords, &IntGridCell)>,
-    mut players: Query<(&PlayerInput, &mut GridCoords), Without<IntGridCell>>,
+    mut players: Query<(&PlayerInput, &mut GridCoords, &mut Rotation), Without<IntGridCell>>,
 ) {
-    for (input, mut coords) in players.iter_mut() {
+    for (input, mut coords, mut rot) in players.iter_mut() {
         let mut new_coords = *coords;
         match input.direction {
             Direction::Left => new_coords.x -= 1,
@@ -214,6 +234,11 @@ fn player_move(
         });
         if cell.map_or(true, |cell| cell.value != BLOCK) {
             *coords = new_coords;
+            match input.direction {
+                Direction::Left => rot.rotate_left(),
+                Direction::None => {}
+                Direction::Right => rot.rotate_right(),
+            }
             next_state.set(GameState::Animation);
         }
     }
@@ -222,25 +247,54 @@ fn player_move(
 #[derive(Component)]
 struct PrevCoords(GridCoords);
 
+#[derive(Component)]
+struct PrevRotation(Rotation);
+
 fn update_transforms(
     timer: Res<TurnAnimationTimer>,
-    mut query: Query<(&PrevCoords, &GridCoords, &mut Transform)>,
+    mut query: Query<(
+        &PrevCoords,
+        &GridCoords,
+        &PrevRotation,
+        &Rotation,
+        &mut Transform,
+    )>,
 ) {
-    for (prev, cur, mut transform) in query.iter_mut() {
-        let prev = &prev.0;
-        let tile_size = IVec2::new(16, 16); // TODO load from ldtk
-        let prev = grid_coords_to_translation(*prev, tile_size);
-        let cur = grid_coords_to_translation(*cur, tile_size);
+    for (prev_coords, coords, prev_rot, rot, mut transform) in query.iter_mut() {
         let t = timer.0.elapsed_secs() / timer.0.duration().as_secs_f32();
-        let interpolated = prev * (1.0 - t) + cur * dbg!(t);
-        transform.translation.x = interpolated.x;
-        transform.translation.y = interpolated.y;
+
+        let prev_coords = &prev_coords.0;
+        let tile_size = IVec2::new(16, 16); // TODO load from ldtk
+        let prev_coords = grid_coords_to_translation(*prev_coords, tile_size);
+        let coords = grid_coords_to_translation(*coords, tile_size);
+        let interpolated_coords = prev_coords * (1.0 - t) + coords * t;
+        transform.translation.x = interpolated_coords.x;
+        transform.translation.y = interpolated_coords.y;
+
+        let prev_rot = &prev_rot.0;
+        let prev_rot = prev_rot.to_radians();
+        let rot = rot.to_radians();
+        let mut rot_diff = rot - prev_rot;
+        while rot_diff > PI {
+            rot_diff -= 2.0 * PI;
+        }
+        while rot_diff < -PI {
+            rot_diff += 2.0 * PI;
+        }
+        let interpolated_rot = prev_rot + rot_diff * t;
+        transform.rotation = Quat::from_rotation_z(interpolated_rot);
     }
 }
 
-fn init_prev_coords(query: Query<(Entity, &GridCoords), With<Player>>, mut commands: Commands) {
-    for (entity, position) in query.iter() {
-        commands.entity(entity).insert(PrevCoords(*position));
+fn init_prev_coords(
+    query: Query<(Entity, &GridCoords, &Rotation), With<Player>>,
+    mut commands: Commands,
+) {
+    for (entity, position, rot) in query.iter() {
+        commands
+            .entity(entity)
+            .insert(PrevCoords(*position))
+            .insert(PrevRotation(*rot));
     }
 }
 
@@ -261,27 +315,6 @@ fn falling_system(
         });
         if cell.map_or(true, |cell| cell.value != BLOCK) {
             *coords = new_coords;
-        }
-    }
-}
-
-fn slopes(
-    cells: Query<(&GridCoords, &IntGridCell), Without<Player>>,
-    mut players: Query<&mut GridCoords, With<Player>>,
-) {
-    for mut coords in players.iter_mut() {
-        // TODO: bad performance
-        let cell = cells.iter().find_map(|(cell_coords, cell)| {
-            if cell_coords == &*coords {
-                Some(cell.value)
-            } else {
-                None
-            }
-        });
-        match cell {
-            Some(SLOPE_LB | SLOPE_LT) => coords.x -= 1,
-            Some(SLOPE_RB | SLOPE_RT) => coords.x += 1,
-            _ => {}
         }
     }
 }
