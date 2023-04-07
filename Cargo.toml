@@ -8,8 +8,6 @@ bevy = "0.10.1"
 bevy-inspector-egui = "0.18.3"
 bevy_ecs_ldtk = { version = "0.6.0", features = ["atlas"] }
 bevy_ecs_tilemap = "0.10.0"
-bevy_rapier2d = "0.21.0"
-clap = "4.2.1"
 serde = "1.0.159"
 serde_json = "1.0.95"
 

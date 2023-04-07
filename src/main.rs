@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
-use bevy_rapier2d::prelude::*;
 
 mod game;
 
@@ -27,8 +26,6 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
         )
         .add_plugin(game::Plugin)
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0))
-        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(LdtkPlugin)
         .add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .run();
