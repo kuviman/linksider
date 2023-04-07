@@ -32,6 +32,7 @@ impl bevy::app::Plugin for Plugin {
             .add_system(update_player_input)
             .add_system(player_rotation_control)
             .add_system(update_camera)
+            .add_system(level_restart)
             .add_startup_system(music)
             .insert_resource(LevelSelection::Index(0))
             // Required to prevent race conditions between bevy_ecs_ldtk's and bevy_rapier's systems
@@ -298,4 +299,15 @@ fn update_camera(
         }
         (sum / num as f32).extend(camera.translation.z)
     };
+}
+
+fn level_restart(
+    ldtk_worlds: Query<Entity, With<Handle<LdtkAsset>>>,
+    input: Res<Input<KeyCode>>,
+    mut commands: Commands,
+) {
+    if input.just_released(KeyCode::R) {
+        let ldtk_world = ldtk_worlds.single();
+        commands.entity(ldtk_world).insert(Respawn);
+    }
 }
