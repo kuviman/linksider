@@ -20,6 +20,7 @@ struct Player;
 enum GameState {
     #[default]
     Turn,
+    WaitingForInput,
     Animation,
 }
 
@@ -47,10 +48,17 @@ impl bevy::app::Plugin for Plugin {
             .register_ldtk_entity::<PlayerBundle>("Player")
             .add_state::<GameState>()
             .add_system(update_camera.after(update_transforms))
-            .add_system(player_move.in_set(OnUpdate(GameState::Turn)))
-            .add_system(start_animation.in_set(OnUpdate(GameState::Turn)))
+            .add_system(player_move.in_set(OnUpdate(GameState::WaitingForInput)))
+            .add_system(start_animation.in_schedule(OnEnter(GameState::Animation)))
             .add_system(stop_animation.in_set(OnUpdate(GameState::Animation)))
             .add_system(process_animation.in_set(OnUpdate(GameState::Animation)));
+
+        app.add_systems(
+            (falling_system,)
+                .in_set(OnUpdate(GameState::Turn))
+                .before(end_turn),
+        );
+        app.add_system(end_turn.in_set(OnUpdate(GameState::Turn)));
 
         app.add_system(init_prev_coords.in_schedule(OnEnter(GameState::Turn)));
         app.add_system(update_transforms.in_set(OnUpdate(GameState::Animation)));
@@ -183,6 +191,7 @@ fn level_restart(
 }
 
 fn player_move(
+    mut next_state: ResMut<NextState<GameState>>,
     cells: Query<(&GridCoords, &IntGridCell)>,
     mut players: Query<(&PlayerInput, &mut GridCoords), Without<IntGridCell>>,
 ) {
@@ -190,9 +199,58 @@ fn player_move(
         let mut new_coords = *coords;
         match input.direction {
             Direction::Left => new_coords.x -= 1,
-            Direction::None => {}
+            Direction::None => {
+                continue;
+            }
             Direction::Right => new_coords.x += 1,
         }
+        // TODO: bad performance
+        let cell = cells.iter().find_map(|(coords, cell)| {
+            if coords == &new_coords {
+                Some(cell)
+            } else {
+                None
+            }
+        });
+        if cell.map_or(true, |cell| cell.value != BLOCK) {
+            *coords = new_coords;
+            next_state.set(GameState::Animation);
+        }
+    }
+}
+
+#[derive(Component)]
+struct PrevCoords(GridCoords);
+
+fn update_transforms(
+    timer: Res<TurnAnimationTimer>,
+    mut query: Query<(&PrevCoords, &GridCoords, &mut Transform)>,
+) {
+    for (prev, cur, mut transform) in query.iter_mut() {
+        let prev = &prev.0;
+        let tile_size = IVec2::new(16, 16); // TODO load from ldtk
+        let prev = grid_coords_to_translation(*prev, tile_size);
+        let cur = grid_coords_to_translation(*cur, tile_size);
+        let t = timer.0.elapsed_secs() / timer.0.duration().as_secs_f32();
+        let interpolated = prev * (1.0 - t) + cur * dbg!(t);
+        transform.translation.x = interpolated.x;
+        transform.translation.y = interpolated.y;
+    }
+}
+
+fn init_prev_coords(query: Query<(Entity, &GridCoords), With<Player>>, mut commands: Commands) {
+    for (entity, position) in query.iter() {
+        commands.entity(entity).insert(PrevCoords(*position));
+    }
+}
+
+fn falling_system(
+    cells: Query<(&GridCoords, &IntGridCell), Without<Player>>,
+    mut players: Query<&mut GridCoords, With<Player>>,
+) {
+    for mut coords in players.iter_mut() {
+        let mut new_coords = *coords;
+        new_coords.y -= 1;
         // TODO: bad performance
         let cell = cells.iter().find_map(|(coords, cell)| {
             if coords == &new_coords {
@@ -207,58 +265,36 @@ fn player_move(
     }
 }
 
-#[derive(Component)]
-struct PrevCoords(GridCoords);
-
-fn update_transforms(
-    timer: Res<TurnAnimationTimer>,
-    mut query: Query<(&PrevCoords, &GridCoords, &mut Transform)>,
-) {
-    for (prev, cur, mut transform) in query.iter_mut() {
-        let tile_size = IVec2::new(16, 16); // TODO load from ldtk
-        let prev = grid_coords_to_translation(prev.0, tile_size);
-        let cur = grid_coords_to_translation(*cur, tile_size);
-        let t = timer.0.elapsed_secs() / timer.0.duration().as_secs_f32();
-        let interpolated = prev * (1.0 - t) + cur * t;
-        transform.translation.x = interpolated.x;
-        transform.translation.y = interpolated.y;
-    }
-}
-
-fn init_prev_coords(query: Query<(Entity, &GridCoords)>, mut commands: Commands) {
-    for (entity, position) in query.iter() {
-        commands.entity(entity).insert(PrevCoords(*position));
-    }
-}
-
-fn start_animation(
-    mut next_state: ResMut<NextState<GameState>>,
-    changes: Query<Changed<GridCoords>>,
-    mut commands: Commands,
-) {
+fn end_turn(mut next_state: ResMut<NextState<GameState>>, changes: Query<(), Changed<GridCoords>>) {
     if !changes.is_empty() {
-        debug!("Animation started");
+        info!("Animation started");
         next_state.set(GameState::Animation);
-        commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
-            0.2,
-            TimerMode::Once,
-        )));
+    } else {
+        info!("Waiting for input now");
+        next_state.set(GameState::WaitingForInput);
     }
 }
 
 #[derive(Resource)]
 struct TurnAnimationTimer(Timer);
 
+fn start_animation(mut commands: Commands) {
+    commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
+        0.2,
+        TimerMode::Once,
+    )));
+}
+
 fn stop_animation(
     mut next_state: ResMut<NextState<GameState>>,
     turn_timer: Res<TurnAnimationTimer>,
 ) {
     if turn_timer.0.finished() {
-        debug!("Animation finished");
+        info!("Animation finished");
         next_state.set(GameState::Turn);
     }
 }
 
 fn process_animation(mut turn_timer: ResMut<TurnAnimationTimer>, time: Res<Time>) {
-    turn_timer.0.tick(time.delta());
+    turn_timer.0.tick(time.delta()).elapsed_secs();
 }
