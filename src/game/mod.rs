@@ -23,6 +23,13 @@ enum GameState {
     Animation,
 }
 
+// TODO: load from ldtk
+const BLOCK: i32 = 1;
+const SLOPE_LT: i32 = 2;
+const SLOPE_RT: i32 = 3;
+const SLOPE_LB: i32 = 4;
+const SLOPE_RB: i32 = 5;
+
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Config>()
@@ -175,12 +182,27 @@ fn level_restart(
     }
 }
 
-fn player_move(mut players: Query<(&PlayerInput, &mut GridCoords)>) {
+fn player_move(
+    cells: Query<(&GridCoords, &IntGridCell)>,
+    mut players: Query<(&PlayerInput, &mut GridCoords), Without<IntGridCell>>,
+) {
     for (input, mut coords) in players.iter_mut() {
+        let mut new_coords = *coords;
         match input.direction {
-            Direction::Left => coords.x -= 1,
+            Direction::Left => new_coords.x -= 1,
             Direction::None => {}
-            Direction::Right => coords.x += 1,
+            Direction::Right => new_coords.x += 1,
+        }
+        // TODO: bad performance
+        let cell = cells.iter().find_map(|(coords, cell)| {
+            if coords == &new_coords {
+                Some(cell)
+            } else {
+                None
+            }
+        });
+        if cell.map_or(true, |cell| cell.value != BLOCK) {
+            *coords = new_coords;
         }
     }
 }
