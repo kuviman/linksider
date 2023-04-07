@@ -6,3 +6,4 @@ compilation time is now 40s, it was 20s before and it was faster with dynamic li
 loading assets
 load config?
 turn based game with animation
+audiosink stronghandle not working immediately
