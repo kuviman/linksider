@@ -39,7 +39,7 @@ impl bevy::app::Plugin for Plugin {
             })
             .register_ldtk_entity::<PlayerBundle>("Player")
             .add_state::<GameState>()
-            .add_system(update_camera) // .in_schedule(OnEnter(GameState::Turn)))
+            .add_system(update_camera.after(update_transforms))
             .add_system(player_move.in_set(OnUpdate(GameState::Turn)))
             .add_system(start_animation.in_set(OnUpdate(GameState::Turn)))
             .add_system(stop_animation.in_set(OnUpdate(GameState::Animation)))
