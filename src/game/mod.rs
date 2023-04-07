@@ -73,7 +73,7 @@ impl bevy::app::Plugin for Plugin {
 struct Rotation(i32);
 
 impl Rotation {
-    pub fn to_radians(&self) -> f32 {
+    pub fn to_radians(self) -> f32 {
         self.0 as f32 * PI / 2.0
     }
     pub fn rotate_right(&mut self) {
@@ -170,12 +170,10 @@ fn update_player_input(
         dir += 1;
     }
     for mut input in inputs.iter_mut() {
-        input.direction = if dir == 0 {
-            Direction::None
-        } else if dir < 0 {
-            Direction::Left
-        } else {
-            Direction::Right
+        input.direction = match dir.cmp(&0) {
+            std::cmp::Ordering::Less => Direction::Left,
+            std::cmp::Ordering::Equal => Direction::None,
+            std::cmp::Ordering::Greater => Direction::Right,
         };
     }
 }
