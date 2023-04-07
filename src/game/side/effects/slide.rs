@@ -106,9 +106,6 @@ fn powerup(
         commands.entity(event.powerup).despawn();
         commands.entity(event.side).insert(Effect).remove::<Blank>();
 
-        commands
-            .entity(event.side)
-            .insert(Collider::cuboid(0.4, 0.1));
         commands.entity(parent.get()).insert(Friction::new(0.0));
 
         // TODO: different system?

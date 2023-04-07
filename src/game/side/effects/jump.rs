@@ -120,12 +120,6 @@ fn powerup(
         commands.entity(event.powerup).despawn();
         commands.entity(event.side).insert(Effect).remove::<Blank>();
 
-        let mut cuboid = collider.as_cuboid_mut().unwrap();
-        cuboid.sed_half_extents({
-            let mut v = cuboid.half_extents();
-            v /= 100.0;
-            v
-        });
         commands.entity(event.side).insert((
             Sprite {
                 custom_size: Some(Vec2::new(1.0, 0.25)),

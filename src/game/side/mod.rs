@@ -39,7 +39,7 @@ fn side_setup(
         for i in 0..sides {
             let side = commands
                 .spawn((
-                    Collider::cuboid(0.5, 0.2),
+                    Collider::cuboid(0.2, 0.1),
                     TransformBundle::from_transform(
                         Transform::from_scale(Vec3::new(tile.w as f32, tile.h as f32, 1.0))
                             * Transform::from_rotation(Quat::from_rotation_z(
