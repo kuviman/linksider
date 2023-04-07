@@ -54,7 +54,7 @@ impl bevy::app::Plugin for Plugin {
             .add_system(process_animation.in_set(OnUpdate(GameState::Animation)));
 
         app.add_systems(
-            (falling_system,)
+            (falling_system, slopes)
                 .in_set(OnUpdate(GameState::Turn))
                 .before(end_turn),
         );
@@ -261,6 +261,27 @@ fn falling_system(
         });
         if cell.map_or(true, |cell| cell.value != BLOCK) {
             *coords = new_coords;
+        }
+    }
+}
+
+fn slopes(
+    cells: Query<(&GridCoords, &IntGridCell), Without<Player>>,
+    mut players: Query<&mut GridCoords, With<Player>>,
+) {
+    for mut coords in players.iter_mut() {
+        // TODO: bad performance
+        let cell = cells.iter().find_map(|(cell_coords, cell)| {
+            if cell_coords == &*coords {
+                Some(cell.value)
+            } else {
+                None
+            }
+        });
+        match cell {
+            Some(SLOPE_LB | SLOPE_LT) => coords.x -= 1,
+            Some(SLOPE_RB | SLOPE_RT) => coords.x += 1,
+            _ => {}
         }
     }
 }
