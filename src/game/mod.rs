@@ -1,5 +1,5 @@
 use bevy::{math::Vec3Swizzles, prelude::*};
-use bevy_ecs_ldtk::prelude::*;
+use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
 use self::config::Config;
 
@@ -16,21 +16,37 @@ impl Default for Config {
 #[derive(Default, Component)]
 struct Player;
 
+#[derive(Default, Debug, Clone, Eq, PartialEq, Hash, States)]
+enum GameState {
+    #[default]
+    Turn,
+    Animation,
+}
+
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Config>()
             .register_type::<Config>()
             .add_plugin(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Config>::default())
             .add_startup_system(setup)
-            .add_system(update_camera)
             .add_system(level_restart)
+            .add_system(update_player_input)
             .add_startup_system(music)
             .insert_resource(LevelSelection::Index(0))
             .insert_resource(LdtkSettings {
                 set_clear_color: SetClearColor::FromLevelBackground,
                 ..Default::default()
             })
-            .register_ldtk_entity::<PlayerBundle>("Player");
+            .register_ldtk_entity::<PlayerBundle>("Player")
+            .add_state::<GameState>()
+            .add_system(update_camera) // .in_schedule(OnEnter(GameState::Turn)))
+            .add_system(player_move.in_set(OnUpdate(GameState::Turn)))
+            .add_system(start_animation.in_set(OnUpdate(GameState::Turn)))
+            .add_system(stop_animation.in_set(OnUpdate(GameState::Animation)))
+            .add_system(process_animation.in_set(OnUpdate(GameState::Animation)));
+
+        app.add_system(init_prev_coords.in_schedule(OnEnter(GameState::Turn)));
+        app.add_system(update_transforms.in_set(OnUpdate(GameState::Animation)));
         // .register_ldtk_entity::<PowerupBundle<side::effects::jump::Effect>>("JumpPower")
         // .register_ldtk_entity::<PowerupBundle<side::effects::slide::Effect>>("SlidePower");
     }
@@ -39,6 +55,8 @@ impl bevy::app::Plugin for Plugin {
 #[derive(Bundle, LdtkEntity)]
 struct PlayerBundle {
     player: Player,
+    #[grid_coords]
+    position: GridCoords,
     #[from_entity_instance]
     entity_instance: EntityInstance,
     player_input: PlayerInput,
@@ -155,4 +173,70 @@ fn level_restart(
         let ldtk_world = ldtk_worlds.single();
         commands.entity(ldtk_world).insert(Respawn);
     }
+}
+
+fn player_move(mut players: Query<(&PlayerInput, &mut GridCoords)>) {
+    for (input, mut coords) in players.iter_mut() {
+        match input.direction {
+            Direction::Left => coords.x -= 1,
+            Direction::None => {}
+            Direction::Right => coords.x += 1,
+        }
+    }
+}
+
+#[derive(Component)]
+struct PrevCoords(GridCoords);
+
+fn update_transforms(
+    timer: Res<TurnAnimationTimer>,
+    mut query: Query<(&PrevCoords, &GridCoords, &mut Transform)>,
+) {
+    for (prev, cur, mut transform) in query.iter_mut() {
+        let tile_size = IVec2::new(16, 16); // TODO load from ldtk
+        let prev = grid_coords_to_translation(prev.0, tile_size);
+        let cur = grid_coords_to_translation(*cur, tile_size);
+        let t = timer.0.elapsed_secs() / timer.0.duration().as_secs_f32();
+        let interpolated = prev * (1.0 - t) + cur * t;
+        transform.translation.x = interpolated.x;
+        transform.translation.y = interpolated.y;
+    }
+}
+
+fn init_prev_coords(query: Query<(Entity, &GridCoords)>, mut commands: Commands) {
+    for (entity, position) in query.iter() {
+        commands.entity(entity).insert(PrevCoords(*position));
+    }
+}
+
+fn start_animation(
+    mut next_state: ResMut<NextState<GameState>>,
+    changes: Query<Changed<GridCoords>>,
+    mut commands: Commands,
+) {
+    if !changes.is_empty() {
+        debug!("Animation started");
+        next_state.set(GameState::Animation);
+        commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
+            0.2,
+            TimerMode::Once,
+        )));
+    }
+}
+
+#[derive(Resource)]
+struct TurnAnimationTimer(Timer);
+
+fn stop_animation(
+    mut next_state: ResMut<NextState<GameState>>,
+    turn_timer: Res<TurnAnimationTimer>,
+) {
+    if turn_timer.0.finished() {
+        debug!("Animation finished");
+        next_state.set(GameState::Turn);
+    }
+}
+
+fn process_animation(mut turn_timer: ResMut<TurnAnimationTimer>, time: Res<Time>) {
+    turn_timer.0.tick(time.delta());
 }
