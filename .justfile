@@ -6,7 +6,7 @@ web *OPTIONS:
 
 publish *OPTIONS:
     trunk --config Trunk.itch-io.toml build {{OPTIONS}}
-    butler push dist kuviman/bevy-jam-3:html5
+    butler push dist kuviman/linksider:html5
 
 clean:
     cargo clean
