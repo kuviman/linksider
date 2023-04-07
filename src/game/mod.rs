@@ -28,10 +28,6 @@ enum GameState {
 
 // TODO: load from ldtk
 const BLOCK: i32 = 1;
-const SLOPE_LT: i32 = 2;
-const SLOPE_RT: i32 = 3;
-const SLOPE_LB: i32 = 4;
-const SLOPE_RB: i32 = 5;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
