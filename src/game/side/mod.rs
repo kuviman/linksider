@@ -8,7 +8,6 @@ pub fn init(app: &mut App) {
     app.add_system(side_init);
     jump::init(app);
     slide::init(app);
-    dev_null::init(app);
     app.register_ldtk_entity::<DevNullBundle>("DevNull");
 }
 
