@@ -285,6 +285,16 @@ fn level_restart(
     }
 }
 
+fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
+    match (player_rot + 4 - side_rot) % 4 {
+        0 => IVec2::new(0, -1),
+        1 => IVec2::new(1, 0),
+        2 => IVec2::new(0, 1),
+        3 => IVec2::new(-1, 0),
+        _ => unreachable!(),
+    }
+}
+
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
     blocked: Query<BlockedQuery>,
@@ -368,9 +378,12 @@ fn init_prev_coords(
     }
 }
 
+#[derive(Component)]
+struct DisableGravity;
+
 fn falling_system(
     blocked: Query<BlockedQuery>,
-    players: Query<(Entity, &GridCoords, &Rotation), With<Player>>,
+    players: Query<(Entity, &GridCoords, &Rotation), (With<Player>, Without<DisableGravity>)>,
     mut events: EventWriter<MoveEvent>,
 ) {
     for (player, coords, rotation) in players.iter() {

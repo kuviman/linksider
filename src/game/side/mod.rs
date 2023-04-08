@@ -2,12 +2,14 @@ use super::*;
 use std::{f32::consts::PI, marker::PhantomData};
 
 mod jump;
+mod magnet;
 mod slide;
 
 pub fn init(app: &mut App) {
     app.add_system(side_init);
     jump::init(app);
     slide::init(app);
+    magnet::init(app);
     app.register_ldtk_entity::<DevNullBundle>("DevNull");
 }
 
@@ -55,8 +57,18 @@ struct DevNullBundle {
 
 trait SideEffect: Component + Default {
     fn texture() -> &'static str;
+    fn active_below() -> bool {
+        true
+    }
+    fn active_side() -> bool {
+        false
+    }
+    fn active_above() -> bool {
+        false
+    }
 }
 
+#[derive(Debug)]
 struct SideEffectEvent<T: SideEffect> {
     player: Entity,
     phantom_data: PhantomData<T>,
@@ -69,18 +81,21 @@ fn detect_side_effect<T: SideEffect>(
     mut events: EventWriter<SideEffectEvent<T>>,
 ) {
     for (player, player_coords, player_rotation, player_children) in players.iter() {
-        if !player_children
+        let Some(side) = player_children
             .iter()
             .flat_map(|&child| sides.get(child).ok())
-            .any(|side| side.0 == player_rotation.0)
+            .find(|side| match (side.0 + 4 - player_rotation.0) % 4 {
+                0 => T::active_below(),
+                2 => T::active_above(),
+                1 | 3 => T::active_side(),
+                _ => unreachable!(),
+            }) else
         {
             continue;
-        }
-        let below = GridCoords {
-            x: player_coords.x,
-            y: player_coords.y - 1,
         };
-        if is_blocked(below, &blocked) {
+        let direction = side_vec(player_rotation.0, side.0);
+        let side_coords = (IVec2::from(*player_coords) + direction).into();
+        if is_blocked(side_coords, &blocked) {
             events.send(SideEffectEvent {
                 player,
                 phantom_data: PhantomData,
