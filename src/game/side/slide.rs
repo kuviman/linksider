@@ -39,6 +39,22 @@ fn do_slide(
             continue;
         }
 
-        move_events.send(MoveEvent(event.player, next_pos, *player_rotation));
+        let below = GridCoords {
+            x: next_pos.x,
+            y: next_pos.y - 1,
+        };
+        let cell_below = cells.iter().find_map(|(cell_coords, cell)| {
+            if cell_coords == &below {
+                Some(cell.value)
+            } else {
+                None
+            }
+        });
+        let mut next_rotation = *player_rotation;
+        if cell_below != Some(BLOCK) {
+            next_rotation = next_rotation.rotated(player_input.direction);
+        }
+
+        move_events.send(MoveEvent(event.player, next_pos, next_rotation));
     }
 }
