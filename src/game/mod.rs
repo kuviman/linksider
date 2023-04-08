@@ -75,6 +75,8 @@ impl bevy::app::Plugin for Plugin {
         goal::init(app);
 
         app.add_system(loading_level_finish);
+
+        app.add_system(change_levels);
     }
 }
 
@@ -404,4 +406,22 @@ fn stop_animation(
 
 fn process_animation(mut turn_timer: ResMut<TurnAnimationTimer>, time: Res<Time>) {
     turn_timer.0.tick(time.delta()).elapsed_secs();
+}
+
+fn change_levels(input: Res<Input<KeyCode>>, mut level: ResMut<LevelSelection>) {
+    let mut dir: isize = 0;
+    if input.just_pressed(KeyCode::LBracket) {
+        dir -= 1;
+    }
+    if input.just_pressed(KeyCode::RBracket) {
+        dir += 1;
+    }
+    if dir != 0 {
+        match *level {
+            LevelSelection::Index(ref mut index) => {
+                *index = (*index as isize + dir).max(0) as usize;
+            }
+            _ => unreachable!(),
+        }
+    }
 }
