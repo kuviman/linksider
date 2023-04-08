@@ -6,16 +6,23 @@ pub fn init(app: &mut App) {
     // EDIT: this is now unsafe POG
     #[allow(unused_unsafe)]
     unsafe {
-        app.add_system(do_jump.before(end_turn));
+        app.add_system(do_jump.before(end_turn).after(falling_system));
     }
 }
 
-#[derive(Default, Component)]
+#[derive(Debug, Default, Component)]
 pub struct Jump;
 
 impl SideEffect for Jump {
     fn texture() -> &'static str {
         "side_effects/jump.png"
+    }
+    fn active_side() -> bool {
+        // bevy pog
+        true
+    }
+    fn active_above() -> bool {
+        true
     }
 }
 
@@ -27,9 +34,19 @@ fn do_jump(
 ) {
     for event in events.iter() {
         if let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) {
-            let path = [(0, 1), (0, 2), (player_input.direction.delta(), 2)];
+            let jump_dir = -side_vec(player_rotation.0, event.side);
+            let mut path: Vec<IVec2> = vec![IVec2::new(1, 0), IVec2::new(2, 0)];
+            if jump_dir == IVec2::new(0, 1) {
+                path.push(IVec2::new(2, -player_input.direction.delta()));
+            } else if is_blocked(
+                (IVec2::from(*player_coords) + IVec2::new(0, -1)).into(),
+                &blocked,
+            ) {
+                continue;
+            }
             let path = path
-                .map(|(dx, dy)| IVec2::from(*player_coords) + IVec2::new(dx, dy))
+                .into_iter()
+                .map(|v| IVec2::from(*player_coords) + jump_dir.rotate(v))
                 .map(GridCoords::from);
             let mut path = Vec::from_iter(path);
             if let Some(index) = path.iter().position(|coords| is_blocked(*coords, &blocked)) {
