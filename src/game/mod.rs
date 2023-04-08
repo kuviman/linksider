@@ -20,6 +20,9 @@ impl Default for Config {
 #[derive(Default, Component)]
 struct Player;
 
+#[derive(Component)]
+struct SelectedPlayer;
+
 #[derive(Default, Debug, Clone, Eq, PartialEq, Hash, States)]
 enum GameState {
     #[default]
@@ -204,7 +207,9 @@ pub struct PlayerInput {
 
 fn update_player_input(
     keyboard_input: Res<Input<KeyCode>>,
-    mut inputs: Query<&mut PlayerInput, With<Player>>,
+    players: Query<(Entity, Option<&SelectedPlayer>), With<Player>>,
+    mut inputs: Query<&mut PlayerInput, With<SelectedPlayer>>,
+    mut commands: Commands,
 ) {
     let mut dir = 0;
     if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
@@ -220,11 +225,28 @@ fn update_player_input(
             std::cmp::Ordering::Greater => Direction::Right,
         };
     }
+
+    if !players.is_empty() && (keyboard_input.just_pressed(KeyCode::Tab) || inputs.is_empty()) {
+        let mut players: Vec<(Entity, bool)> = players
+            .iter()
+            .map(|(entity, selected)| (entity, selected.is_some()))
+            .collect();
+        players.sort();
+        let selected = players.iter().position(|&(_, selected)| selected);
+        if let Some(selected) = selected {
+            commands
+                .entity(players[selected].0)
+                .remove::<SelectedPlayer>();
+        }
+        let to_select = (selected.unwrap_or(0) + 1) % players.len();
+        let new_selected_player = players[to_select].0;
+        commands.entity(new_selected_player).insert(SelectedPlayer);
+    }
 }
 
 fn update_camera(
     mut camera: Query<&mut Transform, With<Camera2d>>,
-    player: Query<&GlobalTransform, With<Player>>,
+    player: Query<&GlobalTransform, With<SelectedPlayer>>,
 ) {
     let mut camera = camera.single_mut();
     camera.translation = {
