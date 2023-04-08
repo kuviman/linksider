@@ -57,7 +57,11 @@ fn do_jump(
                 move_events.send(MoveEvent(
                     event.player,
                     last,
-                    player_rotation.rotated(player_input.direction),
+                    if jump_dir == IVec2::new(0, 1) {
+                        player_rotation.rotated(player_input.direction)
+                    } else {
+                        *player_rotation
+                    },
                 ));
             }
         }
