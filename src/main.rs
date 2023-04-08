@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem(windows))]
 use bevy::{diagnostic::LogDiagnosticsPlugin, prelude::*};
 use bevy_ecs_ldtk::prelude::*;
 
