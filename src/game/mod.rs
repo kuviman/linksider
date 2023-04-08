@@ -6,6 +6,7 @@ use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 use self::config::Config;
 
 pub mod config;
+mod goal;
 mod side;
 
 pub struct Plugin;
@@ -65,13 +66,12 @@ impl bevy::app::Plugin for Plugin {
 
         app.add_system(init_prev_coords.in_schedule(OnEnter(GameState::Turn)));
         app.add_system(update_transforms.in_set(OnUpdate(GameState::Animation)));
-
-        app.register_ldtk_entity::<PowerupBundle<side::Jump>>("JumpPower");
         // .register_ldtk_entity::<PowerupBundle<side::effects::slide::Effect>>("SlidePower");
 
         app.add_event::<MoveEvent>();
 
         side::init(app);
+        goal::init(app);
     }
 }
 

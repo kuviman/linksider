@@ -7,6 +7,7 @@ pub fn init(app: &mut App) {
             .before(end_turn),
     );
     app.add_event::<JumpEvent>();
+    app.register_ldtk_entity::<PowerupBundle<Jump>>("JumpPower");
 }
 
 #[derive(Default, Component)]
