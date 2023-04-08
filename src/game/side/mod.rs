@@ -1,5 +1,5 @@
 use super::*;
-use std::f32::consts::PI;
+use std::{f32::consts::PI, marker::PhantomData};
 
 mod jump;
 mod slide;
@@ -42,6 +42,45 @@ trait SideEffect: Component + Default {
     fn texture() -> &'static str;
 }
 
+struct SideEffectEvent<T: SideEffect> {
+    player: Entity,
+    phantom_data: PhantomData<T>,
+}
+
+fn detect_side_effect<T: SideEffect>(
+    sides: Query<&Side, With<T>>,
+    players: Query<(Entity, &GridCoords, &Rotation, &Children), With<Player>>,
+    cells: Query<(&GridCoords, &IntGridCell)>,
+    mut events: EventWriter<SideEffectEvent<T>>,
+) {
+    for (player, player_coords, player_rotation, player_children) in players.iter() {
+        if !player_children
+            .iter()
+            .flat_map(|&child| sides.get(child).ok())
+            .any(|side| side.0 == player_rotation.0)
+        {
+            continue;
+        }
+        let below = GridCoords {
+            x: player_coords.x,
+            y: player_coords.y - 1,
+        };
+        let cell = cells.iter().find_map(|(coords, cell)| {
+            if coords == &below {
+                Some(cell.value)
+            } else {
+                None
+            }
+        });
+        if cell == Some(BLOCK) {
+            events.send(SideEffectEvent {
+                player,
+                phantom_data: PhantomData,
+            });
+        }
+    }
+}
+
 trait AppExt {
     fn register_side_effect<T: SideEffect>(&mut self, ldtk_name: &str);
 }
@@ -50,6 +89,8 @@ impl AppExt for App {
     fn register_side_effect<T: SideEffect>(&mut self, ldtk_name: &str) {
         self.register_ldtk_entity::<PowerupBundle<T>>(ldtk_name);
         self.add_system(collect_powerup::<T>);
+        self.add_system(detect_side_effect::<T>);
+        self.add_event::<SideEffectEvent<T>>();
     }
 }
 
