@@ -1,7 +1,4 @@
-use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
-};
+use bevy::{diagnostic::LogDiagnosticsPlugin, prelude::*};
 use bevy_ecs_ldtk::prelude::*;
 
 mod game;

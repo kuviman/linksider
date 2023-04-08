@@ -352,7 +352,6 @@ fn end_turn(
     mut next_state: ResMut<NextState<GameState>>,
     mut coords: Query<(&mut GridCoords, &mut Rotation)>,
     mut events: EventReader<MoveEvent>,
-    mut commands: Commands,
 ) {
     if events.is_empty() {
         info!("Waiting for input now");
