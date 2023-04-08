@@ -1,39 +1,21 @@
 use super::*;
 
 pub fn init(app: &mut App) {
+    app.register_side_effect::<Jump>("JumpPower");
     app.add_systems(
-        (collect_jump, detect_jump, do_jump)
+        (detect_jump, do_jump)
             .in_set(OnUpdate(GameState::Turn))
             .before(end_turn),
     );
     app.add_event::<JumpEvent>();
-    app.register_ldtk_entity::<PowerupBundle<Jump>>("JumpPower");
 }
 
 #[derive(Default, Component)]
 pub struct Jump;
 
-fn collect_jump(
-    mut sides: Query<(&Side, &mut Handle<Image>), With<Blank>>,
-    players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
-    powerups: Query<(Entity, &GridCoords), (With<Powerup>, With<Jump>)>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    for (player_coords, player_rotation, player_children) in players.iter() {
-        for (powerup, powerup_coords) in powerups.iter() {
-            if player_coords == powerup_coords {
-                for &side in player_children {
-                    if let Ok((side_data, mut side_texture)) = sides.get_mut(side) {
-                        if side_data.0 == player_rotation.0 {
-                            *side_texture = asset_server.load("side_effects/jump.png");
-                            commands.entity(powerup).despawn();
-                            commands.entity(side).remove::<Blank>().insert(Jump);
-                        }
-                    }
-                }
-            }
-        }
+impl SideEffect for Jump {
+    fn texture() -> &'static str {
+        "side_effects/jump.png"
     }
 }
 
