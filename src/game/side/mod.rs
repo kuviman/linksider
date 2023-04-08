@@ -88,10 +88,10 @@ fn detect_side_effect<T: SideEffect>(
             .collect();
         sides.sort_by_key(|side| -side_vec(player_rotation.0, side.0).y);
         for side in sides {
-            if !match side.0 {
-                0 => T::active_below(),
-                2 => T::active_above(),
-                1 | 3 => T::active_side(),
+            if !match side_vec(player_rotation.0, side.0) {
+                IVec2 { y: -1, .. } => T::active_below(),
+                IVec2 { y: 1, .. } => T::active_above(),
+                IVec2 { y: 0, .. } => T::active_side(),
                 _ => unreachable!(),
             } {
                 continue;
