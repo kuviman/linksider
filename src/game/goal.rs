@@ -25,10 +25,13 @@ struct GoalBundle {
 
 fn finish_level(
     mut level_selection: ResMut<LevelSelection>,
-    players: Query<&GridCoords, With<Player>>,
+    players: Query<(&GridCoords, &Rotation), With<Player>>,
     goals: Query<&GridCoords, With<Goal>>,
 ) {
-    for player_coords in players.iter() {
+    for (player_coords, player_rotation) in players.iter() {
+        if player_rotation.0 != 0 {
+            continue;
+        }
         for goal_coords in goals.iter() {
             if player_coords == goal_coords {
                 match *level_selection {
