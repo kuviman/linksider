@@ -23,6 +23,7 @@ struct Player;
 #[derive(Default, Debug, Clone, Eq, PartialEq, Hash, States)]
 enum GameState {
     #[default]
+    LoadingLevel,
     Turn,
     WaitingForInput,
     Animation,
@@ -72,6 +73,17 @@ impl bevy::app::Plugin for Plugin {
 
         side::init(app);
         goal::init(app);
+
+        app.add_system(loading_level_finish);
+    }
+}
+
+fn loading_level_finish(
+    mut next_state: ResMut<NextState<GameState>>,
+    query: Query<(), Added<Handle<LdtkLevel>>>,
+) {
+    if !query.is_empty() {
+        next_state.set(GameState::Turn);
     }
 }
 
