@@ -8,6 +8,8 @@ pub fn init(app: &mut App) {
     app.add_system(side_init);
     jump::init(app);
     slide::init(app);
+    dev_null::init(app);
+    app.register_ldtk_entity::<DevNullBundle>("DevNull");
 }
 
 #[derive(Debug, Component)]
@@ -37,6 +39,20 @@ fn side_init(query: Query<Entity, Added<Player>>, mut commands: Commands) {
 
 #[derive(Default, Component)]
 pub struct Powerup;
+
+#[derive(Default, Component)]
+pub struct DevNull;
+
+#[derive(Bundle, LdtkEntity)]
+struct DevNullBundle {
+    #[sprite_sheet_bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[grid_coords]
+    position: GridCoords,
+    devnull: DevNull,
+    #[with(entity_name)]
+    name: Name,
+}
 
 trait SideEffect: Component + Default {
     fn texture() -> &'static str;
@@ -89,8 +105,31 @@ impl AppExt for App {
     fn register_side_effect<T: SideEffect>(&mut self, ldtk_name: &str) {
         self.register_ldtk_entity::<PowerupBundle<T>>(ldtk_name);
         self.add_system(collect_powerup::<T>);
+        self.add_system(delete_side_effect::<T>);
         self.add_system(detect_side_effect::<T>);
         self.add_event::<SideEffectEvent<T>>();
+    }
+}
+fn delete_side_effect<T: SideEffect>(
+    mut sides: Query<(&Side, &mut Handle<Image>), With<T>>,
+    players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
+    devnulls: Query<(Entity, &GridCoords), With<DevNull>>,
+    mut commands: Commands,
+) {
+    for (player_coords, player_rotation, player_children) in players.iter() {
+        for (devnull, devnull_coords) in devnulls.iter() {
+            if player_coords == devnull_coords {
+                for &side in player_children {
+                    if let Ok((side_data, mut side_texture)) = sides.get_mut(side) {
+                        if side_data.0 == player_rotation.0 {
+                            *side_texture = default();
+                            commands.entity(devnull).despawn();
+                            commands.entity(side).insert(Blank).remove::<T>();
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
