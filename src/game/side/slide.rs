@@ -2,7 +2,7 @@ use super::*;
 
 pub fn init(app: &mut App) {
     app.register_side_effect::<Slide>("SlidePower");
-    app.add_system(do_slide.before(end_turn));
+    app.add_system(do_slide.in_set(OnUpdate(GameState::Turn)).before(end_turn));
 }
 
 #[derive(Default, Component)]

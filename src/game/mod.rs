@@ -394,6 +394,7 @@ fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<Mo
 #[derive(Resource)]
 struct TurnAnimationTimer(Timer);
 
+#[derive(Debug)]
 pub struct MoveEvent(pub Entity, pub GridCoords, pub Rotation);
 
 fn start_animation(
