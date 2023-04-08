@@ -18,7 +18,7 @@ fn do_slide(
     players: Query<(&PlayerInput, &GridCoords, &Rotation)>,
     mut events: EventReader<SideEffectEvent<Slide>>,
     mut move_events: EventWriter<MoveEvent>,
-    cells: Query<(&GridCoords, &IntGridCell)>,
+    blocked: Query<BlockedQuery>,
 ) {
     for event in events.iter() {
         let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) else { continue };
@@ -28,14 +28,7 @@ fn do_slide(
             y: player_coords.y,
         };
 
-        let cell = cells.iter().find_map(|(cell_coords, cell)| {
-            if cell_coords == &next_pos {
-                Some(cell.value)
-            } else {
-                None
-            }
-        });
-        if cell == Some(BLOCK) {
+        if is_blocked(next_pos, &blocked) {
             continue;
         }
 
@@ -43,15 +36,8 @@ fn do_slide(
             x: next_pos.x,
             y: next_pos.y - 1,
         };
-        let cell_below = cells.iter().find_map(|(cell_coords, cell)| {
-            if cell_coords == &below {
-                Some(cell.value)
-            } else {
-                None
-            }
-        });
         let mut next_rotation = *player_rotation;
-        if cell_below != Some(BLOCK) {
+        if !is_blocked(below, &blocked) {
             next_rotation = next_rotation.rotated(player_input.direction);
         }
 

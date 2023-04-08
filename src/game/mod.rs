@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::{math::Vec3Swizzles, prelude::*};
+use bevy::{ecs::query::WorldQuery, math::Vec3Swizzles, prelude::*};
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
 use self::config::Config;
@@ -33,7 +33,7 @@ enum GameState {
 }
 
 // TODO: load from ldtk
-const BLOCK: i32 = 1;
+// const BLOCK: i32 = 1;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
@@ -80,7 +80,17 @@ impl bevy::app::Plugin for Plugin {
         app.add_system(loading_level_finish);
 
         app.add_system(change_levels);
+
+        app.register_ldtk_int_cell::<BlockBundle>(1);
     }
+}
+
+#[derive(Default, Component)]
+struct Blocking;
+
+#[derive(Bundle, LdtkIntCell)]
+struct BlockBundle {
+    blocking: Blocking,
 }
 
 fn loading_level_finish(
@@ -122,6 +132,7 @@ impl Rotation {
 #[derive(Bundle, LdtkEntity)]
 struct PlayerBundle {
     player: Player,
+    blocking: Blocking,
     #[grid_coords]
     position: GridCoords,
     rotation: Rotation,
@@ -276,10 +287,12 @@ fn level_restart(
 
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
-    cells: Query<(&GridCoords, &IntGridCell)>,
-    mut players: Query<(&PlayerInput, &mut GridCoords, &mut Rotation), Without<IntGridCell>>,
+    blocked: Query<BlockedQuery>,
+    players: Query<(Entity, &PlayerInput, &GridCoords, &Rotation), With<SelectedPlayer>>,
+    mut events: EventWriter<MoveEvent>,
 ) {
-    for (input, mut coords, mut rot) in players.iter_mut() {
+    for (player, input, coords, rot) in players.iter() {
+        let mut new_rotation = *rot;
         let mut new_coords = *coords;
         match input.direction {
             Direction::Left => new_coords.x -= 1,
@@ -288,22 +301,15 @@ fn player_move(
             }
             Direction::Right => new_coords.x += 1,
         }
-        // TODO: bad performance
-        let cell = cells.iter().find_map(|(coords, cell)| {
-            if coords == &new_coords {
-                Some(cell)
-            } else {
-                None
-            }
-        });
-        if cell.map_or(true, |cell| cell.value != BLOCK) {
-            *coords = new_coords;
+        if is_blocked(new_coords, &blocked) {
+            new_coords = *coords;
         }
         match input.direction {
-            Direction::Left => rot.rotate_left(),
+            Direction::Left => new_rotation.rotate_left(),
             Direction::None => {}
-            Direction::Right => rot.rotate_right(),
+            Direction::Right => new_rotation.rotate_right(),
         }
+        events.send(MoveEvent(player, new_coords, new_rotation));
         next_state.set(GameState::Animation);
     }
 }
@@ -363,43 +369,24 @@ fn init_prev_coords(
 }
 
 fn falling_system(
-    cells: Query<(&GridCoords, &IntGridCell)>,
+    blocked: Query<BlockedQuery>,
     players: Query<(Entity, &GridCoords, &Rotation), With<Player>>,
     mut events: EventWriter<MoveEvent>,
 ) {
     for (player, coords, rotation) in players.iter() {
         let mut new_coords = *coords;
         new_coords.y -= 1;
-        // TODO: bad performance
-        let cell = cells.iter().find_map(|(coords, cell)| {
-            if coords == &new_coords {
-                Some(cell)
-            } else {
-                None
-            }
-        });
-        if cell.map_or(true, |cell| cell.value != BLOCK) {
+        if !is_blocked(new_coords, &blocked) {
             events.send(MoveEvent(player, new_coords, *rotation));
         }
     }
 }
 
-fn end_turn(
-    mut next_state: ResMut<NextState<GameState>>,
-    mut coords: Query<(&mut GridCoords, &mut Rotation)>,
-    mut events: EventReader<MoveEvent>,
-) {
+fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<MoveEvent>) {
     if events.is_empty() {
         info!("Waiting for input now");
         next_state.set(GameState::WaitingForInput);
     } else {
-        info!("Animation started");
-        for event in events.iter() {
-            if let Ok((mut coords, mut rot)) = coords.get_mut(event.0) {
-                *coords = event.1;
-                *rot = event.2;
-            }
-        }
         next_state.set(GameState::Animation);
     }
 }
@@ -409,7 +396,18 @@ struct TurnAnimationTimer(Timer);
 
 pub struct MoveEvent(pub Entity, pub GridCoords, pub Rotation);
 
-fn start_animation(mut commands: Commands) {
+fn start_animation(
+    mut coords: Query<(&mut GridCoords, &mut Rotation)>,
+    mut events: EventReader<MoveEvent>,
+    mut commands: Commands,
+) {
+    info!("Animation started");
+    for event in events.iter() {
+        if let Ok((mut coords, mut rot)) = coords.get_mut(event.0) {
+            *coords = event.1;
+            *rot = event.2;
+        }
+    }
     commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
         0.2,
         TimerMode::Once,
@@ -446,4 +444,15 @@ fn change_levels(input: Res<Input<KeyCode>>, mut level: ResMut<LevelSelection>) 
             _ => unreachable!(),
         }
     }
+}
+
+#[derive(WorldQuery)]
+struct BlockedQuery {
+    coords: &'static GridCoords,
+    filter: With<Blocking>,
+}
+
+fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery>) -> bool {
+    // TODO: bad performance
+    query.iter().any(|item| item.coords == &coords)
 }

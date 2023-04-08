@@ -23,7 +23,7 @@ fn do_jump(
     players: Query<(&PlayerInput, &GridCoords, &Rotation)>,
     mut events: EventReader<SideEffectEvent<Jump>>,
     mut move_events: EventWriter<MoveEvent>,
-    cells: Query<(&GridCoords, &IntGridCell)>,
+    blocked: Query<BlockedQuery>,
 ) {
     for event in events.iter() {
         if let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) {
@@ -32,16 +32,7 @@ fn do_jump(
                 .map(|(dx, dy)| IVec2::from(*player_coords) + IVec2::new(dx, dy))
                 .map(GridCoords::from);
             let mut path = Vec::from_iter(path);
-            if let Some(index) = path.iter().position(|coords| {
-                let cell = cells.iter().find_map(|(cell_coords, cell)| {
-                    if cell_coords == coords {
-                        Some(cell.value)
-                    } else {
-                        None
-                    }
-                });
-                cell == Some(BLOCK)
-            }) {
+            if let Some(index) = path.iter().position(|coords| is_blocked(*coords, &blocked)) {
                 path.truncate(index);
             }
 

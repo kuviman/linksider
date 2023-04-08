@@ -65,7 +65,7 @@ struct SideEffectEvent<T: SideEffect> {
 fn detect_side_effect<T: SideEffect>(
     sides: Query<&Side, With<T>>,
     players: Query<(Entity, &GridCoords, &Rotation, &Children), With<Player>>,
-    cells: Query<(&GridCoords, &IntGridCell)>,
+    blocked: Query<BlockedQuery>,
     mut events: EventWriter<SideEffectEvent<T>>,
 ) {
     for (player, player_coords, player_rotation, player_children) in players.iter() {
@@ -80,14 +80,7 @@ fn detect_side_effect<T: SideEffect>(
             x: player_coords.x,
             y: player_coords.y - 1,
         };
-        let cell = cells.iter().find_map(|(coords, cell)| {
-            if coords == &below {
-                Some(cell.value)
-            } else {
-                None
-            }
-        });
-        if cell == Some(BLOCK) {
+        if is_blocked(below, &blocked) {
             events.send(SideEffectEvent {
                 player,
                 phantom_data: PhantomData,
