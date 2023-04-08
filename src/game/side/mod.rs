@@ -71,6 +71,7 @@ trait SideEffect: Component + Default {
 #[derive(Debug)]
 struct SideEffectEvent<T: SideEffect> {
     player: Entity,
+    side: i32,
     phantom_data: PhantomData<T>,
 }
 
@@ -81,25 +82,29 @@ fn detect_side_effect<T: SideEffect>(
     mut events: EventWriter<SideEffectEvent<T>>,
 ) {
     for (player, player_coords, player_rotation, player_children) in players.iter() {
-        let Some(side) = player_children
+        let mut sides: Vec<&Side> = player_children
             .iter()
             .flat_map(|&child| sides.get(child).ok())
-            .find(|side| match (side.0 + 4 - player_rotation.0) % 4 {
+            .collect();
+        sides.sort_by_key(|side| -side_vec(player_rotation.0, side.0).y);
+        for side in sides {
+            if !match side.0 {
                 0 => T::active_below(),
                 2 => T::active_above(),
                 1 | 3 => T::active_side(),
                 _ => unreachable!(),
-            }) else
-        {
-            continue;
-        };
-        let direction = side_vec(player_rotation.0, side.0);
-        let side_coords = (IVec2::from(*player_coords) + direction).into();
-        if is_blocked(side_coords, &blocked) {
-            events.send(SideEffectEvent {
-                player,
-                phantom_data: PhantomData,
-            });
+            } {
+                continue;
+            }
+            let direction = side_vec(player_rotation.0, side.0);
+            let side_coords = (IVec2::from(*player_coords) + direction).into();
+            if is_blocked(side_coords, &blocked) {
+                events.send(SideEffectEvent {
+                    player,
+                    side: side.0,
+                    phantom_data: PhantomData,
+                });
+            }
         }
     }
 }

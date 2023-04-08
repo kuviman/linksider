@@ -1,3 +1,5 @@
+use bevy::utils::HashMap;
+
 use super::*;
 
 pub fn init(app: &mut App) {
@@ -25,15 +27,22 @@ impl SideEffect for Magnet {
 }
 
 fn attach_to_walls(
-    players: Query<Entity, With<Player>>,
+    players: Query<(Entity, &Rotation), With<Player>>,
     mut events: EventReader<SideEffectEvent<Magnet>>,
     mut commands: Commands,
 ) {
-    for player in players.iter() {
-        commands.entity(player).remove::<DisableGravity>();
+    for (player, _) in players.iter() {
+        commands.entity(player).remove::<OverrideGravity>();
     }
+    let mut go = HashMap::<Entity, Vec<IVec2>>::new();
     for event in events.iter() {
-        info!("{event:?}");
-        commands.entity(event.player).insert(DisableGravity);
+        if let Ok((_, player_rotation)) = players.get(event.player) {
+            go.entry(event.player)
+                .or_default()
+                .push(side_vec(player_rotation.0, event.side));
+        }
+    }
+    for (entity, gravities) in go {
+        commands.entity(entity).insert(OverrideGravity(gravities));
     }
 }

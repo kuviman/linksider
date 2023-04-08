@@ -298,28 +298,60 @@ fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
     blocked: Query<BlockedQuery>,
-    players: Query<(Entity, &PlayerInput, &GridCoords, &Rotation), With<SelectedPlayer>>,
+    players: Query<
+        (
+            Entity,
+            &PlayerInput,
+            &GridCoords,
+            &Rotation,
+            Option<&OverrideGravity>,
+        ),
+        With<SelectedPlayer>,
+    >,
     mut events: EventWriter<MoveEvent>,
 ) {
-    for (player, input, coords, rot) in players.iter() {
+    for (player, input, coords, rot, override_gravity) in players.iter() {
+        let mut moved_to = *coords;
         let mut new_rotation = *rot;
-        let mut new_coords = *coords;
         match input.direction {
-            Direction::Left => new_coords.x -= 1,
+            Direction::Left => new_rotation.rotate_left(),
             Direction::None => {
                 continue;
             }
-            Direction::Right => new_coords.x += 1,
-        }
-        if is_blocked(new_coords, &blocked) {
-            new_coords = *coords;
-        }
-        match input.direction {
-            Direction::Left => new_rotation.rotate_left(),
-            Direction::None => {}
             Direction::Right => new_rotation.rotate_right(),
         }
-        events.send(MoveEvent(player, new_coords, new_rotation));
+        for &gravity_dir in
+            override_gravity.map_or([IVec2::new(0, -1)].as_slice(), |g| g.0.as_slice())
+        {
+            let mut new_coords = IVec2::from(*coords);
+            match input.direction {
+                Direction::Left => new_coords += gravity_dir.rotate(IVec2::new(0, -1)),
+                Direction::None => {
+                    continue;
+                }
+                Direction::Right => new_coords += gravity_dir.rotate(IVec2::new(0, 1)),
+            }
+            let mut new_coords = new_coords.into();
+            if is_blocked(new_coords, &blocked) {
+                continue;
+            }
+            if override_gravity.is_some() {
+                let turn_corner_coords = (IVec2::from(new_coords) + gravity_dir).into();
+                if !is_blocked(turn_corner_coords, &blocked) {
+                    new_coords = turn_corner_coords;
+                    match input.direction {
+                        Direction::Left => new_rotation.rotate_left(),
+                        Direction::None => {
+                            continue;
+                        }
+                        Direction::Right => new_rotation.rotate_right(),
+                    }
+                }
+            }
+            moved_to = new_coords;
+            break;
+        }
+        events.send(MoveEvent(player, moved_to, new_rotation));
         next_state.set(GameState::Animation);
     }
 }
@@ -379,18 +411,20 @@ fn init_prev_coords(
 }
 
 #[derive(Component)]
-struct DisableGravity;
+struct OverrideGravity(Vec<IVec2>);
 
 fn falling_system(
     blocked: Query<BlockedQuery>,
-    players: Query<(Entity, &GridCoords, &Rotation), (With<Player>, Without<DisableGravity>)>,
+    players: Query<(Entity, &GridCoords, &Rotation, Option<&OverrideGravity>), With<Player>>,
     mut events: EventWriter<MoveEvent>,
 ) {
-    for (player, coords, rotation) in players.iter() {
-        let mut new_coords = *coords;
-        new_coords.y -= 1;
-        if !is_blocked(new_coords, &blocked) {
-            events.send(MoveEvent(player, new_coords, *rotation));
+    for (player, coords, rotation, override_gravity) in players.iter() {
+        for &gravity in override_gravity.map_or([IVec2::new(0, -1)].as_slice(), |g| g.0.as_slice())
+        {
+            let new_coords = (IVec2::from(*coords) + gravity).into();
+            if !is_blocked(new_coords, &blocked) {
+                events.send(MoveEvent(player, new_coords, *rotation));
+            }
         }
     }
 }
