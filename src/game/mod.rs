@@ -262,13 +262,13 @@ fn player_move(
         });
         if cell.map_or(true, |cell| cell.value != BLOCK) {
             *coords = new_coords;
-            match input.direction {
-                Direction::Left => rot.rotate_left(),
-                Direction::None => {}
-                Direction::Right => rot.rotate_right(),
-            }
-            next_state.set(GameState::Animation);
         }
+        match input.direction {
+            Direction::Left => rot.rotate_left(),
+            Direction::None => {}
+            Direction::Right => rot.rotate_right(),
+        }
+        next_state.set(GameState::Animation);
     }
 }
 
