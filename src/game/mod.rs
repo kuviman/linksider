@@ -1,6 +1,10 @@
 use std::f32::consts::PI;
 
-use bevy::{ecs::query::WorldQuery, math::Vec3Swizzles, prelude::*};
+use bevy::{
+    ecs::query::{ReadOnlyWorldQuery, WorldQuery},
+    math::Vec3Swizzles,
+    prelude::*,
+};
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
 use self::config::Config;
@@ -82,6 +86,7 @@ impl bevy::app::Plugin for Plugin {
         app.add_system(change_levels);
 
         app.register_ldtk_int_cell::<BlockBundle>(1);
+        app.register_ldtk_int_cell::<WoodBundle>(6);
     }
 }
 
@@ -90,6 +95,12 @@ struct Blocking;
 
 #[derive(Bundle, LdtkIntCell)]
 struct BlockBundle {
+    blocking: Blocking,
+    trigger: side::Trigger,
+}
+
+#[derive(Bundle, LdtkIntCell)]
+struct WoodBundle {
     blocking: Blocking,
 }
 
@@ -133,6 +144,7 @@ impl Rotation {
 struct PlayerBundle {
     player: Player,
     blocking: Blocking,
+    trigger: side::Trigger,
     #[grid_coords]
     position: GridCoords,
     rotation: Rotation,
@@ -509,7 +521,7 @@ struct BlockedQuery {
     filter: With<Blocking>,
 }
 
-fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery>) -> bool {
+fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery, impl ReadOnlyWorldQuery>) -> bool {
     // TODO: bad performance
     query.iter().any(|item| item.coords == &coords)
 }
