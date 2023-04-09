@@ -59,6 +59,7 @@ fn do_jump(
                     } else {
                         *player_rotation
                     },
+                    Some("sfx/jump.wav"),
                 ));
             }
         }

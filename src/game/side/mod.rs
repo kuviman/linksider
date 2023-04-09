@@ -131,6 +131,8 @@ fn delete_side_effect<T: SideEffect>(
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
     devnulls: Query<(Entity, &GridCoords), With<DevNull>>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation, player_children) in players.iter() {
         for (devnull, devnull_coords) in devnulls.iter() {
@@ -144,6 +146,8 @@ fn delete_side_effect<T: SideEffect>(
                                 .entity(side)
                                 .remove::<TextureAtlasSprite>()
                                 .remove::<Handle<TextureAtlas>>();
+
+                            audio.play_sfx(asset_server.load("sfx/hitHurt.wav"));
                         }
                     }
                 }
@@ -152,6 +156,7 @@ fn delete_side_effect<T: SideEffect>(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn collect_powerup<T: SideEffect>(
     mut sides: Query<&Side, With<Blank>>,
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
@@ -165,6 +170,8 @@ fn collect_powerup<T: SideEffect>(
         (With<Powerup>, With<T>),
     >,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation, player_children) in players.iter() {
         for (powerup, powerup_coords, sprite, atlas) in powerups.iter() {
@@ -179,6 +186,8 @@ fn collect_powerup<T: SideEffect>(
                                 .entity(side)
                                 .insert(sprite.clone())
                                 .insert(atlas.clone());
+
+                            audio.play_sfx(asset_server.load("sfx/powerUp.wav"));
                         }
                     }
                 }
