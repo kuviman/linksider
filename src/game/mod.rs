@@ -308,7 +308,11 @@ fn update_camera(
         sum / num as f32
     };
     let current = camera.translation.xy();
-    let new = current + (target - current) * (time.delta_seconds() * 10.0).min(1.0);
+    let mut delta = target - current;
+    if delta.y.abs() < 8.0 {
+        delta.y = 0.0;
+    }
+    let new = current + delta * (time.delta_seconds() * 10.0).min(1.0);
     camera.translation = new.extend(camera.translation.z);
 }
 
