@@ -432,18 +432,38 @@ fn update_transforms(
 
         let prev_coords = &prev_coords.0;
         let tile_size = IVec2::new(16, 16); // TODO load from ldtk
-        let prev_coords = grid_coords_to_translation(*prev_coords, tile_size);
-        let coords = grid_coords_to_translation(*coords, tile_size);
-        let interpolated_coords = prev_coords * (1.0 - t) + coords * t;
-        transform.translation.x = interpolated_coords.x;
-        transform.translation.y = interpolated_coords.y;
-
+        let prev_pos = grid_coords_to_translation(*prev_coords, tile_size);
+        let next_pos = grid_coords_to_translation(*coords, tile_size);
         let prev_rot = &prev_rot.0;
         let prev_rot = prev_rot.to_radians();
         let rot = rot.to_radians();
-        let rot_diff = rot - prev_rot;
-        let interpolated_rot = prev_rot + rot_diff * t;
-        transform.rotation = Quat::from_rotation_z(interpolated_rot);
+        let delta_pos = next_pos - prev_pos;
+        let delta_rot = rot - prev_rot;
+
+        if delta_rot != 0.0 {
+            let rotation_origin = prev_pos
+                + delta_pos / 2.0
+                + Vec2::new(0.0, 1.0).rotate(delta_pos) / (delta_rot / 2.0).tan() / 2.0;
+
+            let border_radius: f32 = delta_rot.abs() / PI * 8.0;
+
+            let extra_len =
+                (1.0 / ((1.0 - (t - 0.5).abs() * 2.0) * PI / 4.0).cos() - 1.0) * border_radius;
+
+            *transform = Transform::from_translation(prev_pos.extend(transform.translation.z))
+                .with_rotation(Quat::from_rotation_z(prev_rot));
+            transform.rotate_around(
+                rotation_origin.extend(123.45),
+                Quat::from_rotation_z(delta_rot * t),
+            );
+            transform.translation = (transform.translation.xy()
+                + (rotation_origin - transform.translation.xy()).normalize_or_zero() * extra_len)
+                .extend(transform.translation.z);
+        } else {
+            let interpolated_coords = prev_pos + delta_pos * t;
+            transform.translation.x = interpolated_coords.x;
+            transform.translation.y = interpolated_coords.y;
+        }
     }
 }
 
