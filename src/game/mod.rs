@@ -109,12 +109,10 @@ impl Rotation {
         self.0 as f32 * PI / 2.0
     }
     pub fn rotate_right(&mut self) {
-        self.0 += 3;
-        self.0 %= 4;
+        self.0 -= 1;
     }
     pub fn rotate_left(&mut self) {
         self.0 += 1;
-        self.0 %= 4;
     }
 
     pub fn rotated(&self, direction: Direction) -> Self {
@@ -322,7 +320,7 @@ fn level_restart(
 }
 
 fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
-    match (player_rot + 4 - side_rot) % 4 {
+    match (player_rot - side_rot).rem_euclid(4) {
         0 => IVec2::new(0, -1),
         1 => IVec2::new(1, 0),
         2 => IVec2::new(0, 1),
@@ -443,13 +441,7 @@ fn update_transforms(
         let prev_rot = &prev_rot.0;
         let prev_rot = prev_rot.to_radians();
         let rot = rot.to_radians();
-        let mut rot_diff = rot - prev_rot;
-        while rot_diff > PI {
-            rot_diff -= 2.0 * PI;
-        }
-        while rot_diff < -PI {
-            rot_diff += 2.0 * PI;
-        }
+        let rot_diff = rot - prev_rot;
         let interpolated_rot = prev_rot + rot_diff * t;
         transform.rotation = Quat::from_rotation_z(interpolated_rot);
     }

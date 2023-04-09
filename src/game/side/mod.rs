@@ -178,7 +178,7 @@ fn collect_powerup<T: SideEffect>(
             if player_coords == powerup_coords {
                 for &side in player_children {
                     if let Ok(side_data) = sides.get_mut(side) {
-                        if side_data.0 == player_rotation.0 {
+                        if (side_data.0 - player_rotation.0) % 4 == 0 {
                             commands.entity(powerup).despawn();
                             commands.entity(side).remove::<Blank>().insert(T::default());
 
