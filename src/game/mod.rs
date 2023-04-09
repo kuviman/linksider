@@ -7,19 +7,10 @@ use bevy::{
 };
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
-use self::config::Config;
-
-pub mod config;
 mod goal;
 mod side;
 
 pub struct Plugin;
-
-impl Default for Config {
-    fn default() -> Self {
-        serde_json::from_str(include_str!("config.json")).unwrap()
-    }
-}
 
 #[derive(Default, Component)]
 struct Player;
@@ -41,10 +32,7 @@ enum GameState {
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Config>()
-            .register_type::<Config>()
-            .add_plugin(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Config>::default())
-            .add_startup_system(setup)
+        app.add_startup_system(setup)
             .add_system(level_restart)
             .add_startup_system(music)
             .insert_resource(LevelSelection::Index(0))
