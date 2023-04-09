@@ -30,21 +30,41 @@ fn slide_move(
     }
 }
 
+#[derive(Component)]
+struct SlideSfx(Handle<AudioSink>);
+
 fn do_slide(
-    players: Query<(&PlayerInput, &GridCoords, &Rotation)>,
+    players: Query<(&PlayerInput, &GridCoords, &Rotation, Option<&SlideSfx>)>,
     mut events: EventReader<SideEffectEvent<Slide>>,
     mut move_events: EventWriter<MoveEvent>,
     blocked: Query<BlockedQuery>,
+    audio_sinks: Res<Assets<AudioSink>>,
+    mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for event in events.iter() {
-        let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) else { continue };
+        let Ok((player_input, player_coords, player_rotation, slide_sfx)) = players.get(event.player) else { continue };
 
         let next_pos = GridCoords {
             x: player_coords.x + player_input.direction.delta(),
             y: player_coords.y,
         };
 
+        let mut stop_sfx = || {
+            if let Some(sfx) = slide_sfx {
+                if let Some(sink) = audio_sinks.get(&sfx.0) {
+                    sink.stop();
+                }
+            }
+            commands.entity(event.player).remove::<SlideSfx>();
+        };
+
         if is_blocked(next_pos, &blocked) {
+            if slide_sfx.is_some() {
+                audio.play_sfx(asset_server.load("sfx/hitWall.wav"));
+            }
+            stop_sfx();
             continue;
         }
 
@@ -53,10 +73,20 @@ fn do_slide(
             y: next_pos.y - 1,
         };
         let mut next_rotation = *player_rotation;
+        let mut sfx = None;
         if !is_blocked(below, &blocked) {
             next_rotation = next_rotation.rotated(player_input.direction);
+            sfx = Some("sfx/slideOff.wav");
+            stop_sfx();
+        } else {
+            if slide_sfx.is_none() {
+                let sfx = audio.play_sfx(asset_server.load("sfx/slide.wav"));
+                let sfx = audio_sinks.get_handle(sfx);
+                commands.entity(event.player).insert(SlideSfx(sfx));
+            }
+            // TODO vfx
         }
 
-        move_events.send(MoveEvent(event.player, next_pos, next_rotation));
+        move_events.send(MoveEvent(event.player, next_pos, next_rotation, sfx));
     }
 }

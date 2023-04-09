@@ -241,6 +241,8 @@ fn update_player_input(
     players: Query<(Entity, &PlayerIndex, &GridCoords, Option<&SelectedPlayer>), With<Player>>,
     mut inputs: Query<&mut PlayerInput, With<SelectedPlayer>>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     let mut dir = 0;
     if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
@@ -284,6 +286,7 @@ fn update_player_input(
                 % players.len() as isize;
             let new_selected_player = players[to_select as usize].2;
             commands.entity(new_selected_player).insert(SelectedPlayer);
+            audio.play_sfx(asset_server.load("sfx/selectPlayer.wav"));
         }
     }
 }
@@ -393,7 +396,16 @@ fn player_move(
                 }
                 Direction::Right => new_rotation.rotate_right(),
             }
-            events.send(MoveEvent(player, moved_to, new_rotation));
+            events.send(MoveEvent(
+                player,
+                moved_to,
+                new_rotation,
+                Some(if override_gravity.is_some() {
+                    "sfx/magnet.wav"
+                } else {
+                    "sfx/move.wav"
+                }),
+            ));
             next_state.set(GameState::Animation);
         } else {
             next_state.set(GameState::Turn);
@@ -468,7 +480,7 @@ fn falling_system(
         {
             let new_coords = (IVec2::from(*coords) + gravity).into();
             if !is_blocked(new_coords, &blocked) {
-                events.send(MoveEvent(player, new_coords, *rotation));
+                events.send(MoveEvent(player, new_coords, *rotation, None));
             }
         }
     }
@@ -487,19 +499,31 @@ fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<Mo
 struct TurnAnimationTimer(Timer);
 
 #[derive(Debug)]
-pub struct MoveEvent(pub Entity, pub GridCoords, pub Rotation);
+pub struct MoveEvent(
+    pub Entity,
+    pub GridCoords,
+    pub Rotation,
+    Option<&'static str>,
+);
 
 fn start_animation(
     mut coords: Query<(&mut GridCoords, &mut Rotation)>,
     mut events: EventReader<MoveEvent>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     info!("Animation started");
+    let mut sfx = None;
     for event in events.iter() {
         if let Ok((mut coords, mut rot)) = coords.get_mut(event.0) {
             *coords = event.1;
             *rot = event.2;
+            sfx = event.3;
         }
+    }
+    if let Some(sfx) = sfx {
+        audio.play_sfx(asset_server.load(sfx));
     }
     commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
         0.2,
@@ -548,4 +572,20 @@ struct BlockedQuery {
 fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery, impl ReadOnlyWorldQuery>) -> bool {
     // TODO: bad performance
     query.iter().any(|item| item.coords == &coords)
+}
+
+trait AudioExt {
+    fn play_sfx(&self, source: Handle<AudioSource>) -> Handle<AudioSink>;
+}
+
+impl AudioExt for Audio {
+    fn play_sfx(&self, source: Handle<AudioSource>) -> Handle<AudioSink> {
+        self.play_with_settings(
+            source,
+            PlaybackSettings {
+                volume: 0.1,
+                ..default()
+            },
+        )
+    }
 }
