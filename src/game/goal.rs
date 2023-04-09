@@ -31,7 +31,7 @@ fn finish_level(
     asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation) in players.iter() {
-        if player_rotation.0 != 0 {
+        if player_rotation.0 % 4 != 0 {
             continue;
         }
         for goal_coords in goals.iter() {
