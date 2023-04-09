@@ -532,8 +532,10 @@ fn start_animation(
 ) {
     info!("Animation started");
     let mut sfx = None;
-    for event in events.iter() {
+    let mut animation_time = 0.2;
+    if let Some(event) = events.iter().last() {
         if let Ok((mut coords, mut rot)) = coords.get_mut(event.player) {
+            animation_time *= ((rot.0 - event.rotation.0).abs() as f32).max(1.0);
             *coords = event.coords;
             *rot = event.rotation;
             sfx = event.sfx;
@@ -543,7 +545,7 @@ fn start_animation(
         audio.play_sfx(asset_server.load(sfx));
     }
     commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
-        0.2,
+        animation_time,
         TimerMode::Once,
     )));
 }
