@@ -237,21 +237,32 @@ fn update_player_input(
         };
     }
 
-    if !players.is_empty() && (keyboard_input.just_pressed(KeyCode::Tab) || inputs.is_empty()) {
-        let mut players: Vec<(Entity, bool)> = players
-            .iter()
-            .map(|(entity, selected)| (entity, selected.is_some()))
-            .collect();
-        players.sort();
-        let selected = players.iter().position(|&(_, selected)| selected);
-        if let Some(selected) = selected {
-            commands
-                .entity(players[selected].0)
-                .remove::<SelectedPlayer>();
+    if !players.is_empty() {
+        let mut dir = 0;
+        if keyboard_input.any_just_pressed([KeyCode::Tab, KeyCode::W, KeyCode::Up]) {
+            dir = 1;
         }
-        let to_select = (selected.unwrap_or(0) + 1) % players.len();
-        let new_selected_player = players[to_select].0;
-        commands.entity(new_selected_player).insert(SelectedPlayer);
+        if keyboard_input.any_just_pressed([KeyCode::Tab, KeyCode::S, KeyCode::Down]) {
+            dir = -1;
+        }
+
+        if dir != 0 || inputs.is_empty() {
+            let mut players: Vec<(Entity, bool)> = players
+                .iter()
+                .map(|(entity, selected)| (entity, selected.is_some()))
+                .collect();
+            players.sort();
+            let selected = players.iter().position(|&(_, selected)| selected);
+            if let Some(selected) = selected {
+                commands
+                    .entity(players[selected].0)
+                    .remove::<SelectedPlayer>();
+            }
+            let to_select = (selected.unwrap_or(0) as isize + players.len() as isize + dir)
+                % players.len() as isize;
+            let new_selected_player = players[to_select as usize].0;
+            commands.entity(new_selected_player).insert(SelectedPlayer);
+        }
     }
 }
 
