@@ -128,9 +128,29 @@ impl Rotation {
     }
 }
 
+#[derive(Component, Ord, PartialOrd, PartialEq, Eq)]
+struct PlayerIndex(i32);
+
+impl From<&EntityInstance> for PlayerIndex {
+    fn from(entity: &EntityInstance) -> Self {
+        match entity
+            .field_instances
+            .iter()
+            .find(|field| field.identifier.to_lowercase() == "index")
+            .expect("Set up player index daivy thx <3")
+            .value
+        {
+            FieldValue::Int(Some(index)) => PlayerIndex(index),
+            _ => panic!("Player index should be non null int"),
+        }
+    }
+}
+
 #[derive(Bundle, LdtkEntity)]
 struct PlayerBundle {
     player: Player,
+    #[from_entity_instance]
+    index: PlayerIndex,
     blocking: Blocking,
     trigger: side::Trigger,
     #[grid_coords]
@@ -218,7 +238,7 @@ pub struct PlayerInput {
 
 fn update_player_input(
     keyboard_input: Res<Input<KeyCode>>,
-    players: Query<(Entity, Option<&SelectedPlayer>), With<Player>>,
+    players: Query<(Entity, &PlayerIndex, &GridCoords, Option<&SelectedPlayer>), With<Player>>,
     mut inputs: Query<&mut PlayerInput, With<SelectedPlayer>>,
     mut commands: Commands,
 ) {
@@ -242,25 +262,27 @@ fn update_player_input(
         if keyboard_input.any_just_pressed([KeyCode::Tab, KeyCode::W, KeyCode::Up]) {
             dir = 1;
         }
-        if keyboard_input.any_just_pressed([KeyCode::Tab, KeyCode::S, KeyCode::Down]) {
+        if keyboard_input.any_just_pressed([KeyCode::S, KeyCode::Down]) {
             dir = -1;
         }
 
         if dir != 0 || inputs.is_empty() {
-            let mut players: Vec<(Entity, bool)> = players
+            let mut players: Vec<(&PlayerIndex, (i32, i32), Entity, bool)> = players
                 .iter()
-                .map(|(entity, selected)| (entity, selected.is_some()))
+                .map(|(entity, index, coords, selected)| {
+                    (index, (coords.x, coords.y), entity, selected.is_some())
+                })
                 .collect();
             players.sort();
-            let selected = players.iter().position(|&(_, selected)| selected);
+            let selected = players.iter().position(|&(.., selected)| selected);
             if let Some(selected) = selected {
                 commands
-                    .entity(players[selected].0)
+                    .entity(players[selected].2)
                     .remove::<SelectedPlayer>();
             }
             let to_select = (selected.unwrap_or(0) as isize + players.len() as isize + dir)
                 % players.len() as isize;
-            let new_selected_player = players[to_select as usize].0;
+            let new_selected_player = players[to_select as usize].2;
             commands.entity(new_selected_player).insert(SelectedPlayer);
         }
     }
@@ -309,6 +331,7 @@ fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
 #[derive(Component)]
 struct SlideMove;
 
+#[allow(clippy::type_complexity)]
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
     blocked: Query<BlockedQuery>,
