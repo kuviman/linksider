@@ -188,7 +188,7 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     );
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Left,
     None,
@@ -295,6 +295,9 @@ fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
     }
 }
 
+#[derive(Component)]
+struct SlideMove;
+
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
     blocked: Query<BlockedQuery>,
@@ -305,20 +308,17 @@ fn player_move(
             &GridCoords,
             &Rotation,
             Option<&OverrideGravity>,
+            Option<&SlideMove>,
         ),
         With<SelectedPlayer>,
     >,
     mut events: EventWriter<MoveEvent>,
 ) {
-    for (player, input, coords, rot, override_gravity) in players.iter() {
+    for (player, input, coords, rot, override_gravity, slide_move) in players.iter() {
         let mut moved_to = *coords;
         let mut new_rotation = *rot;
-        match input.direction {
-            Direction::Left => new_rotation.rotate_left(),
-            Direction::None => {
-                continue;
-            }
-            Direction::Right => new_rotation.rotate_right(),
+        if input.direction == Direction::None {
+            continue;
         }
         for &gravity_dir in
             override_gravity.map_or([IVec2::new(0, -1)].as_slice(), |g| g.0.as_slice())
@@ -342,7 +342,7 @@ fn player_move(
                     match input.direction {
                         Direction::Left => new_rotation.rotate_left(),
                         Direction::None => {
-                            continue;
+                            unreachable!()
                         }
                         Direction::Right => new_rotation.rotate_right(),
                     }
@@ -350,6 +350,15 @@ fn player_move(
             }
             moved_to = new_coords;
             break;
+        }
+        if slide_move.is_none() || moved_to == *coords {
+            match input.direction {
+                Direction::Left => new_rotation.rotate_left(),
+                Direction::None => {
+                    unreachable!()
+                }
+                Direction::Right => new_rotation.rotate_right(),
+            }
         }
         events.send(MoveEvent(player, moved_to, new_rotation));
         next_state.set(GameState::Animation);
