@@ -3,6 +3,11 @@ use super::*;
 pub fn init(app: &mut App) {
     app.register_side_effect::<Slide>("SlidePower");
     app.add_system(do_slide.in_set(OnUpdate(GameState::Turn)).before(end_turn));
+    app.add_system(
+        slide_move
+            .before(player_move)
+            .after(detect_side_effect::<Slide>),
+    );
 }
 
 #[derive(Default, Component)]
@@ -11,6 +16,21 @@ pub struct Slide;
 impl SideEffect for Slide {
     fn texture() -> &'static str {
         "side_effects/slide.png"
+    }
+}
+
+fn slide_move(
+    players: Query<Entity, With<Player>>,
+    mut events: EventReader<SideEffectEvent<Slide>>,
+    mut commands: Commands,
+) {
+    for player in players.iter() {
+        commands.entity(player).remove::<SlideMove>();
+    }
+    for event in events.iter() {
+        if players.contains(event.player) {
+            commands.entity(event.player).insert(SlideMove);
+        }
     }
 }
 

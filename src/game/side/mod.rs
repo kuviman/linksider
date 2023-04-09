@@ -19,6 +19,9 @@ pub struct Side(i32);
 #[derive(Component)]
 pub struct Blank;
 
+#[derive(Default, Component)]
+pub struct Trigger;
+
 fn side_init(query: Query<Entity, Added<Player>>, mut commands: Commands) {
     for player in query.iter() {
         for i in 0..4 {
@@ -78,7 +81,7 @@ struct SideEffectEvent<T: SideEffect> {
 fn detect_side_effect<T: SideEffect>(
     sides: Query<&Side, With<T>>,
     players: Query<(Entity, &GridCoords, &Rotation, &Children), With<Player>>,
-    blocked: Query<BlockedQuery>,
+    blocked: Query<BlockedQuery, With<Trigger>>,
     mut events: EventWriter<SideEffectEvent<T>>,
 ) {
     for (player, player_coords, player_rotation, player_children) in players.iter() {

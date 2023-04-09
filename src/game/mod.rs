@@ -1,21 +1,16 @@
 use std::f32::consts::PI;
 
-use bevy::{ecs::query::WorldQuery, math::Vec3Swizzles, prelude::*};
+use bevy::{
+    ecs::query::{ReadOnlyWorldQuery, WorldQuery},
+    math::Vec3Swizzles,
+    prelude::*,
+};
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
-use self::config::Config;
-
-pub mod config;
 mod goal;
 mod side;
 
 pub struct Plugin;
-
-impl Default for Config {
-    fn default() -> Self {
-        serde_json::from_str(include_str!("config.json")).unwrap()
-    }
-}
 
 #[derive(Default, Component)]
 struct Player;
@@ -37,10 +32,7 @@ enum GameState {
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Config>()
-            .register_type::<Config>()
-            .add_plugin(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Config>::default())
-            .add_startup_system(setup)
+        app.add_startup_system(setup)
             .add_system(level_restart)
             .add_startup_system(music)
             .insert_resource(LevelSelection::Index(0))
@@ -82,6 +74,7 @@ impl bevy::app::Plugin for Plugin {
         app.add_system(change_levels);
 
         app.register_ldtk_int_cell::<BlockBundle>(1);
+        app.register_ldtk_int_cell::<WoodBundle>(6);
     }
 }
 
@@ -90,6 +83,12 @@ struct Blocking;
 
 #[derive(Bundle, LdtkIntCell)]
 struct BlockBundle {
+    blocking: Blocking,
+    trigger: side::Trigger,
+}
+
+#[derive(Bundle, LdtkIntCell)]
+struct WoodBundle {
     blocking: Blocking,
 }
 
@@ -129,10 +128,31 @@ impl Rotation {
     }
 }
 
+#[derive(Component, Ord, PartialOrd, PartialEq, Eq)]
+struct PlayerIndex(i32);
+
+impl From<&EntityInstance> for PlayerIndex {
+    fn from(entity: &EntityInstance) -> Self {
+        match entity
+            .field_instances
+            .iter()
+            .find(|field| field.identifier.to_lowercase() == "index")
+            .expect("Set up player index daivy thx <3")
+            .value
+        {
+            FieldValue::Int(Some(index)) => PlayerIndex(index),
+            _ => panic!("Player index should be non null int"),
+        }
+    }
+}
+
 #[derive(Bundle, LdtkEntity)]
 struct PlayerBundle {
     player: Player,
+    #[from_entity_instance]
+    index: PlayerIndex,
     blocking: Blocking,
+    trigger: side::Trigger,
     #[grid_coords]
     position: GridCoords,
     rotation: Rotation,
@@ -188,7 +208,7 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     );
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Left,
     None,
@@ -218,7 +238,7 @@ pub struct PlayerInput {
 
 fn update_player_input(
     keyboard_input: Res<Input<KeyCode>>,
-    players: Query<(Entity, Option<&SelectedPlayer>), With<Player>>,
+    players: Query<(Entity, &PlayerIndex, &GridCoords, Option<&SelectedPlayer>), With<Player>>,
     mut inputs: Query<&mut PlayerInput, With<SelectedPlayer>>,
     mut commands: Commands,
 ) {
@@ -237,21 +257,34 @@ fn update_player_input(
         };
     }
 
-    if !players.is_empty() && (keyboard_input.just_pressed(KeyCode::Tab) || inputs.is_empty()) {
-        let mut players: Vec<(Entity, bool)> = players
-            .iter()
-            .map(|(entity, selected)| (entity, selected.is_some()))
-            .collect();
-        players.sort();
-        let selected = players.iter().position(|&(_, selected)| selected);
-        if let Some(selected) = selected {
-            commands
-                .entity(players[selected].0)
-                .remove::<SelectedPlayer>();
+    if !players.is_empty() {
+        let mut dir = 0;
+        if keyboard_input.any_just_pressed([KeyCode::Tab, KeyCode::W, KeyCode::Up]) {
+            dir = 1;
         }
-        let to_select = (selected.unwrap_or(0) + 1) % players.len();
-        let new_selected_player = players[to_select].0;
-        commands.entity(new_selected_player).insert(SelectedPlayer);
+        if keyboard_input.any_just_pressed([KeyCode::S, KeyCode::Down]) {
+            dir = -1;
+        }
+
+        if dir != 0 || inputs.is_empty() {
+            let mut players: Vec<(&PlayerIndex, (i32, i32), Entity, bool)> = players
+                .iter()
+                .map(|(entity, index, coords, selected)| {
+                    (index, (coords.x, coords.y), entity, selected.is_some())
+                })
+                .collect();
+            players.sort();
+            let selected = players.iter().position(|&(.., selected)| selected);
+            if let Some(selected) = selected {
+                commands
+                    .entity(players[selected].2)
+                    .remove::<SelectedPlayer>();
+            }
+            let to_select = (selected.unwrap_or(0) as isize + players.len() as isize + dir)
+                % players.len() as isize;
+            let new_selected_player = players[to_select as usize].2;
+            commands.entity(new_selected_player).insert(SelectedPlayer);
+        }
     }
 }
 
@@ -295,6 +328,10 @@ fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
     }
 }
 
+#[derive(Component)]
+struct SlideMove;
+
+#[allow(clippy::type_complexity)]
 fn player_move(
     mut next_state: ResMut<NextState<GameState>>,
     blocked: Query<BlockedQuery>,
@@ -305,20 +342,17 @@ fn player_move(
             &GridCoords,
             &Rotation,
             Option<&OverrideGravity>,
+            Option<&SlideMove>,
         ),
         With<SelectedPlayer>,
     >,
     mut events: EventWriter<MoveEvent>,
 ) {
-    for (player, input, coords, rot, override_gravity) in players.iter() {
+    for (player, input, coords, rot, override_gravity, slide_move) in players.iter() {
         let mut moved_to = *coords;
         let mut new_rotation = *rot;
-        match input.direction {
-            Direction::Left => new_rotation.rotate_left(),
-            Direction::None => {
-                continue;
-            }
-            Direction::Right => new_rotation.rotate_right(),
+        if input.direction == Direction::None {
+            continue;
         }
         for &gravity_dir in
             override_gravity.map_or([IVec2::new(0, -1)].as_slice(), |g| g.0.as_slice())
@@ -342,7 +376,7 @@ fn player_move(
                     match input.direction {
                         Direction::Left => new_rotation.rotate_left(),
                         Direction::None => {
-                            continue;
+                            unreachable!()
                         }
                         Direction::Right => new_rotation.rotate_right(),
                     }
@@ -351,8 +385,19 @@ fn player_move(
             moved_to = new_coords;
             break;
         }
-        events.send(MoveEvent(player, moved_to, new_rotation));
-        next_state.set(GameState::Animation);
+        if slide_move.is_none() || moved_to.x == coords.x {
+            match input.direction {
+                Direction::Left => new_rotation.rotate_left(),
+                Direction::None => {
+                    unreachable!()
+                }
+                Direction::Right => new_rotation.rotate_right(),
+            }
+            events.send(MoveEvent(player, moved_to, new_rotation));
+            next_state.set(GameState::Animation);
+        } else {
+            next_state.set(GameState::Turn);
+        }
     }
 }
 
@@ -500,7 +545,7 @@ struct BlockedQuery {
     filter: With<Blocking>,
 }
 
-fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery>) -> bool {
+fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery, impl ReadOnlyWorldQuery>) -> bool {
     // TODO: bad performance
     query.iter().any(|item| item.coords == &coords)
 }
