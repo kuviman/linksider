@@ -394,16 +394,16 @@ fn player_move(
                 }
                 Direction::Right => new_rotation.rotate_right(),
             }
-            events.send(MoveEvent(
+            events.send(MoveEvent {
                 player,
-                moved_to,
-                new_rotation,
-                Some(if override_gravity.is_some() {
+                coords: moved_to,
+                rotation: new_rotation,
+                sfx: Some(if override_gravity.is_some() {
                     "sfx/magnet.wav"
                 } else {
                     "sfx/move.wav"
                 }),
-            ));
+            });
             next_state.set(GameState::Animation);
         } else {
             next_state.set(GameState::Turn);
@@ -472,7 +472,12 @@ fn falling_system(
         {
             let new_coords = (IVec2::from(*coords) + gravity).into();
             if !is_blocked(new_coords, &blocked) {
-                events.send(MoveEvent(player, new_coords, *rotation, None));
+                events.send(MoveEvent {
+                    player,
+                    coords: new_coords,
+                    rotation: *rotation,
+                    sfx: None,
+                });
             }
         }
     }
@@ -491,12 +496,12 @@ fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<Mo
 struct TurnAnimationTimer(Timer);
 
 #[derive(Debug)]
-pub struct MoveEvent(
-    pub Entity,
-    pub GridCoords,
-    pub Rotation,
-    Option<&'static str>,
-);
+pub struct MoveEvent {
+    pub player: Entity,
+    pub coords: GridCoords,
+    pub rotation: Rotation,
+    pub sfx: Option<&'static str>,
+}
 
 fn start_animation(
     mut coords: Query<(&mut GridCoords, &mut Rotation)>,
@@ -508,10 +513,10 @@ fn start_animation(
     info!("Animation started");
     let mut sfx = None;
     for event in events.iter() {
-        if let Ok((mut coords, mut rot)) = coords.get_mut(event.0) {
-            *coords = event.1;
-            *rot = event.2;
-            sfx = event.3;
+        if let Ok((mut coords, mut rot)) = coords.get_mut(event.player) {
+            *coords = event.coords;
+            *rot = event.rotation;
+            sfx = event.sfx;
         }
     }
     if let Some(sfx) = sfx {
