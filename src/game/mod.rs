@@ -351,7 +351,7 @@ fn player_move(
             moved_to = new_coords;
             break;
         }
-        if slide_move.is_none() || moved_to == *coords {
+        if slide_move.is_none() || moved_to.x == coords.x {
             match input.direction {
                 Direction::Left => new_rotation.rotate_left(),
                 Direction::None => {
