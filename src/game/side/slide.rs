@@ -87,6 +87,11 @@ fn do_slide(
             // TODO vfx
         }
 
-        move_events.send(MoveEvent(event.player, next_pos, next_rotation, sfx));
+        move_events.send(MoveEvent {
+            player: event.player,
+            coords: next_pos,
+            rotation: next_rotation,
+            sfx,
+        });
     }
 }
