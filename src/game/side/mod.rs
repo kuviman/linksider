@@ -29,12 +29,14 @@ fn side_init(query: Query<Entity, Added<Player>>, mut commands: Commands) {
                 .spawn((
                     Side(i),
                     Blank,
-                    SpriteBundle {
-                        transform: Transform::from_rotation(Quat::from_rotation_z(
-                            -i as f32 * PI / 2.0,
-                        )) * Transform::from_translation(Vec3::new(0.0, -8.0, 0.0)), // KEKW
-                        ..default()
-                    },
+                    TransformBundle::from_transform(
+                        Transform::from_rotation(Quat::from_rotation_z(-(i + 2) as f32 * PI / 2.0))
+                            * Transform::from_translation(Vec3::new(
+                                0.0, 16.0, // KEKW
+                                0.0,
+                            )),
+                    ),
+                    VisibilityBundle::default(),
                 ))
                 .set_parent(player);
         }
@@ -59,7 +61,6 @@ struct DevNullBundle {
 }
 
 trait SideEffect: Component + Default {
-    fn texture() -> &'static str;
     fn active_below() -> bool {
         true
     }
@@ -126,7 +127,7 @@ impl AppExt for App {
     }
 }
 fn delete_side_effect<T: SideEffect>(
-    mut sides: Query<(&Side, &mut Handle<Image>), With<T>>,
+    mut sides: Query<&Side, With<T>>,
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
     devnulls: Query<(Entity, &GridCoords), With<DevNull>>,
     mut commands: Commands,
@@ -135,11 +136,14 @@ fn delete_side_effect<T: SideEffect>(
         for (devnull, devnull_coords) in devnulls.iter() {
             if player_coords == devnull_coords {
                 for &side in player_children {
-                    if let Ok((side_data, mut side_texture)) = sides.get_mut(side) {
+                    if let Ok(side_data) = sides.get_mut(side) {
                         if side_data.0 == player_rotation.0 {
-                            *side_texture = default();
                             commands.entity(devnull).despawn();
                             commands.entity(side).insert(Blank).remove::<T>();
+                            commands
+                                .entity(side)
+                                .remove::<TextureAtlasSprite>()
+                                .remove::<Handle<TextureAtlas>>();
                         }
                     }
                 }
@@ -149,21 +153,32 @@ fn delete_side_effect<T: SideEffect>(
 }
 
 fn collect_powerup<T: SideEffect>(
-    mut sides: Query<(&Side, &mut Handle<Image>), With<Blank>>,
+    mut sides: Query<&Side, With<Blank>>,
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
-    powerups: Query<(Entity, &GridCoords), (With<Powerup>, With<T>)>,
+    powerups: Query<
+        (
+            Entity,
+            &GridCoords,
+            &TextureAtlasSprite,
+            &Handle<TextureAtlas>,
+        ),
+        (With<Powerup>, With<T>),
+    >,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation, player_children) in players.iter() {
-        for (powerup, powerup_coords) in powerups.iter() {
+        for (powerup, powerup_coords, sprite, atlas) in powerups.iter() {
             if player_coords == powerup_coords {
                 for &side in player_children {
-                    if let Ok((side_data, mut side_texture)) = sides.get_mut(side) {
+                    if let Ok(side_data) = sides.get_mut(side) {
                         if side_data.0 == player_rotation.0 {
-                            *side_texture = asset_server.load(T::texture());
                             commands.entity(powerup).despawn();
                             commands.entity(side).remove::<Blank>().insert(T::default());
+
+                            commands
+                                .entity(side)
+                                .insert(sprite.clone())
+                                .insert(atlas.clone());
                         }
                     }
                 }

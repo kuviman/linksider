@@ -14,9 +14,6 @@ pub fn init(app: &mut App) {
 pub struct Jump;
 
 impl SideEffect for Jump {
-    fn texture() -> &'static str {
-        "side_effects/jump.png"
-    }
     fn active_side() -> bool {
         // bevy pog
         true

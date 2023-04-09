@@ -15,9 +15,6 @@ pub fn init(app: &mut App) {
 pub struct Magnet;
 
 impl SideEffect for Magnet {
-    fn texture() -> &'static str {
-        "side_effects/magnet.png"
-    }
     fn active_side() -> bool {
         true
     }

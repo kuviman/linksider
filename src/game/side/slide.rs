@@ -13,11 +13,7 @@ pub fn init(app: &mut App) {
 #[derive(Default, Component)]
 pub struct Slide;
 
-impl SideEffect for Slide {
-    fn texture() -> &'static str {
-        "side_effects/slide.png"
-    }
-}
+impl SideEffect for Slide {}
 
 fn slide_move(
     players: Query<Entity, With<Player>>,
