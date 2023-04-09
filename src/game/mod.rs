@@ -393,9 +393,11 @@ fn player_move(
                 }
                 Direction::Right => new_rotation.rotate_right(),
             }
+            events.send(MoveEvent(player, moved_to, new_rotation));
+            next_state.set(GameState::Animation);
+        } else {
+            next_state.set(GameState::Turn);
         }
-        events.send(MoveEvent(player, moved_to, new_rotation));
-        next_state.set(GameState::Animation);
     }
 }
 
