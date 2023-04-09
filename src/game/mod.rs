@@ -290,11 +290,12 @@ fn update_player_input(
 }
 
 fn update_camera(
+    time: Res<Time>,
     mut camera: Query<&mut Transform, With<Camera2d>>,
     player: Query<&GlobalTransform, With<SelectedPlayer>>,
 ) {
     let mut camera = camera.single_mut();
-    camera.translation = {
+    let target = {
         let (sum, num) = player
             .iter()
             .fold((Vec2::ZERO, 0), |(sum, num), transform| {
@@ -304,8 +305,11 @@ fn update_camera(
             warn!("No players??");
             return;
         }
-        (sum / num as f32).extend(camera.translation.z)
+        sum / num as f32
     };
+    let current = camera.translation.xy();
+    let new = current + (target - current) * (time.delta_seconds() * 10.0).min(1.0);
+    camera.translation = new.extend(camera.translation.z);
 }
 
 fn level_restart(
