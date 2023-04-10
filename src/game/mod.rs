@@ -86,6 +86,8 @@ impl bevy::app::Plugin for Plugin {
         app.insert_resource(AnimationEndVfx(None));
 
         animations::init(app);
+
+        app.add_system(background_tiles);
     }
 }
 
@@ -190,6 +192,20 @@ struct PowerupBundle<T: 'static + Send + Sync + Component + Default> {
     name: Name,
 }
 
+#[derive(Component)]
+struct BackgroundTile(f32, i32, i32);
+
+fn background_tiles(
+    mut query: Query<(&mut Transform, &BackgroundTile), Without<Camera2d>>,
+    camera: Query<&Transform, With<Camera2d>>,
+) {
+    let camera = camera.single();
+    for (mut transform, tile) in query.iter_mut() {
+        transform.translation.x = camera.translation.x * tile.0 + tile.1 as f32 * 256.0;
+        transform.translation.y = camera.translation.y * tile.0 + tile.2 as f32 * 256.0;
+    }
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         LdtkWorldBundle {
@@ -204,6 +220,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::FixedVertical(200.0);
         bundle
     });
+
+    for x in -2..=2 {
+        for y in -2..=2 {
+            commands.spawn((
+                SpriteBundle {
+                    texture: asset_server.load("parallax_bg_bottom.png"),
+                    ..default()
+                },
+                BackgroundTile(0.5, x, y),
+            ));
+            commands.spawn((
+                SpriteBundle {
+                    texture: asset_server.load("parallax_bg_top.png"),
+                    ..default()
+                },
+                BackgroundTile(0.75, x, y),
+            ));
+        }
+    }
 }
 
 fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
