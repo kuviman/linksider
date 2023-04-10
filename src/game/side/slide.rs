@@ -75,7 +75,7 @@ fn do_slide(
         let mut next_rotation = *player_rotation;
         let mut sfx = None;
         if !is_blocked(below, &blocked) {
-            next_rotation = next_rotation.rotated(player_input.direction);
+            next_rotation = next_rotation.rotated(-player_input.direction);
             sfx = Some("sfx/slideOff.wav");
             stop_sfx();
         } else {

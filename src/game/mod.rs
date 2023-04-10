@@ -218,6 +218,17 @@ pub enum Direction {
     Right,
 }
 
+impl std::ops::Neg for Direction {
+    type Output = Self;
+    fn neg(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::None => Self::None,
+            Self::Right => Self::Left,
+        }
+    }
+}
+
 impl Direction {
     fn delta(&self) -> i32 {
         match self {
