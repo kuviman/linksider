@@ -99,6 +99,7 @@ fn do_slide(
                 "animation/slide.png",
                 Some(48.0),
                 false,
+                false,
             )),
             end_vfx: None,
         });

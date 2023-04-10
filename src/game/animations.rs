@@ -41,11 +41,16 @@ impl AnimationBundle {
         atlas: &'static str,
         atlas_size: Option<f32>,
         top: bool,
+        mirror: bool,
     ) -> Self {
         const FRAMES: usize = 5;
         Self {
             atlas_path: AtlasPath(atlas, atlas_size.unwrap_or(16.0)),
             sprite_sheet: SpriteSheetBundle {
+                sprite: TextureAtlasSprite {
+                    flip_x: mirror,
+                    ..default()
+                },
                 transform: Transform::from_rotation(Quat::from_rotation_z(rot as f32 * PI / 2.0))
                     .with_translation(
                         grid_coords_to_translation(coords, IVec2::new(16, 16)).extend(if top {

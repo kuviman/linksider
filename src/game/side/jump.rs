@@ -72,12 +72,14 @@ fn do_jump(
                         "animation/jump.png",
                         None,
                         true,
+                        false,
                     )),
                     end_vfx: hit_wall.then_some(AnimationBundle::new(
                         last,
                         vec_to_rot(-jump_dir), // TODO
                         "animation/hit_wall.png",
                         None,
+                        false,
                         false,
                     )),
                 });

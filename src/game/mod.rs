@@ -228,14 +228,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     texture: asset_server.load("parallax_bg_bottom.png"),
                     ..default()
                 },
-                BackgroundTile(0.5, x, y),
+                BackgroundTile(0.75, x, y),
             ));
             commands.spawn((
                 SpriteBundle {
+                    transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.1)),
                     texture: asset_server.load("parallax_bg_top.png"),
                     ..default()
                 },
-                BackgroundTile(0.75, x, y),
+                BackgroundTile(0.5, x, y),
             ));
         }
     }
@@ -243,10 +244,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     audio.play_with_settings(
-        asset_server.load("game_music.ogg"),
+        // asset_server.load("game_music.ogg"),
+        asset_server.load("KuviBevy.ogg"),
         PlaybackSettings {
             repeat: true,
-            volume: 0.5,
+            volume: 0.3,
             speed: 1.0,
         },
     );
@@ -351,6 +353,7 @@ fn update_player_input(
                 "animation/PLAYER_CHANGE.png",
                 None,
                 true,
+                false,
             ));
         }
     }
@@ -484,9 +487,10 @@ fn player_move(
                 vfx: Some(AnimationBundle::new(
                     *coords,
                     ground_rot,
-                    "animation/move.png",
+                    "animation/walk.png",
                     None,
                     false,
+                    input.direction == Direction::Left,
                 )),
                 end_vfx: None,
             });
