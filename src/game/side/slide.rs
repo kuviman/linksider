@@ -93,6 +93,14 @@ fn do_slide(
             rotation: next_rotation,
             sfx,
             end_sfx: None,
+            vfx: Some(AnimationBundle::new(
+                *player_coords,
+                0,
+                "animation/slide.png",
+                Some(48.0),
+                false,
+            )),
+            end_vfx: None,
         });
     }
 }

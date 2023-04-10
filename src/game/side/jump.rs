@@ -28,8 +28,6 @@ fn do_jump(
     mut events: EventReader<SideEffectEvent<Jump>>,
     mut move_events: EventWriter<MoveEvent>,
     blocked: Query<BlockedQuery>,
-    audio: Res<Audio>,
-    asset_server: Res<AssetServer>,
 ) {
     for event in events.iter() {
         if let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) {
@@ -51,7 +49,10 @@ fn do_jump(
             let mut hit_wall = false;
             if let Some(index) = path.iter().position(|coords| is_blocked(*coords, &blocked)) {
                 path.truncate(index);
-                hit_wall = true;
+                if index < 2 {
+                    // Not for the side
+                    hit_wall = true;
+                }
             }
 
             if let Some(last) = path.pop() {
@@ -65,6 +66,20 @@ fn do_jump(
                     },
                     sfx: Some("sfx/jump.wav"),
                     end_sfx: hit_wall.then_some("sfx/hitWall.wav"),
+                    vfx: Some(AnimationBundle::new(
+                        *player_coords,
+                        vec_to_rot(-jump_dir),
+                        "animation/jump.png",
+                        None,
+                        true,
+                    )),
+                    end_vfx: hit_wall.then_some(AnimationBundle::new(
+                        last,
+                        vec_to_rot(-jump_dir), // TODO
+                        "animation/hit_wall.png",
+                        None,
+                        false,
+                    )),
                 });
             }
         }

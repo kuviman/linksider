@@ -7,6 +7,9 @@ use bevy::{
 };
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
+use self::animations::AnimationBundle;
+
+mod animations;
 mod goal;
 mod side;
 
@@ -80,6 +83,9 @@ impl bevy::app::Plugin for Plugin {
         app.add_system(this_should_have_been_done_by_daivy_not_in_bevy_system);
 
         app.insert_resource(AnimationEndSfx(None));
+        app.insert_resource(AnimationEndVfx(None));
+
+        animations::init(app);
     }
 }
 
@@ -301,6 +307,16 @@ fn update_player_input(
             let new_selected_player = players[to_select as usize].2;
             commands.entity(new_selected_player).insert(SelectedPlayer);
             audio.play_sfx(asset_server.load("sfx/selectPlayer.wav"));
+            commands.spawn(AnimationBundle::new(
+                {
+                    let (x, y) = players[to_select as usize].1;
+                    GridCoords { x, y }
+                },
+                0,
+                "animation/PLAYER_CHANGE.png",
+                None,
+                true,
+            ));
         }
     }
 }
@@ -379,6 +395,7 @@ fn player_move(
         if input.direction == Direction::None {
             continue;
         }
+        let mut ground_rot = 0;
         for &gravity_dir in
             override_gravity.map_or([IVec2::new(0, -1)].as_slice(), |g| g.0.as_slice())
         {
@@ -408,6 +425,7 @@ fn player_move(
                 }
             }
             moved_to = new_coords;
+            ground_rot = vec_to_rot(gravity_dir);
             break;
         }
         if slide_move.is_none() || moved_to.x == coords.x {
@@ -428,6 +446,14 @@ fn player_move(
                     "sfx/move.wav"
                 }),
                 end_sfx: None,
+                vfx: Some(AnimationBundle::new(
+                    *coords,
+                    ground_rot,
+                    "animation/move.png",
+                    None,
+                    false,
+                )),
+                end_vfx: None,
             });
             next_state.set(GameState::Animation);
         } else {
@@ -523,6 +549,8 @@ fn falling_system(
                     rotation: *rotation,
                     sfx: None,
                     end_sfx: None,
+                    vfx: None,
+                    end_vfx: None,
                 });
             }
         }
@@ -541,23 +569,28 @@ fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<Mo
 #[derive(Resource)]
 struct TurnAnimationTimer(Timer);
 
-#[derive(Debug)]
 pub struct MoveEvent {
     pub player: Entity,
     pub coords: GridCoords,
     pub rotation: Rotation,
     pub sfx: Option<&'static str>,
     pub end_sfx: Option<&'static str>,
+    pub vfx: Option<AnimationBundle>,
+    pub end_vfx: Option<AnimationBundle>,
 }
 
 #[derive(Resource)]
 struct AnimationEndSfx(Option<Handle<AudioSource>>);
+
+#[derive(Resource)]
+struct AnimationEndVfx(Option<AnimationBundle>);
 
 fn start_animation(
     mut coords: Query<(&mut GridCoords, &mut Rotation)>,
     mut events: EventReader<MoveEvent>,
     mut commands: Commands,
     mut end_sfx: ResMut<AnimationEndSfx>,
+    mut end_vfx: ResMut<AnimationEndVfx>,
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
 ) {
@@ -571,6 +604,11 @@ fn start_animation(
             *rot = event.rotation;
             sfx = event.sfx;
             end_sfx.0 = event.end_sfx.map(|path| asset_server.load(path));
+            if let Some(vfx) = event.vfx.clone() {
+                let entity = commands.spawn(vfx).id();
+                info!("Spawn {entity:?}");
+            }
+            end_vfx.0 = event.end_vfx.clone();
         }
     }
     if let Some(sfx) = sfx {
@@ -586,13 +624,18 @@ fn stop_animation(
     mut next_state: ResMut<NextState<GameState>>,
     turn_timer: Res<TurnAnimationTimer>,
     mut end_sfx: ResMut<AnimationEndSfx>,
+    mut end_vfx: ResMut<AnimationEndVfx>,
     audio: Res<Audio>,
+    mut commands: Commands,
 ) {
     if turn_timer.0.finished() {
         info!("Animation finished");
         next_state.set(GameState::Turn);
         if let Some(source) = end_sfx.0.take() {
             audio.play_sfx(source);
+        }
+        if let Some(vfx) = end_vfx.0.take() {
+            commands.spawn(vfx);
         }
     }
 }
@@ -664,4 +707,20 @@ fn this_should_have_been_done_by_daivy_not_in_bevy_system(
     for mut transform in query.iter_mut() {
         transform.translation.z += 123.45;
     }
+}
+
+fn vec_to_rot(v: IVec2) -> i32 {
+    if v.y < 0 {
+        return 0;
+    }
+    if v.y > 0 {
+        return 2;
+    }
+    if v.x > 0 {
+        return 1;
+    }
+    if v.x < 0 {
+        return 0;
+    }
+    unreachable!()
 }
