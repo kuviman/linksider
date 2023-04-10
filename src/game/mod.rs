@@ -326,7 +326,7 @@ fn level_restart(
     input: Res<Input<KeyCode>>,
     mut commands: Commands,
 ) {
-    if input.just_released(KeyCode::R) {
+    if input.any_just_released([KeyCode::R, KeyCode::Back]) {
         let ldtk_world = ldtk_worlds.single();
         commands.entity(ldtk_world).insert(Respawn);
     }
