@@ -77,6 +77,7 @@ impl bevy::app::Plugin for Plugin {
         app.register_ldtk_int_cell::<WoodBundle>(6);
 
         app.add_system(highlight_selected_player);
+        app.add_system(this_should_have_been_done_by_daivy_not_in_bevy_system);
     }
 }
 
@@ -628,5 +629,13 @@ fn highlight_selected_player(
         } else {
             Color::rgba(0.5, 0.5, 0.5, 0.5)
         };
+    }
+}
+
+fn this_should_have_been_done_by_daivy_not_in_bevy_system(
+    mut query: Query<&mut Transform, Added<Player>>,
+) {
+    for mut transform in query.iter_mut() {
+        transform.translation.z += 123.45;
     }
 }
