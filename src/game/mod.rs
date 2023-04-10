@@ -735,7 +735,8 @@ fn highlight_selected_player(
         sprite.color = if selected.is_some() {
             Color::WHITE
         } else {
-            Color::rgba(0.5, 0.5, 0.5, 0.5)
+            // Color::rgba(0.5, 0.5, 0.5, 1.0)
+            Color::rgba(1.0, 1.0, 1.0, 0.5)
         };
     }
 }
