@@ -75,6 +75,8 @@ impl bevy::app::Plugin for Plugin {
 
         app.register_ldtk_int_cell::<BlockBundle>(1);
         app.register_ldtk_int_cell::<WoodBundle>(6);
+
+        app.add_system(highlight_selected_player);
     }
 }
 
@@ -614,5 +616,17 @@ impl AudioExt for Audio {
                 ..default()
             },
         )
+    }
+}
+
+fn highlight_selected_player(
+    mut query: Query<(&mut TextureAtlasSprite, Option<&SelectedPlayer>), With<Player>>,
+) {
+    for (mut sprite, selected) in query.iter_mut() {
+        sprite.color = if selected.is_some() {
+            Color::WHITE
+        } else {
+            Color::rgba(0.5, 0.5, 0.5, 0.5)
+        };
     }
 }
