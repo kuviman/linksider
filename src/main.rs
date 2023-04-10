@@ -6,6 +6,7 @@ mod game;
 
 fn main() {
     let mut app = App::new();
+    app.insert_resource(Msaa::Off);
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
