@@ -30,7 +30,7 @@ fn main() {
     .add_plugin(game::Plugin)
     .add_plugin(LdtkPlugin);
 
-    if cfg!(not(debug_assertions)) {
+    if cfg!(debug_assertions) {
         app.add_plugin(LogDiagnosticsPlugin::default())
             // .add_plugin(FrameTimeDiagnosticsPlugin::default())
             .add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
