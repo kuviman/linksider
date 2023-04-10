@@ -27,13 +27,16 @@ fn finish_level(
     mut level_selection: ResMut<LevelSelection>,
     players: Query<(&GridCoords, &Rotation), With<Player>>,
     goals: Query<&GridCoords, With<Goal>>,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation) in players.iter() {
-        if player_rotation.0 != 0 {
+        if player_rotation.0 % 4 != 0 {
             continue;
         }
         for goal_coords in goals.iter() {
             if player_coords == goal_coords {
+                audio.play_sfx(asset_server.load("sfx/finishLevel.wav"));
                 match *level_selection {
                     LevelSelection::Index(ref mut index) => *index += 1,
                     _ => unreachable!(),

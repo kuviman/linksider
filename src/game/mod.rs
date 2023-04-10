@@ -109,12 +109,10 @@ impl Rotation {
         self.0 as f32 * PI / 2.0
     }
     pub fn rotate_right(&mut self) {
-        self.0 += 3;
-        self.0 %= 4;
+        self.0 -= 1;
     }
     pub fn rotate_left(&mut self) {
         self.0 += 1;
-        self.0 %= 4;
     }
 
     pub fn rotated(&self, direction: Direction) -> Self {
@@ -241,6 +239,8 @@ fn update_player_input(
     players: Query<(Entity, &PlayerIndex, &GridCoords, Option<&SelectedPlayer>), With<Player>>,
     mut inputs: Query<&mut PlayerInput, With<SelectedPlayer>>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     let mut dir = 0;
     if keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]) {
@@ -284,16 +284,18 @@ fn update_player_input(
                 % players.len() as isize;
             let new_selected_player = players[to_select as usize].2;
             commands.entity(new_selected_player).insert(SelectedPlayer);
+            audio.play_sfx(asset_server.load("sfx/selectPlayer.wav"));
         }
     }
 }
 
 fn update_camera(
+    time: Res<Time>,
     mut camera: Query<&mut Transform, With<Camera2d>>,
     player: Query<&GlobalTransform, With<SelectedPlayer>>,
 ) {
     let mut camera = camera.single_mut();
-    camera.translation = {
+    let target = {
         let (sum, num) = player
             .iter()
             .fold((Vec2::ZERO, 0), |(sum, num), transform| {
@@ -303,8 +305,15 @@ fn update_camera(
             warn!("No players??");
             return;
         }
-        (sum / num as f32).extend(camera.translation.z)
+        sum / num as f32
     };
+    let current = camera.translation.xy();
+    let mut delta = target - current;
+    if delta.y.abs() < 8.0 {
+        delta.y = 0.0;
+    }
+    let new = current + delta * (time.delta_seconds() * 10.0).min(1.0);
+    camera.translation = new.extend(camera.translation.z);
 }
 
 fn level_restart(
@@ -319,7 +328,7 @@ fn level_restart(
 }
 
 fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
-    match (player_rot + 4 - side_rot) % 4 {
+    match (player_rot - side_rot).rem_euclid(4) {
         0 => IVec2::new(0, -1),
         1 => IVec2::new(1, 0),
         2 => IVec2::new(0, 1),
@@ -393,7 +402,16 @@ fn player_move(
                 }
                 Direction::Right => new_rotation.rotate_right(),
             }
-            events.send(MoveEvent(player, moved_to, new_rotation));
+            events.send(MoveEvent {
+                player,
+                coords: moved_to,
+                rotation: new_rotation,
+                sfx: Some(if override_gravity.is_some() {
+                    "sfx/magnet.wav"
+                } else {
+                    "sfx/move.wav"
+                }),
+            });
             next_state.set(GameState::Animation);
         } else {
             next_state.set(GameState::Turn);
@@ -422,24 +440,38 @@ fn update_transforms(
 
         let prev_coords = &prev_coords.0;
         let tile_size = IVec2::new(16, 16); // TODO load from ldtk
-        let prev_coords = grid_coords_to_translation(*prev_coords, tile_size);
-        let coords = grid_coords_to_translation(*coords, tile_size);
-        let interpolated_coords = prev_coords * (1.0 - t) + coords * t;
-        transform.translation.x = interpolated_coords.x;
-        transform.translation.y = interpolated_coords.y;
-
+        let prev_pos = grid_coords_to_translation(*prev_coords, tile_size);
+        let next_pos = grid_coords_to_translation(*coords, tile_size);
         let prev_rot = &prev_rot.0;
         let prev_rot = prev_rot.to_radians();
         let rot = rot.to_radians();
-        let mut rot_diff = rot - prev_rot;
-        while rot_diff > PI {
-            rot_diff -= 2.0 * PI;
+        let delta_pos = next_pos - prev_pos;
+        let delta_rot = rot - prev_rot;
+
+        if delta_rot != 0.0 {
+            let rotation_origin = prev_pos
+                + delta_pos / 2.0
+                + Vec2::new(0.0, 1.0).rotate(delta_pos) / (delta_rot / 2.0).tan() / 2.0;
+
+            let border_radius: f32 = delta_rot.abs() / PI * 8.0;
+
+            let extra_len =
+                (1.0 / ((1.0 - (t - 0.5).abs() * 2.0) * PI / 4.0).cos() - 1.0) * border_radius;
+
+            *transform = Transform::from_translation(prev_pos.extend(transform.translation.z))
+                .with_rotation(Quat::from_rotation_z(prev_rot));
+            transform.rotate_around(
+                rotation_origin.extend(123.45),
+                Quat::from_rotation_z(delta_rot * t),
+            );
+            transform.translation = (transform.translation.xy()
+                + (rotation_origin - transform.translation.xy()).normalize_or_zero() * extra_len)
+                .extend(transform.translation.z);
+        } else {
+            let interpolated_coords = prev_pos + delta_pos * t;
+            transform.translation.x = interpolated_coords.x;
+            transform.translation.y = interpolated_coords.y;
         }
-        while rot_diff < -PI {
-            rot_diff += 2.0 * PI;
-        }
-        let interpolated_rot = prev_rot + rot_diff * t;
-        transform.rotation = Quat::from_rotation_z(interpolated_rot);
     }
 }
 
@@ -468,7 +500,12 @@ fn falling_system(
         {
             let new_coords = (IVec2::from(*coords) + gravity).into();
             if !is_blocked(new_coords, &blocked) {
-                events.send(MoveEvent(player, new_coords, *rotation));
+                events.send(MoveEvent {
+                    player,
+                    coords: new_coords,
+                    rotation: *rotation,
+                    sfx: None,
+                });
             }
         }
     }
@@ -487,22 +524,36 @@ fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<Mo
 struct TurnAnimationTimer(Timer);
 
 #[derive(Debug)]
-pub struct MoveEvent(pub Entity, pub GridCoords, pub Rotation);
+pub struct MoveEvent {
+    pub player: Entity,
+    pub coords: GridCoords,
+    pub rotation: Rotation,
+    pub sfx: Option<&'static str>,
+}
 
 fn start_animation(
     mut coords: Query<(&mut GridCoords, &mut Rotation)>,
     mut events: EventReader<MoveEvent>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     info!("Animation started");
-    for event in events.iter() {
-        if let Ok((mut coords, mut rot)) = coords.get_mut(event.0) {
-            *coords = event.1;
-            *rot = event.2;
+    let mut sfx = None;
+    let mut animation_time = 0.2;
+    if let Some(event) = events.iter().last() {
+        if let Ok((mut coords, mut rot)) = coords.get_mut(event.player) {
+            animation_time *= ((rot.0 - event.rotation.0).abs() as f32).max(1.0);
+            *coords = event.coords;
+            *rot = event.rotation;
+            sfx = event.sfx;
         }
     }
+    if let Some(sfx) = sfx {
+        audio.play_sfx(asset_server.load(sfx));
+    }
     commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
-        0.2,
+        animation_time,
         TimerMode::Once,
     )));
 }
@@ -548,4 +599,20 @@ struct BlockedQuery {
 fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery, impl ReadOnlyWorldQuery>) -> bool {
     // TODO: bad performance
     query.iter().any(|item| item.coords == &coords)
+}
+
+trait AudioExt {
+    fn play_sfx(&self, source: Handle<AudioSource>) -> Handle<AudioSink>;
+}
+
+impl AudioExt for Audio {
+    fn play_sfx(&self, source: Handle<AudioSource>) -> Handle<AudioSink> {
+        self.play_with_settings(
+            source,
+            PlaybackSettings {
+                volume: 0.1,
+                ..default()
+            },
+        )
+    }
 }

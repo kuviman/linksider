@@ -51,15 +51,16 @@ fn do_jump(
             }
 
             if let Some(last) = path.pop() {
-                move_events.send(MoveEvent(
-                    event.player,
-                    last,
-                    if jump_dir == IVec2::new(0, 1) {
+                move_events.send(MoveEvent {
+                    player: event.player,
+                    coords: last,
+                    rotation: if jump_dir == IVec2::new(0, 1) {
                         player_rotation.rotated(player_input.direction)
                     } else {
                         *player_rotation
                     },
-                ));
+                    sfx: Some("sfx/jump.wav"),
+                });
             }
         }
     }

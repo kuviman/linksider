@@ -131,6 +131,8 @@ fn delete_side_effect<T: SideEffect>(
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
     devnulls: Query<(Entity, &GridCoords), With<DevNull>>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation, player_children) in players.iter() {
         for (devnull, devnull_coords) in devnulls.iter() {
@@ -144,6 +146,8 @@ fn delete_side_effect<T: SideEffect>(
                                 .entity(side)
                                 .remove::<TextureAtlasSprite>()
                                 .remove::<Handle<TextureAtlas>>();
+
+                            audio.play_sfx(asset_server.load("sfx/hitHurt.wav"));
                         }
                     }
                 }
@@ -152,6 +156,7 @@ fn delete_side_effect<T: SideEffect>(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn collect_powerup<T: SideEffect>(
     mut sides: Query<&Side, With<Blank>>,
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
@@ -165,13 +170,15 @@ fn collect_powerup<T: SideEffect>(
         (With<Powerup>, With<T>),
     >,
     mut commands: Commands,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation, player_children) in players.iter() {
         for (powerup, powerup_coords, sprite, atlas) in powerups.iter() {
             if player_coords == powerup_coords {
                 for &side in player_children {
                     if let Ok(side_data) = sides.get_mut(side) {
-                        if side_data.0 == player_rotation.0 {
+                        if (side_data.0 - player_rotation.0) % 4 == 0 {
                             commands.entity(powerup).despawn();
                             commands.entity(side).remove::<Blank>().insert(T::default());
 
@@ -179,6 +186,8 @@ fn collect_powerup<T: SideEffect>(
                                 .entity(side)
                                 .insert(sprite.clone())
                                 .insert(atlas.clone());
+
+                            audio.play_sfx(asset_server.load("sfx/powerUp.wav"));
                         }
                     }
                 }
