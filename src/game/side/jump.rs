@@ -28,6 +28,8 @@ fn do_jump(
     mut events: EventReader<SideEffectEvent<Jump>>,
     mut move_events: EventWriter<MoveEvent>,
     blocked: Query<BlockedQuery>,
+    audio: Res<Audio>,
+    asset_server: Res<AssetServer>,
 ) {
     for event in events.iter() {
         if let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) {
@@ -46,8 +48,10 @@ fn do_jump(
                 .map(|v| IVec2::from(*player_coords) + jump_dir.rotate(v))
                 .map(GridCoords::from);
             let mut path = Vec::from_iter(path);
+            let mut hit_wall = false;
             if let Some(index) = path.iter().position(|coords| is_blocked(*coords, &blocked)) {
                 path.truncate(index);
+                hit_wall = true;
             }
 
             if let Some(last) = path.pop() {
@@ -60,6 +64,7 @@ fn do_jump(
                         *player_rotation
                     },
                     sfx: Some("sfx/jump.wav"),
+                    end_sfx: hit_wall.then_some("sfx/hitWall.wav"),
                 });
             }
         }

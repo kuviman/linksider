@@ -78,6 +78,8 @@ impl bevy::app::Plugin for Plugin {
 
         app.add_system(highlight_selected_player);
         app.add_system(this_should_have_been_done_by_daivy_not_in_bevy_system);
+
+        app.insert_resource(AnimationEndSfx(None));
     }
 }
 
@@ -414,6 +416,7 @@ fn player_move(
                 } else {
                     "sfx/move.wav"
                 }),
+                end_sfx: None,
             });
             next_state.set(GameState::Animation);
         } else {
@@ -508,6 +511,7 @@ fn falling_system(
                     coords: new_coords,
                     rotation: *rotation,
                     sfx: None,
+                    end_sfx: None,
                 });
             }
         }
@@ -532,12 +536,17 @@ pub struct MoveEvent {
     pub coords: GridCoords,
     pub rotation: Rotation,
     pub sfx: Option<&'static str>,
+    pub end_sfx: Option<&'static str>,
 }
+
+#[derive(Resource)]
+struct AnimationEndSfx(Option<Handle<AudioSource>>);
 
 fn start_animation(
     mut coords: Query<(&mut GridCoords, &mut Rotation)>,
     mut events: EventReader<MoveEvent>,
     mut commands: Commands,
+    mut end_sfx: ResMut<AnimationEndSfx>,
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
 ) {
@@ -550,6 +559,7 @@ fn start_animation(
             *coords = event.coords;
             *rot = event.rotation;
             sfx = event.sfx;
+            end_sfx.0 = event.end_sfx.map(|path| asset_server.load(path));
         }
     }
     if let Some(sfx) = sfx {
@@ -564,10 +574,15 @@ fn start_animation(
 fn stop_animation(
     mut next_state: ResMut<NextState<GameState>>,
     turn_timer: Res<TurnAnimationTimer>,
+    mut end_sfx: ResMut<AnimationEndSfx>,
+    audio: Res<Audio>,
 ) {
     if turn_timer.0.finished() {
         info!("Animation finished");
         next_state.set(GameState::Turn);
+        if let Some(source) = end_sfx.0.take() {
+            audio.play_sfx(source);
+        }
     }
 }
 

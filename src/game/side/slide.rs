@@ -92,6 +92,7 @@ fn do_slide(
             coords: next_pos,
             rotation: next_rotation,
             sfx,
+            end_sfx: None,
         });
     }
 }
