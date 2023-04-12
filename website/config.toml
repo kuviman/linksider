@@ -1,0 +1,15 @@
+theme = "no-style-please"
+
+base_url = "https://linksider.kuviman.com"
+
+title = "LinkSider"
+description = "Puzzle Game"
+
+compile_sass = true
+
+build_search_index = true
+
+[markdown]
+highlight_code = true
+
+[extra]

@@ -1,0 +1,3 @@
+[submodule "website/themes/no-style-please"]
+	path = website/themes/no-style-please
+	url = https://gitlab.com/4bcx/no-style-please
