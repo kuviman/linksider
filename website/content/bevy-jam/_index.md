@@ -48,6 +48,7 @@ The biggest problem I had with it was the discoverability issue.
 Like, the question I had all the time was which components do I need for systems to actually work.
 For example, we had sensors on all 4 sides of the cube, but they were not detecting collisions with the level for some reason. Eventually I figured we need to opt in for collision detection between static bodies, since updating sensor positions was made not using physics but by modifying their `Transform` component directly, rapier still assumed that the sensor was static.
 I think this is solved in bevy usually by having the `Bundle` types which let you see what you actually need.
+Also using [bevy-inspector-egui](https://crates.io/crates/bevy-inspector-egui) was found to be useful to see what is being spawned by foreign systems.
 
 ![physics](physics.gif)
 
