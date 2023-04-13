@@ -20,6 +20,8 @@ Here's the development timelapse video:
 
 <!-- TODO -->
 
+*The goal of this post is mostly to document my experience with bevy for myself. The issues I encountered might be because of my impatience, or me failing to look for a solution and assuming things.*
+
 ## Day 1
 
 On day 1 we were starting out with bevy for the first time ever, so we went ahead and read the bevy book. Surprisingly it was very short.
