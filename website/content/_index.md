@@ -14,4 +14,4 @@
 
 ## Posts
 
-- [Bevy Jam 3 postmortem](./bevy-jam)
+- [Bevy Jam 3 postmortem](./bevy-jam/)

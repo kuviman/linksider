@@ -2,4 +2,4 @@
 
 **WIP**
 
-![game-idea](game-idea.png)
+![game-idea](website/content/bevy-jam/game-idea.png)
