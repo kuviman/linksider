@@ -129,6 +129,11 @@ When playing audio, in order to control the audio effect, you need to convert yo
 
 When playing other bevy jam games I have seen that pretty much every single one is suffering from audio glitches on the web builds. As I understand, it is because audio processing is happening using Rust code instead of through actual web audio APIs, since wasm is singlethreaded.
 
+I tried figuring out how to load configuration from lets say a json file at runtime, but could not find a way.
+Otherwise a bunch of constants would be hardcoded in rust files, which is also not a good thing imo.
+Using `std::fs` would not make it work on the web, so `include_str!` is the most ergonomic thing I found,
+although we ended up not needing such a file, since all configuration we needed was inside ldtk.
+
 ## Results
 
 We ended up with a game that seems like the best game we ever made so I am really happy with the results
