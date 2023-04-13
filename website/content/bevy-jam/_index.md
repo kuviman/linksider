@@ -25,14 +25,16 @@ Here's the development timelapse video:
 On day 1 we were starting out with bevy for the first time ever, so we went ahead and read the bevy book. Surprisingly it was very short.
 
 One of the first things to notice was very long compilation time.
-Which wouldnt really matter too much for me since building of the dependencies is only supposed to happen once. But, almost every time I added a new dependency to the project (like `bevy_rapier` or `bevy_ecs_ldtk`) it was recompiling the entire world from scratch again, making me wait for 20 minutes which made me not want to add new dependencies ever even if I would benefit from them. It would be faster if I didn't use `--jobs 2` for compilation, but that would make unpleasant lagging of the system.
+Which wouldnt really matter too much for me since building of the dependencies is only supposed to happen once. But, almost every time I added a new dependency to the project (like `bevy_rapier` or `bevy_ecs_ldtk`) it was recompiling the entire world from scratch again, making me wait for 20 minutes which made me not want to add new dependencies ever even if I would benefit from them. It would be faster if I didn't use `--jobs 2` for compilation, but that would cause unpleasant lagging of the system.
 
 Also dynamic linking was set up from beginning, like shown in the book.
 But I was getting a lot of linker errors (about unresolved symbols) from time to time for some reason. Only full recompilation was solving that issue, so we ended up using regular static linking instead which made us wait for 20-40 secs for every small change in game code.
 
+Using [trunk](https://trunkrs.dev/) was really nice, the only issue with it was making it work using relative urls for itch/github pages: [issue #395](https://github.com/thedodd/trunk/issues/395)
+
 By the end of the day we had a moving crab 🦀 with a sound effect playing on a keypress as a test of what we can do with bevy. It seemed like we figured everything we needed to know in order to make a game
 
-While I was busy figuring out bevy stuff, Daivy was busy coming up with the game idea and this is what he came up with:
+While I was busy figuring out bevy stuff, **Daivy** was busy coming up with the game idea and this is what he came up with:
 
 ![idea](game-idea.png)
 
@@ -54,7 +56,7 @@ I think this is solved in bevy usually by having the `Bundle` types which let yo
 In order to make levels we decided to try out [LDTK](https://ldtk.io/).
 We never used it before but heard good things about it, and there was an existing [plugin for bevy](https://crates.io/crates/bevy_ecs_ldtk).
 
-It was very simple to load the level tilemap and have it drawn on the screen (although initially I had to realise that I should not put my camera at `z=0`).
+It was very simple to load the level tilemap and have it drawn on the screen (although initially I had to realise that I should not put my camera at z=0).
 
 For spawning the entities & int grid cells `bevy_ecs_ldtk` uses the derive macro approach which I was not really a big fan of.
 I think it would be easier to use if instead of writing logic in derive attributes I could simple use any regular Rust function/closure returning a bundle, so like instead of:
@@ -106,11 +108,11 @@ Basically 2 days before the deadline we had all of the gameplay implemented and 
 To make sound effects we used [sfxr](https://sfxr.me).
 
 The entire process of development was streamed on twitch, and I was asking everyone if they wanted to help us with the game, and
-shadow_crushers helped with visual effects and made us a nice music track:
+**shadow_crushers** helped with visual effects and made us a nice music track:
 
 {{ audio(src="game_music.ogg") }}
 
-And, on the last day the music was improved on by Brainoid:
+And later the music was covered by **Brainoid**, which is we decided to keep:
 
 {{ audio(src="KuviBevy.ogg") }}
 
@@ -137,19 +139,21 @@ TODO: waiting on bevy jam results
 
 Yes. I would recommend bevy to people who want to learn Rust by creating a game.
 
-It does not require a deep understanding of lifetimes etc and maybe you dont need to fight the borrow checker too much.
+It does not require a deep understanding of lifetimes etc and maybe you dont need to fight the borrow checker too much, so especially if you are coming from a different language I feel like bevy is a good choice.
 
-## Would I use bevy again?
+## Will I use bevy again?
 
 At this point I don't think I will, the reason is I feel like the bevy ecs architecture, while letting me to split my code easily into different systems, moves a lot of checks from compile to runtime, which feels like i am giving up on Rust features that make it such a great language.
 
 Instead I will try do despaghettify my game code in some other way.
-At least I can rely on my code and I have this feeling of
+I still can rely on my code and I have this feeling of
 "If it compiles it runs" which I dont have when using bevy.
 
-Here's some thoughts from other people:
+Here's some stuff that I find interesting from other people:
 
 - <https://molentum.me/blog/starframe-architecture/>
 - <https://github.com/kvark/froggy>
 - <https://www.anthropicstudios.com/2019/06/05/entity-systems/>
 - TODO: Nertsal experiment
+
+I feel like there should be something better available for Rust, but it has not been discovered yet
