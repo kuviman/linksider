@@ -9,7 +9,7 @@ impl bevy::app::Plugin for Plugin {
         // EDIT: this is now unsafe POG
         #[allow(unused_unsafe)]
         unsafe {
-            app.add_system(do_jump.before(end_turn).after(falling_system));
+            app.add_turn_system(do_jump.after(falling_system)); // After falling makes it have higher priority
         }
     }
 }
@@ -70,7 +70,7 @@ fn do_jump(
                     },
                     sfx: Some("sfx/jump.wav"),
                     end_sfx: hit_wall.then_some("sfx/hitWall.wav"),
-                    vfx: Some(AnimationBundle::new(
+                    vfx: Some(VfxBundle::new(
                         *player_coords,
                         vec_to_rot(-jump_dir),
                         "animation/jump.png",
@@ -78,7 +78,7 @@ fn do_jump(
                         true,
                         false,
                     )),
-                    end_vfx: hit_wall.then_some(AnimationBundle::new(
+                    end_vfx: hit_wall.then_some(VfxBundle::new(
                         last,
                         vec_to_rot(-jump_dir), // TODO
                         "animation/hit_wall.png",

@@ -5,7 +5,7 @@ pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.register_side_effect::<Slide>("SlidePower");
-        app.add_system(do_slide.in_set(OnUpdate(GameState::Turn)).before(end_turn));
+        app.add_turn_system(do_slide);
         app.add_system(
             slide_move
                 .before(player_move)
@@ -97,7 +97,7 @@ fn do_slide(
             rotation: next_rotation,
             sfx,
             end_sfx: None,
-            vfx: Some(AnimationBundle::new(
+            vfx: Some(VfxBundle::new(
                 *player_coords,
                 0,
                 "animation/slide.png",

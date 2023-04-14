@@ -7,14 +7,15 @@ use bevy::{
 };
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
-mod animations;
+mod animation;
 mod goal;
 mod side;
 mod turns;
 mod util;
+mod vfx;
 
-use self::animations::AnimationBundle;
-use turns::*;
+use self::vfx::VfxBundle;
+use turns::AppExt as _;
 use util::*;
 
 pub struct Plugin;
@@ -27,6 +28,12 @@ struct SelectedPlayer;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
+        app.add_plugin(turns::Plugin)
+            .add_plugin(side::Plugin)
+            .add_plugin(goal::Plugin)
+            .add_plugin(vfx::Plugin)
+            .add_plugin(animation::Plugin);
+
         app.add_startup_system(setup)
             .add_system(level_restart)
             .add_startup_system(music)
@@ -36,34 +43,22 @@ impl bevy::app::Plugin for Plugin {
                 ..Default::default()
             })
             .register_ldtk_entity::<PlayerBundle>("Player")
-            .add_state::<GameState>()
             .add_system(update_camera.after(update_transforms))
-            .add_system(update_player_input.in_set(OnUpdate(GameState::WaitingForInput)))
+            .add_system(update_player_input.in_set(OnUpdate(turns::State::WaitingForInput)))
             .add_system(
                 player_move
-                    .in_set(OnUpdate(GameState::WaitingForInput))
+                    .in_set(OnUpdate(turns::State::WaitingForInput))
                     .after(update_player_input),
-            )
-            .add_system(start_animation.in_schedule(OnEnter(GameState::Animation)))
-            .add_system(stop_animation.in_set(OnUpdate(GameState::Animation)))
-            .add_system(process_animation.in_set(OnUpdate(GameState::Animation)));
+            );
 
-        app.add_systems(
-            (falling_system,)
-                .in_set(OnUpdate(GameState::Turn))
-                .before(end_turn),
-        );
-        app.add_system(end_turn.in_set(OnUpdate(GameState::Turn)));
+        app.add_turn_system(falling_system);
 
-        app.add_system(init_prev_coords.in_schedule(OnEnter(GameState::Turn)));
-        app.add_system(update_transforms.in_set(OnUpdate(GameState::Animation)));
+        app.add_system(init_prev_coords.in_schedule(OnEnter(turns::State::Turn)));
+        app.add_system(update_transforms.in_set(OnUpdate(turns::State::Animation)));
 
         app.add_event::<MoveEvent>();
 
-        app.add_plugin(side::Plugin);
-        app.add_plugin(goal::Plugin);
-
-        app.add_system(loading_level_finish);
+        app.add_system(background_tiles);
 
         app.add_system(change_levels);
 
@@ -72,13 +67,6 @@ impl bevy::app::Plugin for Plugin {
 
         app.add_system(highlight_selected_player);
         app.add_system(this_should_have_been_done_by_daivy_not_in_bevy_system);
-
-        app.insert_resource(AnimationEndSfx(None));
-        app.insert_resource(AnimationEndVfx(None));
-
-        app.add_plugin(animations::Plugin);
-
-        app.add_system(background_tiles);
     }
 }
 
@@ -94,15 +82,6 @@ struct BlockBundle {
 #[derive(Bundle, LdtkIntCell)]
 struct WoodBundle {
     blocking: Blocking,
-}
-
-fn loading_level_finish(
-    mut next_state: ResMut<NextState<GameState>>,
-    query: Query<(), Added<Handle<LdtkLevel>>>,
-) {
-    if !query.is_empty() {
-        next_state.set(GameState::Turn);
-    }
 }
 
 #[derive(Debug, Default, Component, Clone, Copy)]
@@ -335,7 +314,7 @@ fn update_player_input(
             let new_selected_player = players[to_select as usize].2;
             commands.entity(new_selected_player).insert(SelectedPlayer);
             audio.play_sfx(asset_server.load("sfx/selectPlayer.wav"));
-            commands.spawn(AnimationBundle::new(
+            commands.spawn(VfxBundle::new(
                 {
                     let (x, y) = players[to_select as usize].1;
                     GridCoords { x, y }
@@ -403,7 +382,7 @@ struct SlideMove;
 
 #[allow(clippy::type_complexity)]
 fn player_move(
-    mut next_state: ResMut<NextState<GameState>>,
+    mut next_state: ResMut<NextState<turns::State>>,
     blocked: Query<BlockedQuery>,
     players: Query<
         (
@@ -475,7 +454,7 @@ fn player_move(
                     "sfx/move.wav"
                 }),
                 end_sfx: None,
-                vfx: Some(AnimationBundle::new(
+                vfx: Some(VfxBundle::new(
                     *coords,
                     ground_rot,
                     "animation/walk.png",
@@ -485,9 +464,9 @@ fn player_move(
                 )),
                 end_vfx: None,
             });
-            next_state.set(GameState::Animation);
+            next_state.set(turns::State::Animation);
         } else {
-            next_state.set(GameState::Turn);
+            next_state.set(turns::State::Turn);
         }
     }
 }
@@ -587,15 +566,6 @@ fn falling_system(
     }
 }
 
-fn end_turn(mut next_state: ResMut<NextState<GameState>>, events: EventReader<MoveEvent>) {
-    if events.is_empty() {
-        info!("Waiting for input now");
-        next_state.set(GameState::WaitingForInput);
-    } else {
-        next_state.set(GameState::Animation);
-    }
-}
-
 #[derive(Resource)]
 struct TurnAnimationTimer(Timer);
 
@@ -605,75 +575,11 @@ pub struct MoveEvent {
     pub rotation: Rotation,
     pub sfx: Option<&'static str>,
     pub end_sfx: Option<&'static str>,
-    pub vfx: Option<AnimationBundle>,
-    pub end_vfx: Option<AnimationBundle>,
+    pub vfx: Option<VfxBundle>,
+    pub end_vfx: Option<VfxBundle>,
 }
 
-#[derive(Resource)]
-struct AnimationEndSfx(Option<Handle<AudioSource>>);
-
-#[derive(Resource)]
-struct AnimationEndVfx(Option<AnimationBundle>);
-
-fn start_animation(
-    mut coords: Query<(&mut GridCoords, &mut Rotation)>,
-    mut events: EventReader<MoveEvent>,
-    mut commands: Commands,
-    mut end_sfx: ResMut<AnimationEndSfx>,
-    mut end_vfx: ResMut<AnimationEndVfx>,
-    audio: Res<Audio>,
-    asset_server: Res<AssetServer>,
-) {
-    info!("Animation started");
-    let mut sfx = None;
-    let mut animation_time = 0.2;
-    if let Some(event) = events.iter().last() {
-        if let Ok((mut coords, mut rot)) = coords.get_mut(event.player) {
-            animation_time *= ((rot.0 - event.rotation.0).abs() as f32).max(1.0);
-            *coords = event.coords;
-            *rot = event.rotation;
-            sfx = event.sfx;
-            end_sfx.0 = event.end_sfx.map(|path| asset_server.load(path));
-            if let Some(vfx) = event.vfx.clone() {
-                let entity = commands.spawn(vfx).id();
-                info!("Spawn {entity:?}");
-            }
-            end_vfx.0 = event.end_vfx.clone();
-        }
-    }
-    if let Some(sfx) = sfx {
-        audio.play_sfx(asset_server.load(sfx));
-    }
-    commands.insert_resource(TurnAnimationTimer(Timer::from_seconds(
-        animation_time,
-        TimerMode::Once,
-    )));
-}
-
-fn stop_animation(
-    mut next_state: ResMut<NextState<GameState>>,
-    turn_timer: Res<TurnAnimationTimer>,
-    mut end_sfx: ResMut<AnimationEndSfx>,
-    mut end_vfx: ResMut<AnimationEndVfx>,
-    audio: Res<Audio>,
-    mut commands: Commands,
-) {
-    if turn_timer.0.finished() {
-        info!("Animation finished");
-        next_state.set(GameState::Turn);
-        if let Some(source) = end_sfx.0.take() {
-            audio.play_sfx(source);
-        }
-        if let Some(vfx) = end_vfx.0.take() {
-            commands.spawn(vfx);
-        }
-    }
-}
-
-fn process_animation(mut turn_timer: ResMut<TurnAnimationTimer>, time: Res<Time>) {
-    turn_timer.0.tick(time.delta()).elapsed_secs();
-}
-
+/// Cheat codes for skipping levels
 fn change_levels(input: Res<Input<KeyCode>>, mut level: ResMut<LevelSelection>) {
     let mut dir: isize = 0;
     if input.just_pressed(KeyCode::LBracket) {
@@ -692,33 +598,26 @@ fn change_levels(input: Res<Input<KeyCode>>, mut level: ResMut<LevelSelection>) 
     }
 }
 
+/// This is a helper to see if a cell is blocked or not
+/// add blocked: Query<BlockedQuery> to system, then us is_blocked(coords, &blocked)
+///
+/// This should probably be done instead by introducing a resource that maintains a grid
+/// For faster access, and having systems in place to synchronize it
 #[derive(WorldQuery)]
-struct BlockedQuery {
+pub struct BlockedQuery {
     coords: &'static GridCoords,
     filter: With<Blocking>,
 }
 
-fn is_blocked(coords: GridCoords, query: &Query<BlockedQuery, impl ReadOnlyWorldQuery>) -> bool {
+pub fn is_blocked(
+    coords: GridCoords,
+    query: &Query<BlockedQuery, impl ReadOnlyWorldQuery>,
+) -> bool {
     // TODO: bad performance
     query.iter().any(|item| item.coords == &coords)
 }
 
-trait AudioExt {
-    fn play_sfx(&self, source: Handle<AudioSource>) -> Handle<AudioSink>;
-}
-
-impl AudioExt for Audio {
-    fn play_sfx(&self, source: Handle<AudioSource>) -> Handle<AudioSink> {
-        self.play_with_settings(
-            source,
-            PlaybackSettings {
-                volume: 0.1,
-                ..default()
-            },
-        )
-    }
-}
-
+/// Changes colors of players so that the selected one is highlighted
 fn highlight_selected_player(
     mut query: Query<(&mut TextureAtlasSprite, Option<&SelectedPlayer>), With<Player>>,
 ) {
@@ -726,12 +625,12 @@ fn highlight_selected_player(
         sprite.color = if selected.is_some() {
             Color::WHITE
         } else {
-            // Color::rgba(0.5, 0.5, 0.5, 1.0)
             Color::rgba(1.0, 1.0, 1.0, 0.5)
         };
     }
 }
 
+/// This makes the player to be shown in front of everything else
 fn this_should_have_been_done_by_daivy_not_in_bevy_system(
     mut query: Query<&mut Transform, Added<Player>>,
 ) {

@@ -10,7 +10,7 @@ impl bevy::app::Plugin for Plugin {
 }
 
 #[derive(Bundle, Clone)]
-pub struct AnimationBundle {
+pub struct VfxBundle {
     atlas_path: AtlasPath,
     sprite_sheet: SpriteSheetBundle,
     animation_timer: AnimationTimer,
@@ -38,7 +38,7 @@ fn load_atlas(
     }
 }
 
-impl AnimationBundle {
+impl VfxBundle {
     pub fn new(
         coords: GridCoords,
         rot: i32,
