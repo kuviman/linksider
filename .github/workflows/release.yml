@@ -9,6 +9,26 @@ permissions:
   contents: write
 
 jobs:
+  deploy-website:
+    name: Deploy Website
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Build website
+        uses: shalzz/zola-deploy-action@v0.17.1
+        env:
+          BUILD_DIR: website
+          BUILD_THEMES: false
+          BUILD_ONLY: true
+      - name: Deploy Website
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: website/public
+          clean-exclude: |
+            play
   web:
     runs-on: ubuntu-latest
     steps:
@@ -20,3 +40,4 @@ jobs:
       - uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
+          target-folder: play
