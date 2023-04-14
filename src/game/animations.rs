@@ -1,8 +1,12 @@
 use super::*;
 
-pub fn init(app: &mut App) {
-    app.add_system(load_atlas);
-    app.add_system(animate);
+pub struct Plugin;
+
+impl bevy::app::Plugin for Plugin {
+    fn build(&self, app: &mut App) {
+        app.add_system(load_atlas);
+        app.add_system(animate);
+    }
 }
 
 #[derive(Bundle, Clone)]

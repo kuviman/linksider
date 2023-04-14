@@ -1,12 +1,16 @@
 use super::*;
 
-pub fn init(app: &mut App) {
-    app.register_side_effect::<Jump>("JumpPower");
-    // TODO: make this unsafe { }
-    // EDIT: this is now unsafe POG
-    #[allow(unused_unsafe)]
-    unsafe {
-        app.add_system(do_jump.before(end_turn).after(falling_system));
+pub struct Plugin;
+
+impl bevy::app::Plugin for Plugin {
+    fn build(&self, app: &mut App) {
+        app.register_side_effect::<Jump>("JumpPower");
+        // TODO: make this unsafe { }
+        // EDIT: this is now unsafe POG
+        #[allow(unused_unsafe)]
+        unsafe {
+            app.add_system(do_jump.before(end_turn).after(falling_system));
+        }
     }
 }
 

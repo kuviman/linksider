@@ -2,13 +2,17 @@ use bevy::utils::HashMap;
 
 use super::*;
 
-pub fn init(app: &mut App) {
-    app.register_side_effect::<Magnet>("MagnetPower");
-    app.add_system(
-        attach_to_walls
-            .before(falling_system)
-            .after(detect_side_effect::<Magnet>),
-    );
+pub struct Plugin;
+
+impl bevy::app::Plugin for Plugin {
+    fn build(&self, app: &mut App) {
+        app.register_side_effect::<Magnet>("MagnetPower");
+        app.add_system(
+            attach_to_walls
+                .before(falling_system)
+                .after(detect_side_effect::<Magnet>),
+        );
+    }
 }
 
 #[derive(Debug, Default, Component)]

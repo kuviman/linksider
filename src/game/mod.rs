@@ -7,11 +7,15 @@ use bevy::{
 };
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
-use self::animations::AnimationBundle;
-
 mod animations;
 mod goal;
 mod side;
+mod turns;
+mod util;
+
+use self::animations::AnimationBundle;
+use turns::*;
+use util::*;
 
 pub struct Plugin;
 
@@ -20,18 +24,6 @@ struct Player;
 
 #[derive(Component)]
 struct SelectedPlayer;
-
-#[derive(Default, Debug, Clone, Eq, PartialEq, Hash, States)]
-enum GameState {
-    #[default]
-    LoadingLevel,
-    Turn,
-    WaitingForInput,
-    Animation,
-}
-
-// TODO: load from ldtk
-// const BLOCK: i32 = 1;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
@@ -65,12 +57,11 @@ impl bevy::app::Plugin for Plugin {
 
         app.add_system(init_prev_coords.in_schedule(OnEnter(GameState::Turn)));
         app.add_system(update_transforms.in_set(OnUpdate(GameState::Animation)));
-        // .register_ldtk_entity::<PowerupBundle<side::effects::slide::Effect>>("SlidePower");
 
         app.add_event::<MoveEvent>();
 
-        side::init(app);
-        goal::init(app);
+        app.add_plugin(side::Plugin);
+        app.add_plugin(goal::Plugin);
 
         app.add_system(loading_level_finish);
 
@@ -85,7 +76,7 @@ impl bevy::app::Plugin for Plugin {
         app.insert_resource(AnimationEndSfx(None));
         app.insert_resource(AnimationEndVfx(None));
 
-        animations::init(app);
+        app.add_plugin(animations::Plugin);
 
         app.add_system(background_tiles);
     }
@@ -747,20 +738,4 @@ fn this_should_have_been_done_by_daivy_not_in_bevy_system(
     for mut transform in query.iter_mut() {
         transform.translation.z += 123.45;
     }
-}
-
-fn vec_to_rot(v: IVec2) -> i32 {
-    if v.y < 0 {
-        return 0;
-    }
-    if v.y > 0 {
-        return 2;
-    }
-    if v.x > 0 {
-        return 1;
-    }
-    if v.x < 0 {
-        return 0;
-    }
-    unreachable!()
 }

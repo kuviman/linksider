@@ -87,6 +87,8 @@ One of the examples involved combining tiles together if they form a line, but t
 
 The way it worked was spawning a polyline for every tile, and then despawning a segment if it was present twice - which means that the segment is between two tiles.
 
+TODO: intcell reference by name instead of just number
+
 <!-- cheeseburge -->
 
 ## Rewrite from scratch
@@ -135,6 +137,8 @@ I tried figuring out how to load configuration from lets say a json file at runt
 Otherwise a bunch of constants would be hardcoded in rust files, which is also not a good thing imo.
 Using `std::fs` would not make it work on the web, so `include_str!` is the most ergonomic thing I found,
 although we ended up not needing such a file, since all configuration we needed was inside ldtk.
+
+TODO: Transfering ownership
 
 ## Results
 

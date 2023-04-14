@@ -1,13 +1,17 @@
 use super::*;
 
-pub fn init(app: &mut App) {
-    app.register_side_effect::<Slide>("SlidePower");
-    app.add_system(do_slide.in_set(OnUpdate(GameState::Turn)).before(end_turn));
-    app.add_system(
-        slide_move
-            .before(player_move)
-            .after(detect_side_effect::<Slide>),
-    );
+pub struct Plugin;
+
+impl bevy::app::Plugin for Plugin {
+    fn build(&self, app: &mut App) {
+        app.register_side_effect::<Slide>("SlidePower");
+        app.add_system(do_slide.in_set(OnUpdate(GameState::Turn)).before(end_turn));
+        app.add_system(
+            slide_move
+                .before(player_move)
+                .after(detect_side_effect::<Slide>),
+        );
+    }
 }
 
 #[derive(Default, Component)]

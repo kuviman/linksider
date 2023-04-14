@@ -1,4 +1,6 @@
+// This attr removes the console on release builds on Windows
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use bevy::{diagnostic::LogDiagnosticsPlugin, prelude::*};
 use bevy_ecs_ldtk::prelude::*;
 
@@ -6,6 +8,8 @@ mod game;
 
 fn main() {
     let mut app = App::new();
+    // This fixes sprite edges artifacts
+    // https://github.com/bevyengine/bevy/issues/4748
     app.insert_resource(Msaa::Off);
     app.add_plugins(
         DefaultPlugins
@@ -25,14 +29,14 @@ fn main() {
                 }),
                 ..default()
             })
-            .set(ImagePlugin::default_nearest()),
+            .set(ImagePlugin::default_nearest()), // All textures are pixelated
     )
-    .add_plugin(game::Plugin)
-    .add_plugin(LdtkPlugin);
+    .add_plugin(LdtkPlugin) // Ldtk is our level editor
+    .add_plugin(game::Plugin);
 
     if cfg!(debug_assertions) {
         app.add_plugin(LogDiagnosticsPlugin::default())
-            // .add_plugin(FrameTimeDiagnosticsPlugin::default())
+            // .add_plugin(FrameTimeDiagnosticsPlugin::default()) // This reports FPS to console
             .add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
     }
 

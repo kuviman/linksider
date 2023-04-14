@@ -1,12 +1,16 @@
 use super::*;
 
-pub fn init(app: &mut App) {
-    app.register_ldtk_entity::<GoalBundle>("Goal");
-    app.add_systems(
-        (finish_level,)
-            .in_set(OnUpdate(GameState::Turn))
-            .before(end_turn),
-    );
+pub struct Plugin;
+
+impl bevy::app::Plugin for Plugin {
+    fn build(&self, app: &mut App) {
+        app.register_ldtk_entity::<GoalBundle>("Goal");
+        app.add_systems(
+            (finish_level,)
+                .in_set(OnUpdate(GameState::Turn))
+                .before(end_turn),
+        );
+    }
 }
 
 #[derive(Default, Component)]

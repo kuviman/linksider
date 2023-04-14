@@ -5,12 +5,16 @@ mod jump;
 mod magnet;
 mod slide;
 
-pub fn init(app: &mut App) {
-    app.add_system(side_init);
-    jump::init(app);
-    slide::init(app);
-    magnet::init(app);
-    app.register_ldtk_entity::<DevNullBundle>("DevNull");
+pub struct Plugin;
+
+impl bevy::app::Plugin for Plugin {
+    fn build(&self, app: &mut App) {
+        app.add_system(side_init);
+        app.add_plugin(jump::Plugin);
+        app.add_plugin(slide::Plugin);
+        app.add_plugin(magnet::Plugin);
+        app.register_ldtk_entity::<DevNullBundle>("DevNull");
+    }
 }
 
 #[derive(Debug, Component)]
