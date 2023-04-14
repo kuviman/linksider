@@ -4,6 +4,8 @@
 
 Game made for Bevy Jam 3 🦀 in 9 days
 
+Some refactorings have happened since the jam, you may see the jam version on the [jam-version branch](https://github.com/kuviman/linksider/tree/jam-version).
+
 [🎮 PLAY THE GAME ON ITCH.IO](https://kuviman.itch.io/linksider)
 
 In this puzzle game you can attach different effects to player's sides and use them to complete the level
