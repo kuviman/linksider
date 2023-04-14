@@ -143,6 +143,8 @@ We ended up with a game that seems like the best game we ever made so I am reall
 TODO: waiting on bevy jam results
 <!-- TODO jam results -->
 
+![gg](gg.gif)
+
 ## Would I recommend bevy?
 
 Yes. I would recommend bevy to people who want to learn Rust by creating a game.
