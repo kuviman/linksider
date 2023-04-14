@@ -8,7 +8,7 @@ impl bevy::app::Plugin for Plugin {
         app.add_turn_system(do_slide);
         app.add_system(
             slide_move
-                .before(player_move)
+                .before(player::move_system)
                 .after(detect_side_effect::<Slide>),
         );
     }
@@ -25,11 +25,11 @@ fn slide_move(
     mut commands: Commands,
 ) {
     for player in players.iter() {
-        commands.entity(player).remove::<SlideMove>();
+        commands.entity(player).remove::<player::SlideMove>();
     }
     for event in events.iter() {
         if players.contains(event.player) {
-            commands.entity(event.player).insert(SlideMove);
+            commands.entity(event.player).insert(player::SlideMove);
         }
     }
 }
@@ -37,10 +37,11 @@ fn slide_move(
 #[derive(Component)]
 struct SlideSfx(Handle<AudioSink>);
 
+#[allow(clippy::too_many_arguments)]
 fn do_slide(
-    players: Query<(&PlayerInput, &GridCoords, &Rotation, Option<&SlideSfx>)>,
+    players: Query<(&player::Input, &GridCoords, &Rotation, Option<&SlideSfx>)>,
     mut events: EventReader<SideEffectEvent<Slide>>,
-    mut move_events: EventWriter<MoveEvent>,
+    mut move_events: EventWriter<turns::MoveEvent>,
     blocked: Query<BlockedQuery>,
     audio_sinks: Res<Assets<AudioSink>>,
     mut commands: Commands,
@@ -82,16 +83,13 @@ fn do_slide(
             next_rotation = next_rotation.rotated(player_input.direction);
             sfx = Some("sfx/slideOff.wav");
             stop_sfx();
-        } else {
-            if slide_sfx.is_none() {
-                let sfx = audio.play_sfx(asset_server.load("sfx/slide.wav"));
-                let sfx = audio_sinks.get_handle(sfx);
-                commands.entity(event.player).insert(SlideSfx(sfx));
-            }
-            // TODO vfx
+        } else if slide_sfx.is_none() {
+            let sfx = audio.play_sfx(asset_server.load("sfx/slide.wav"));
+            let sfx = audio_sinks.get_handle(sfx);
+            commands.entity(event.player).insert(SlideSfx(sfx));
         }
 
-        move_events.send(MoveEvent {
+        move_events.send(turns::MoveEvent {
             player: event.player,
             coords: next_pos,
             rotation: next_rotation,

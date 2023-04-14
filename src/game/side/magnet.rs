@@ -9,7 +9,7 @@ impl bevy::app::Plugin for Plugin {
         app.register_side_effect::<Magnet>("MagnetPower");
         app.add_system(
             attach_to_walls
-                .before(falling_system)
+                .before(player::falling_system) // Because falling requires setup OverrideGravity
                 .after(detect_side_effect::<Magnet>),
         );
     }
@@ -33,7 +33,7 @@ fn attach_to_walls(
     mut commands: Commands,
 ) {
     for (player, _) in players.iter() {
-        commands.entity(player).remove::<OverrideGravity>();
+        commands.entity(player).remove::<player::OverrideGravity>();
     }
     let mut go = HashMap::<Entity, Vec<IVec2>>::new();
     for event in events.iter() {
@@ -44,6 +44,8 @@ fn attach_to_walls(
         }
     }
     for (entity, gravities) in go {
-        commands.entity(entity).insert(OverrideGravity(gravities));
+        commands
+            .entity(entity)
+            .insert(player::OverrideGravity(gravities));
     }
 }

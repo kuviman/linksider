@@ -9,10 +9,12 @@ pub struct Plugin;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_system(side_init);
         app.add_plugin(jump::Plugin);
         app.add_plugin(slide::Plugin);
         app.add_plugin(magnet::Plugin);
+
+        app.add_system(side_init);
+
         app.register_ldtk_entity::<DevNullBundle>("DevNull");
     }
 }
@@ -50,6 +52,7 @@ fn side_init(query: Query<Entity, Added<Player>>, mut commands: Commands) {
 #[derive(Default, Component)]
 pub struct Powerup;
 
+/// Deletes the side effect
 #[derive(Default, Component)]
 pub struct DevNull;
 
@@ -117,6 +120,18 @@ fn detect_side_effect<T: SideEffect>(
     }
 }
 
+#[derive(Bundle, LdtkEntity)]
+struct PowerupBundle<T: 'static + Send + Sync + Component + Default> {
+    #[sprite_sheet_bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[grid_coords]
+    position: GridCoords,
+    effect: T,
+    powerup: side::Powerup,
+    #[with(entity_name)]
+    name: Name,
+}
+
 trait AppExt {
     fn register_side_effect<T: SideEffect>(&mut self, ldtk_name: &str);
 }
@@ -130,6 +145,7 @@ impl AppExt for App {
         self.add_event::<SideEffectEvent<T>>();
     }
 }
+
 fn delete_side_effect<T: SideEffect>(
     mut sides: Query<&Side, With<T>>,
     players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
