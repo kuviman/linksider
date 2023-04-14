@@ -4,12 +4,12 @@ pub struct Plugin;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<turns::State>();
+        app.add_state::<State>();
 
         app.add_system(loading_level_finish);
-        app.add_system(end_turn.in_set(OnUpdate(turns::State::Turn)));
-        app.add_system(stop_animation.in_set(OnUpdate(turns::State::Animation)));
-        app.add_system(process_animation.in_set(OnUpdate(turns::State::Animation)));
+        app.add_system(end_turn.in_set(OnUpdate(State::Turn)));
+        app.add_system(stop_animation.in_set(OnUpdate(State::Animation)));
+        app.add_system(process_animation.in_set(OnUpdate(State::Animation)));
 
         app.add_event::<MoveEvent>();
     }
@@ -64,11 +64,11 @@ pub enum State {
 }
 
 fn loading_level_finish(
-    mut next_state: ResMut<NextState<turns::State>>,
+    mut next_state: ResMut<NextState<State>>,
     query: Query<(), Added<Handle<LdtkLevel>>>,
 ) {
     if !query.is_empty() {
-        next_state.set(turns::State::Turn);
+        next_state.set(State::Turn);
     }
 }
 
@@ -77,22 +77,19 @@ fn process_animation(mut turn_timer: ResMut<AnimationTimer>, time: Res<Time>) {
     turn_timer.0.tick(time.delta()).elapsed_secs();
 }
 
-fn stop_animation(
-    mut next_state: ResMut<NextState<turns::State>>,
-    turn_timer: Res<AnimationTimer>,
-) {
+fn stop_animation(mut next_state: ResMut<NextState<State>>, turn_timer: Res<AnimationTimer>) {
     if turn_timer.0.finished() {
         info!("Animation finished");
-        next_state.set(turns::State::Turn);
+        next_state.set(State::Turn);
     }
 }
 
-fn end_turn(mut next_state: ResMut<NextState<turns::State>>, events: EventReader<MoveEvent>) {
+fn end_turn(mut next_state: ResMut<NextState<State>>, events: EventReader<MoveEvent>) {
     // No events means no animation to play so we wait for player input
     if events.is_empty() {
         info!("Waiting for input now");
-        next_state.set(turns::State::WaitingForInput);
+        next_state.set(State::WaitingForInput);
     } else {
-        next_state.set(turns::State::Animation);
+        next_state.set(State::Animation);
     }
 }
