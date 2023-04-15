@@ -16,10 +16,6 @@ I was working on my game and was not very happy about the code quality so I was 
 
 So participating in the [Bevy Jam 3](https://itch.io/jam/bevy-jam-3) was a great opportunity for me.
 
-Here's the development timelapse video:
-
-<!-- TODO -->
-
 *The goal of this post is mostly to document my experience with bevy for myself. The issues I encountered might be because of my impatience, or me failing to look for a solution and assuming things.*
 
 ## Day 1
@@ -87,7 +83,7 @@ One of the examples involved combining tiles together if they form a line, but t
 
 The way it worked was spawning a polyline for every tile, and then despawning a segment if it was present twice - which means that the segment is between two tiles.
 
-TODO: intcell reference by name instead of just number
+One other thing I missed from `bevy_ecs_ldtk` was registering intcells by name instead of by actual int value, since there is an option to specify names in ldtk itself.
 
 <!-- cheeseburge -->
 
@@ -103,6 +99,10 @@ The first day of the rewrite went really slow because I was struggling with unde
 What we ended up with was using bevy states, going in a loop like `Processing Turn -> Animation -> Processing Turn -> Animation -> ...`.
 Also, processing turn could end up with not requiring any animation (if player is stable), which switched the state to `Waiting for player input` state instead.
 I think the way we did it was very far from ideal, but it worked, so we kept it as is. But I think this is the most unreliable part of the game code, and if I touch it something will most likely break.
+
+I feel like the `Turn` should not be a state since it is something that happens instantly.
+I was thinking it should have been a custom schedule maybe, that I would run manually somehow,
+but we had to continue with other things.
 
 After we figured that part out, it seemed like the struggling with bevy finally stopped and the last 3 days of the jam were very productive.
 
@@ -138,14 +138,22 @@ Otherwise a bunch of constants would be hardcoded in rust files, which is also n
 Using `std::fs` would not make it work on the web, so `include_str!` is the most ergonomic thing I found,
 although we ended up not needing such a file, since all configuration we needed was inside ldtk.
 
-TODO: Transfering ownership
+One of the bugs when we still had physics was that if in one frame two sides were colliding with powerup, both could get the upgrade.
+What I wanted to do was transfering the `Jump` component from the powerup entity to the player side entity, but I have no idea how to take ownership of a component.
+All `Commands` let me do is `remove::<Jump>()` and `insert(Jump)`, meaning that I constructed component again instead of moving it, which made it very easy to miss that bug.
 
 ## Results
+
+Here's the development timelapse:
+
+{{ youtube(id="hwCZccbe4DI", autoplay=1) }}
+
+This is 500x sped up video, which means that I spent 66.6 hours making this game.
+And, of course, I did not make this game alone.
 
 We ended up with a game that seems like the best game we ever made so I am really happy with the results
 
 TODO: waiting on bevy jam results
-<!-- TODO jam results -->
 
 ![gg](gg.gif)
 
