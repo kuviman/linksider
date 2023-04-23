@@ -11,8 +11,10 @@
 
 I have [participated in a bunch of game jams using Rust](https://kuviman.itch.io).
 
-Usually I am using [my own engine](https://github.com/kuviman/geng). But I wanted to give [bevy](https://bevyengine.org/) a shot for a while since I was interested in trying out the ECS approach.
+Usually I am using [my own engine](https://github.com/geng-engine/geng). But I wanted to give [bevy](https://bevyengine.org/) a shot for a while since I was interested in trying out the ECS approach.
 I was working on my game and was not very happy about the code quality so I was looking into how to organize my code better.
+
+I have even been telling people to use bevy instead of my engine in previous posts, despite never actually trying it.
 
 So participating in the [Bevy Jam 3](https://itch.io/jam/bevy-jam-3) was a great opportunity for me.
 
@@ -76,14 +78,14 @@ let player_constructor: impl Fn(&LdtkEntityInstance) -> impl Bundle;
 app.register_ldtk_entity("Player", player_constructor);
 ```
 
-One of the things that didnt work well with physics was just spawning a box collider for every wall tile.
+One of the things that didn't work well with physics was just spawning a box collider for every wall tile.
 This made player hit point between two tiles, even although it is flat ground.
 
 One of the examples involved combining tiles together if they form a line, but that was still not good enough, so we had to implement another way of spawning the colliders.
 
 The way it worked was spawning a polyline for every tile, and then despawning a segment if it was present twice - which means that the segment is between two tiles.
 
-One other thing I missed from `bevy_ecs_ldtk` was registering intcells by name instead of by actual int value, since there is an option to specify names in ldtk itself.
+One other thing I missed from `bevy_ecs_ldtk` was registering int cells by name instead of by actual int value, since there is an option to specify names in ldtk itself.
 
 <!-- cheeseburge -->
 
@@ -131,7 +133,7 @@ Treating everything like it might not be loaded yet feels like we are back in th
 
 When playing audio, in order to control the audio effect, you need to convert your `Handle<AudioSink>` into a strong `Handle<AudioSink>`, but the type is exactly the same which is very weird imo. Also, when you just start playing the audio using `audio.play(source)` you get the handle to the sink that is not created yet and you can not control the audio immediately even if you have the strong handle.
 
-When playing other bevy jam games I have seen that pretty much every single one is suffering from audio glitches on the web builds. As I understand, it is because audio processing is happening using Rust code instead of through actual web audio APIs, since wasm is singlethreaded.
+When playing other bevy jam games I have seen that pretty much every single one is suffering from audio glitches on the web builds. As I understand, it is because audio processing is happening using Rust code instead of through actual web audio APIs, since wasm is single threaded.
 
 I tried figuring out how to load configuration from lets say a json file at runtime, but could not find a way.
 Otherwise a bunch of constants would be hardcoded in rust files, which is also not a good thing imo.
@@ -139,7 +141,7 @@ Using `std::fs` would not make it work on the web, so `include_str!` is the most
 although we ended up not needing such a file, since all configuration we needed was inside ldtk.
 
 One of the bugs when we still had physics was that if in one frame two sides were colliding with powerup, both could get the upgrade.
-What I wanted to do was transfering the `Jump` component from the powerup entity to the player side entity, but I have no idea how to take ownership of a component.
+What I wanted to do was transferring the `Jump` component from the powerup entity to the player side entity, but I have no idea how to take ownership of a component.
 All `Commands` let me do is `remove::<Jump>()` and `insert(Jump)`, meaning that I constructed component again instead of moving it, which made it very easy to miss that bug.
 
 ## Results
@@ -161,15 +163,19 @@ TODO: waiting on bevy jam results
 
 Yes. I would recommend bevy to people who want to learn Rust by creating a game.
 
-It does not require a deep understanding of lifetimes etc and maybe you dont need to fight the borrow checker too much, so especially if you are coming from a different language I feel like bevy is a good choice.
+It does not require a deep understanding of lifetimes etc and maybe you don't need to fight the borrow checker too much, so especially if you are coming from a different language I feel like bevy is a good choice.
 
 ## Will I use bevy again?
 
-At this point I don't think I will, the reason is I feel like the bevy ecs architecture, while letting me to split my code easily into different systems, moves a lot of checks from compile to runtime, which feels like i am giving up on Rust features that make it such a great language.
+At this point I don't think I will use it for new projects. The reason is I feel like the bevy ecs architecture, while letting me to split my code easily into different systems, moves a lot of checks from compile to runtime, which feels like i am giving up on Rust features that make it such a great language.
+I feel like there should be something better available for Rust, but it has not been discovered yet.
 
-Instead I will try do despaghettify my game code in some other way.
+Instead I will try do despaghettify my code in some other way.
 I still can rely on my code and I have this feeling of
-"If it compiles it runs" which I dont have when using bevy.
+"if it compiles it runs" which I don't have when using bevy.
+
+But, we are thinking about working more on this game,
+and I suppose it makes sense to continue working in bevy without rewriting it, so maybe we will learn and appreciate that approach more with time.
 
 Here's some stuff that I find interesting from other people:
 
@@ -177,5 +183,3 @@ Here's some stuff that I find interesting from other people:
 - <https://github.com/kvark/froggy>
 - <https://www.anthropicstudios.com/2019/06/05/entity-systems/>
 - TODO: Nertsal experiment
-
-I feel like there should be something better available for Rust, but it has not been discovered yet
