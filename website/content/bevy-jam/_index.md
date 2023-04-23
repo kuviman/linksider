@@ -83,7 +83,7 @@ app.register_ldtk_entity("Player", player_constructor);
 ```
 
 One of the things that didn't work well with physics was just spawning a box collider for every wall tile.
-This made player hit point between two tiles, even although it is flat ground.
+This made player hit point between two tiles, even though it is flat ground.
 
 One of the examples involved combining tiles together if they form a line, but that was still not good enough, so we had to implement another way of spawning the colliders.
 
@@ -110,7 +110,7 @@ I feel like the `Turn` should not be a state since it is something that happens 
 I was thinking it should have been a custom schedule maybe, that I would run manually somehow,
 but we had to continue with other things.
 
-After we figured that part out, it seemed like the struggling with bevy finally stopped and the last 3 days of the jam were very productive.
+After we figured that part out, it seemed like the struggle with bevy finally stopped and the last 3 days of the jam were very productive.
 
 ## Polish
 
@@ -123,7 +123,7 @@ The entire process of development was streamed on twitch, and I was asking every
 
 {{ audio(src="game_music.ogg") }}
 
-And later the music was covered by **Brainoid**, which is we decided to keep:
+And later the music was covered by **Brainoid**, which we decided to keep:
 
 {{ audio(src="KuviBevy.ogg") }}
 
