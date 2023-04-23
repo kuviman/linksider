@@ -3,9 +3,13 @@
 
 # I used Bevy for the first time for a game jam
 
+And we won
+
 ![img](../Lpko5O-transparent.png)
 
 [PLAY THE GAME](https://kuviman.itch.io/linksider)
+
+[Source code](https://github.com/kuviman/linksider)
 
 ## Intro
 
@@ -153,9 +157,8 @@ Here's the development timelapse:
 This is 500x sped up video, which means that I spent 66.6 hours making this game.
 And, of course, I did not make this game alone.
 
-We ended up with a game that seems like the best game we ever made so I am really happy with the results
-
-TODO: waiting on bevy jam results
+We ended up with a really good game that we enjoyed ourselves a lot, and we are now thinking about continuing working on it.
+Taking #1 place on the jam is also nice and we thank the community for high ratings.
 
 ![gg](gg.gif)
 
@@ -168,13 +171,14 @@ It does not require a deep understanding of lifetimes etc and maybe you don't ne
 ## Will I use bevy again?
 
 At this point I don't think I will use it for new projects. The reason is I feel like the bevy ecs architecture, while letting me to split my code easily into different systems, moves a lot of checks from compile to runtime, which feels like i am giving up on Rust features that make it such a great language.
-I feel like there should be something better available for Rust, but it has not been discovered yet.
 
 Instead I will try do despaghettify my code in some other way.
 I still can rely on my code and I have this feeling of
 "if it compiles it runs" which I don't have when using bevy.
 
-But, we are thinking about working more on this game,
+I feel like there should be something without the tradeoff available for Rust, but it has not been discovered yet.
+
+That said, we are thinking about working more on this game,
 and I suppose it makes sense to continue working in bevy without rewriting it, so maybe we will learn and appreciate that approach more with time.
 
 Here's some stuff that I find interesting from other people:
@@ -182,4 +186,7 @@ Here's some stuff that I find interesting from other people:
 - <https://molentum.me/blog/starframe-architecture/>
 - <https://github.com/kvark/froggy>
 - <https://www.anthropicstudios.com/2019/06/05/entity-systems/>
-- TODO: Nertsal experiment
+
+And we also started an experiment of our own recently, but its too early to talk about it.
+
+Anyway, jamming is always fun and this jam was no exception. Congratulations to all who participated and made a game!
