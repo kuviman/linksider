@@ -170,7 +170,7 @@ It does not require a deep understanding of lifetimes etc and maybe you don't ne
 
 ## Will I use bevy again?
 
-At this point I don't think I will use it for new projects. The reason is I feel like the bevy ecs architecture, while letting me to split my code easily into different systems, moves a lot of checks from compile to runtime, which feels like i am giving up on Rust features that make it such a great language.
+At this point I don't think I will use it for new projects. The reason is I feel like the bevy ecs architecture, while letting me to split my code easily into different systems, moves a lot of checks from compile to runtime, which feels like I am giving up on Rust features that make it such a great language.
 
 Instead I will try do despaghettify my code in some other way.
 I still can rely on my code and I have this feeling of
