@@ -1,3 +1,5 @@
+use bevy::utils::HashMap;
+
 use super::*;
 
 pub struct Plugin;
@@ -57,9 +59,15 @@ fn start_animation(
     asset_server: Res<AssetServer>,
 ) {
     info!("Animation started");
+    // TODO multiple sfx for each player?
     let mut sfx = None;
+    // TODO what if multiple players have different animation time?
     let mut animation_time = 0.2;
-    if let Some(event) = events.iter().last() {
+    let mut event_per_player = HashMap::new();
+    for event in events.iter() {
+        event_per_player.insert(event.player, event);
+    }
+    for event in event_per_player.into_values() {
         if let Ok((mut coords, mut rot)) = coords.get_mut(event.player) {
             animation_time *= ((rot.0 - event.rotation.0).abs() as f32).max(1.0);
             *coords = event.coords;

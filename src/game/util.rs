@@ -88,12 +88,13 @@ pub fn vec_to_rot(v: IVec2) -> i32 {
         return 1;
     }
     if v.x < 0 {
-        return 0;
+        return 3;
     }
     unreachable!()
 }
 
 pub fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
+    // TODO why we have - not a + ???
     match (player_rot - side_rot).rem_euclid(4) {
         0 => IVec2::new(0, -1),
         1 => IVec2::new(1, 0),
@@ -101,6 +102,16 @@ pub fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
         3 => IVec2::new(-1, 0),
         _ => unreachable!(),
     }
+}
+
+pub fn player_side(player_rot: &Rotation, dir: IVec2) -> i32 {
+    let player_rot = player_rot.0;
+    let mut dir = -vec_to_rot(dir);
+    if dir % 2 == 0 {
+        dir += 2; // DIRTY HACKS
+    }
+    // player_rot - side_rot = dir
+    player_rot - dir
 }
 
 /// This is a helper to see if a cell is blocked or not

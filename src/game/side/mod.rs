@@ -122,6 +122,16 @@ fn detect_side_effect<T: SideEffect>(
                     side: side.0,
                     phantom_data: PhantomData,
                 });
+                if let Some((other_player, _, other_player_rot, ..)) = players
+                    .iter()
+                    .find(|&(_, coords, ..)| *coords == side_coords)
+                {
+                    events.send(SideEffectEvent {
+                        player: other_player,
+                        side: player_side(other_player_rot, direction),
+                        phantom_data: PhantomData,
+                    });
+                }
             }
         }
     }
