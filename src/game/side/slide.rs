@@ -1,3 +1,5 @@
+use crate::game::level::Blocking;
+
 use super::*;
 
 pub struct Plugin;
@@ -42,7 +44,7 @@ fn do_slide(
     players: Query<(&player::Input, &GridCoords, &Rotation, Option<&SlideSfx>)>,
     mut events: EventReader<SideEffectEvent<Slide>>,
     mut move_events: EventWriter<turns::MoveEvent>,
-    blocked: Query<BlockedQuery>,
+    blocked: Query<BlockedQuery, With<Blocking>>,
     audio_sinks: Res<Assets<AudioSink>>,
     mut commands: Commands,
     audio: Res<Audio>,

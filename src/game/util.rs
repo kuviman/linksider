@@ -81,14 +81,13 @@ pub fn side_vec(player_rot: i32, side_rot: i32) -> IVec2 {
 }
 
 /// This is a helper to see if a cell is blocked or not
-/// add blocked: Query<BlockedQuery> to system, then us is_blocked(coords, &blocked)
+/// add blocked: Query<BlockedQuery, With<Blocking>> to system, then us is_blocked(coords, &blocked)
 ///
 /// This should probably be done instead by introducing a resource that maintains a grid
 /// For faster access, and having systems in place to synchronize it
 #[derive(WorldQuery)]
 pub struct BlockedQuery {
     coords: &'static GridCoords,
-    filter: With<level::Blocking>,
 }
 
 pub fn is_blocked(

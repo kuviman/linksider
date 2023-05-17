@@ -39,21 +39,28 @@ fn do_jump(
         if let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) {
             let jump_dir = -side_vec(player_rotation.0, event.side);
             let mut path: Vec<IVec2> = vec![IVec2::new(1, 0), IVec2::new(2, 0)];
-            if jump_dir == IVec2::new(0, 1) {
-                path.push(IVec2::new(2, -player_input.direction.delta()));
-            } else if is_blocked(
-                (IVec2::from(*player_coords) + IVec2::new(0, -1)).into(),
-                &blocked,
-            ) {
-                continue;
-            }
             let path = path
                 .into_iter()
-                .map(|v| IVec2::from(*player_coords) + jump_dir.rotate(v))
-                .map(GridCoords::from);
+                .map(|v| IVec2::from(*player_coords) + jump_dir.rotate(v));
             let mut path = Vec::from_iter(path);
             let mut hit_wall = false;
-            if let Some(index) = path.iter().position(|coords| is_blocked(*coords, &blocked)) {
+            if let Some(index) = 'find_block: {
+                let mut prev_pos = IVec2::from(*player_coords);
+                for index in 0..path.len() {
+                    let delta = path[index] - prev_pos;
+                    for dir in [(1, 1), (0, 1), (1, 0)] {
+                        let delta = delta * IVec2::new(dir.0, dir.1);
+                        if delta == IVec2::ZERO {
+                            continue;
+                        }
+                        if is_blocked(GridCoords::from(prev_pos + delta), &blocked) {
+                            break 'find_block Some(index);
+                        }
+                    }
+                    prev_pos = path[index];
+                }
+                None
+            } {
                 path.truncate(index);
                 if index < 2 {
                     // Not for the side
@@ -62,6 +69,7 @@ fn do_jump(
             }
 
             if let Some(last) = path.pop() {
+                let last = last.into();
                 move_events.send(turns::MoveEvent {
                     player: event.player,
                     coords: last,

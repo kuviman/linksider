@@ -17,6 +17,7 @@ impl bevy::app::Plugin for Plugin {
 
         app.register_ldtk_int_cell::<BlockBundle>(1);
         app.register_ldtk_int_cell::<DisableBundle>(6);
+        app.register_ldtk_int_cell::<CloudBundle>(7);
     }
 }
 
@@ -43,6 +44,11 @@ struct BlockBundle {
 #[derive(Bundle, LdtkIntCell)]
 struct DisableBundle {
     blocking: Blocking,
+}
+
+#[derive(Bundle, LdtkIntCell)]
+struct CloudBundle {
+    trigger: side::Trigger,
 }
 
 fn level_restart(

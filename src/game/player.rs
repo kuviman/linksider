@@ -1,4 +1,4 @@
-use super::*;
+use super::{level::Blocking, *};
 
 pub struct Plugin;
 
@@ -121,7 +121,7 @@ fn update_player_input(
 #[allow(clippy::type_complexity)]
 pub fn move_system(
     mut next_state: ResMut<NextState<turns::State>>,
-    blocked: Query<BlockedQuery>,
+    blocked: Query<BlockedQuery, With<Blocking>>,
     players: Query<
         (
             Entity,
@@ -210,7 +210,7 @@ pub fn move_system(
 }
 
 pub fn falling_system(
-    blocked: Query<BlockedQuery>,
+    blocked: Query<BlockedQuery, With<Blocking>>,
     players: Query<
         (
             Entity,
