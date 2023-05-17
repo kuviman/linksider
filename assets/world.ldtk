@@ -11,7 +11,7 @@
 	"iid": "87273510-c640-11ed-9b51-7d4f25692148",
 	"jsonVersion": "1.2.5",
 	"appBuildId": 464870,
-	"nextUid": 220,
+	"nextUid": 224,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "LinearVertical",
@@ -1180,6 +1180,35 @@
 			]
 		},
 		{
+			"identifier": "Box",
+			"uid": 221,
+			"tags": [],
+			"exportToToc": false,
+			"doc": null,
+			"width": 16,
+			"height": 16,
+			"resizableX": true,
+			"resizableY": true,
+			"keepAspectRatio": false,
+			"tileOpacity": 1,
+			"fillOpacity": 0.08,
+			"lineOpacity": 0,
+			"hollow": false,
+			"color": "#F6757A",
+			"renderMode": "Tile",
+			"showName": true,
+			"tilesetId": 6,
+			"tileRenderMode": "FitInside",
+			"tileRect": { "tilesetUid": 6, "x": 64, "y": 64, "w": 16, "h": 16 },
+			"nineSliceBorders": [],
+			"maxCount": 0,
+			"limitScope": "PerLevel",
+			"limitBehavior": "MoveLastOne",
+			"pivotX": 0,
+			"pivotY": 0,
+			"fieldDefs": []
+		},
+		{
 			"identifier": "JumpPower",
 			"uid": 9,
 			"tags": [],
@@ -1300,7 +1329,43 @@
 			"limitBehavior": "MoveLastOne",
 			"pivotX": 0,
 			"pivotY": 0,
-			"fieldDefs": []
+			"fieldDefs": [
+				{
+					"identifier": "Side",
+					"doc": null,
+					"__type": "LocalEnum.Side",
+					"uid": 220,
+					"type": "F_Enum(217)",
+					"isArray": false,
+					"canBeNull": false,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "Hidden",
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "StraightArrow",
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": ["Down"]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefTags": [],
+					"tilesetUid": null
+				}
+			]
 		},
 		{
 			"identifier": "DevNull",
@@ -1742,32 +1807,40 @@
 							"__tags": [],
 							"__tile": { "tilesetUid": 6, "x": 144, "y": 80, "w": 16, "h": 16 },
 							"__smartColor": "#FEAE34",
-							"iid": "5e38eaf0-ed50-11ed-ae05-536396241229",
+							"iid": "e540fb90-ed50-11ed-ae05-ef374eb4cb62",
 							"width": 16,
 							"height": 16,
 							"defUid": 9,
 							"px": [80,128],
-							"fieldInstances": [{ "__identifier": "Side", "__value": "Left", "__type": "LocalEnum.Side", "__tile": null, "defUid": 218, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Left"]
-							}] }]
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 218, "realEditorValues": [] }]
 						},
 						{
-							"__identifier": "Player",
-							"__grid": [7,7],
+							"__identifier": "Box",
+							"__grid": [6,7],
 							"__pivot": [0,0],
 							"__tags": [],
-							"__tile": { "tilesetUid": 6, "x": 176, "y": 80, "w": 16, "h": 16 },
+							"__tile": { "tilesetUid": 6, "x": 64, "y": 64, "w": 16, "h": 16 },
 							"__smartColor": "#F6757A",
-							"iid": "f52ba600-ed50-11ed-ae05-93d04e56c5bb",
+							"iid": "e957bc50-ed50-11ed-ae05-5d5bc18a02e5",
 							"width": 16,
 							"height": 16,
-							"defUid": 7,
-							"px": [112,112],
-							"fieldInstances": [
-								{ "__identifier": "Index", "__value": 0, "__type": "Int", "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 219, "realEditorValues": [] }
-							]
+							"defUid": 221,
+							"px": [96,112],
+							"fieldInstances": []
+						},
+						{
+							"__identifier": "JumpPower",
+							"__grid": [7,8],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 6, "x": 144, "y": 80, "w": 16, "h": 16 },
+							"__smartColor": "#FEAE34",
+							"iid": "b67977f0-ed50-11ed-ae05-9d17cc489e2f",
+							"width": 16,
+							"height": 16,
+							"defUid": 9,
+							"px": [112,128],
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 218, "realEditorValues": [] }]
 						}
 					]
 				},
@@ -4071,7 +4144,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [80,64],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "Goal",
@@ -4339,7 +4412,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [64,128],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "Goal",
@@ -5653,7 +5726,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [64,48],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "SlidePower",
@@ -5667,7 +5740,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [80,64],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "SlidePower",
@@ -5681,7 +5754,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [96,80],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "JumpPower",
@@ -6254,7 +6327,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [112,112],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "Player",
@@ -8849,7 +8922,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [112,80],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "SlidePower",
@@ -8863,7 +8936,7 @@
 							"height": 16,
 							"defUid": 10,
 							"px": [96,112],
-							"fieldInstances": []
+							"fieldInstances": [{ "__identifier": "Side", "__value": "Down", "__type": "LocalEnum.Side", "__tile": null, "defUid": 220, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "Player",

@@ -1,4 +1,4 @@
-use super::{level::Blocking, *};
+use super::{level::Blocking, side::PickupSideEffects, *};
 
 pub struct Plugin;
 
@@ -13,12 +13,34 @@ impl bevy::app::Plugin for Plugin {
         app.add_turn_system(falling_system, turns::TurnOrder::ApplySideEffects);
 
         app.register_ldtk_entity::<PlayerBundle>("Player");
+        app.register_ldtk_entity::<BoxBundle>("Box");
     }
+}
+
+#[derive(Bundle, LdtkEntity)]
+struct BoxBundle {
+    blocking: level::Blocking,
+    movable: Movable,
+    trigger: side::Trigger,
+    #[grid_coords]
+    position: GridCoords,
+    #[from_entity_instance]
+    rotation: Rotation,
+    #[from_entity_instance]
+    entity_instance: EntityInstance,
+    player_input: player::Input, // TODO remove
+    pickup: PickupSideEffects,
+    #[sprite_sheet_bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[with(entity_name)]
+    name: Name,
 }
 
 #[derive(Bundle, LdtkEntity)]
 struct PlayerBundle {
     player: Player,
+    pickup: PickupSideEffects,
+    movable: Movable,
     #[from_entity_instance]
     index: PlayerIndex,
     blocking: level::Blocking,
@@ -35,6 +57,9 @@ struct PlayerBundle {
     #[with(entity_name)]
     name: Name,
 }
+
+#[derive(Default, Component)]
+pub struct Movable;
 
 #[derive(Default, Component)]
 pub struct Player;
@@ -219,7 +244,7 @@ pub fn falling_system(
             &Rotation,
             Option<&player::OverrideGravity>,
         ),
-        With<Player>,
+        With<Movable>,
     >,
     mut events: EventWriter<turns::MoveEvent>,
 ) {

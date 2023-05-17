@@ -1,4 +1,4 @@
-use super::{turns::TurnOrder, *};
+use super::{player::Movable, turns::TurnOrder, *};
 use std::{f32::consts::PI, marker::PhantomData};
 
 mod jump;
@@ -32,7 +32,10 @@ pub struct Blank;
 #[derive(Default, Component)]
 pub struct Trigger;
 
-fn side_init(query: Query<Entity, Added<Player>>, mut commands: Commands) {
+#[derive(Default, Component)]
+pub struct PickupSideEffects;
+
+fn side_init(query: Query<Entity, Added<PickupSideEffects>>, mut commands: Commands) {
     for player in query.iter() {
         for i in 0..4 {
             commands
@@ -92,7 +95,7 @@ struct SideEffectEvent<T: SideEffect> {
 
 fn detect_side_effect<T: SideEffect>(
     sides: Query<&Side, With<T>>,
-    players: Query<(Entity, &GridCoords, &Rotation, &Children), With<Player>>,
+    players: Query<(Entity, &GridCoords, &Rotation, &Children), With<Movable>>,
     blocked: Query<BlockedQuery, With<Trigger>>,
     mut events: EventWriter<SideEffectEvent<T>>,
 ) {
@@ -179,7 +182,7 @@ fn powerups_collected() {}
 
 fn delete_side_effect<T: SideEffect>(
     mut sides: Query<&Side, With<T>>,
-    players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
+    players: Query<(&GridCoords, &Rotation, &Children), With<Movable>>,
     devnulls: Query<(Entity, &GridCoords), With<DevNull>>,
     mut commands: Commands,
     audio: Res<Audio>,
@@ -210,7 +213,7 @@ fn delete_side_effect<T: SideEffect>(
 #[allow(clippy::type_complexity)]
 fn collect_powerup<T: SideEffect>(
     mut sides: Query<&Side, With<Blank>>,
-    players: Query<(&GridCoords, &Rotation, &Children), With<Player>>,
+    players: Query<(&GridCoords, &Rotation, &Children), With<PickupSideEffects>>,
     powerups: Query<
         (
             Entity,

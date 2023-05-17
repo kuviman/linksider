@@ -1,6 +1,6 @@
 use bevy::utils::HashMap;
 
-use super::*;
+use super::{player::Movable, *};
 
 pub struct Plugin;
 
@@ -32,7 +32,7 @@ struct PrevCoords(GridCoords);
 struct PrevRotation(Rotation);
 
 fn init_prev_coords(
-    query: Query<(Entity, &GridCoords, &Rotation), With<Player>>,
+    query: Query<(Entity, &GridCoords, &Rotation), With<Movable>>,
     mut commands: Commands,
 ) {
     for (entity, position, rot) in query.iter() {

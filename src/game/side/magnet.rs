@@ -1,5 +1,7 @@
 use bevy::utils::HashMap;
 
+use crate::game::player::Movable;
+
 use super::*;
 
 pub struct Plugin;
@@ -28,7 +30,7 @@ impl SideEffect for Magnet {
 }
 
 fn attach_to_walls(
-    players: Query<(Entity, &Rotation), With<Player>>,
+    players: Query<(Entity, &Rotation), With<Movable>>,
     mut events: EventReader<SideEffectEvent<Magnet>>,
     mut commands: Commands,
 ) {

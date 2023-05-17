@@ -22,7 +22,7 @@ pub struct Slide;
 impl SideEffect for Slide {}
 
 fn slide_move(
-    players: Query<Entity, With<Player>>,
+    players: Query<Entity, With<Movable>>,
     mut events: EventReader<SideEffectEvent<Slide>>,
     mut commands: Commands,
 ) {
