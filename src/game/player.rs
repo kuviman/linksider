@@ -10,7 +10,7 @@ impl bevy::app::Plugin for Plugin {
                 .in_set(OnUpdate(turns::State::WaitingForInput))
                 .after(update_player_input),
         );
-        app.add_turn_system(falling_system);
+        app.add_turn_system(falling_system, turns::TurnOrder::ApplySideEffects);
 
         app.register_ldtk_entity::<PlayerBundle>("Player");
     }
@@ -25,6 +25,7 @@ struct PlayerBundle {
     trigger: side::Trigger,
     #[grid_coords]
     position: GridCoords,
+    #[from_entity_instance]
     rotation: Rotation,
     #[from_entity_instance]
     entity_instance: EntityInstance,

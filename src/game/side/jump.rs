@@ -11,7 +11,10 @@ impl bevy::app::Plugin for Plugin {
         // EDIT: this is now unsafe POG
         #[allow(unused_unsafe)]
         unsafe {
-            app.add_turn_system(do_jump.after(player::falling_system)); // After falling makes it have higher priority
+            app.add_turn_system(
+                do_jump.after(player::falling_system),
+                TurnOrder::ApplySideEffects,
+            ); // After falling makes it have higher priority
         }
     }
 }
@@ -35,6 +38,7 @@ fn do_jump(
     mut move_events: EventWriter<turns::MoveEvent>,
     blocked: Query<BlockedQuery, With<Blocking>>,
 ) {
+    info!("CHECKING JUMPS");
     for event in events.iter() {
         if let Ok((player_input, player_coords, player_rotation)) = players.get(event.player) {
             let jump_dir = -side_vec(player_rotation.0, event.side);

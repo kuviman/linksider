@@ -7,7 +7,7 @@ pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.register_side_effect::<Slide>("SlidePower");
-        app.add_turn_system(do_slide);
+        app.add_turn_system(do_slide, TurnOrder::ApplySideEffects);
         app.add_system(
             slide_move
                 .before(player::move_system)

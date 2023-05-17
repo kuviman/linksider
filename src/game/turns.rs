@@ -6,13 +6,34 @@ impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_state::<State>();
 
+        app.configure_set(TurnOrder::CollectPowerups.before(TurnOrder::ApplyBuffers1));
+        app.configure_set(TurnOrder::DetectSideEffect.after(TurnOrder::ApplyBuffers1));
+        app.configure_set(TurnOrder::DetectSideEffect.before(TurnOrder::ApplyBuffers2));
+        app.configure_set(TurnOrder::ApplySideEffects.after(TurnOrder::ApplyBuffers2));
+        app.add_system(apply_system_buffers.in_set(TurnOrder::ApplyBuffers1));
+        app.add_system(apply_system_buffers.in_set(TurnOrder::ApplyBuffers2));
+
         app.add_system(loading_level_finish);
+        app.add_systems(
+            (start_turn, apply_system_buffers)
+                .chain()
+                .in_set(OnUpdate(State::Turn)),
+        );
         app.add_system(end_turn.in_set(OnUpdate(State::Turn)));
         app.add_system(stop_animation.in_set(OnUpdate(State::Animation)));
         app.add_system(process_animation.in_set(OnUpdate(State::Animation)));
 
         app.add_event::<MoveEvent>();
     }
+}
+
+#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Copy, Clone)]
+pub enum TurnOrder {
+    CollectPowerups,
+    ApplyBuffers1,
+    DetectSideEffect,
+    ApplyBuffers2,
+    ApplySideEffects,
 }
 
 pub struct MoveEvent {
@@ -39,15 +60,17 @@ impl AnimationTimer {
 }
 
 pub trait AppExt {
-    fn add_turn_system<M>(&mut self, system: impl IntoSystemAppConfig<M>);
+    fn add_turn_system<M>(&mut self, system: impl IntoSystemAppConfig<M>, when: TurnOrder);
 }
 
 impl AppExt for App {
-    fn add_turn_system<M>(&mut self, system: impl IntoSystemAppConfig<M>) {
+    fn add_turn_system<M>(&mut self, system: impl IntoSystemAppConfig<M>, when: TurnOrder) {
         self.add_system(
             system
                 .into_app_config()
                 .in_set(OnUpdate(State::Turn))
+                .in_set(when)
+                .after(start_turn)
                 .before(end_turn),
         );
     }
@@ -83,6 +106,9 @@ fn stop_animation(mut next_state: ResMut<NextState<State>>, turn_timer: Res<Anim
         next_state.set(State::Turn);
     }
 }
+
+/// This is here just for the sake of ordering
+fn start_turn() {}
 
 fn end_turn(mut next_state: ResMut<NextState<State>>, events: EventReader<MoveEvent>) {
     // No events means no animation to play so we wait for player input

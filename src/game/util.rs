@@ -32,6 +32,29 @@ impl std::ops::Neg for Direction {
 #[derive(Debug, Default, Component, Clone, Copy)]
 pub struct Rotation(pub i32);
 
+impl From<&ldtk::EntityInstance> for Rotation {
+    fn from(entity: &ldtk::EntityInstance) -> Self {
+        let value = entity
+            .field_instances
+            .iter()
+            .find(|field| field.identifier == "Side")
+            .map(|field| match &field.value {
+                FieldValue::Enum(value) => {
+                    match value.as_ref().expect("Side should be non null").as_str() {
+                        "Down" => 0,
+                        "Right" => 1,
+                        "Up" => 2,
+                        "Left" => 3,
+                        other => panic!("Unexpected value for side: {other:?}"),
+                    }
+                }
+                _ => panic!("Side should be enum"),
+            })
+            .unwrap_or(0);
+        Self(value)
+    }
+}
+
 impl Rotation {
     pub fn to_radians(self) -> f32 {
         self.0 as f32 * PI / 2.0

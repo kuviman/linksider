@@ -1,4 +1,4 @@
-use super::*;
+use super::{turns::TurnOrder, *};
 use std::{f32::consts::PI, marker::PhantomData};
 
 mod jump;
@@ -96,6 +96,7 @@ fn detect_side_effect<T: SideEffect>(
     blocked: Query<BlockedQuery, With<Trigger>>,
     mut events: EventWriter<SideEffectEvent<T>>,
 ) {
+    info!("CHECKING FOR ACTIVATION");
     for (player, player_coords, player_rotation, player_children) in players.iter() {
         let mut sides: Vec<&Side> = player_children
             .iter()
@@ -103,6 +104,7 @@ fn detect_side_effect<T: SideEffect>(
             .collect();
         sides.sort_by_key(|side| -side_vec(player_rotation.0, side.0).y);
         for side in sides {
+            info!("I HAVE POWER POG");
             if !match side_vec(player_rotation.0, side.0) {
                 IVec2 { y: -1, .. } => T::active_below(),
                 IVec2 { y: 1, .. } => T::active_above(),
@@ -114,6 +116,7 @@ fn detect_side_effect<T: SideEffect>(
             let direction = side_vec(player_rotation.0, side.0);
             let side_coords = (IVec2::from(*player_coords) + direction).into();
             if is_blocked(side_coords, &blocked) {
+                info!("ACTIVATED");
                 events.send(SideEffectEvent {
                     player,
                     side: side.0,
@@ -131,6 +134,8 @@ struct PowerupBundle<T: 'static + Send + Sync + Component + Default> {
     #[grid_coords]
     position: GridCoords,
     effect: T,
+    #[from_entity_instance]
+    rotation: Rotation,
     powerup: side::Powerup,
     #[with(entity_name)]
     name: Name,
@@ -143,12 +148,24 @@ trait AppExt {
 impl AppExt for App {
     fn register_side_effect<T: SideEffect>(&mut self, ldtk_name: &str) {
         self.register_ldtk_entity::<PowerupBundle<T>>(ldtk_name);
-        self.add_system(collect_powerup::<T>);
-        self.add_system(delete_side_effect::<T>);
-        self.add_system(detect_side_effect::<T>);
+        self.add_turn_system(
+            collect_powerup::<T>.before(powerups_collected),
+            TurnOrder::CollectPowerups,
+        );
+        self.add_turn_system(
+            delete_side_effect::<T>.before(powerups_collected),
+            TurnOrder::CollectPowerups,
+        );
+        self.add_turn_system(
+            detect_side_effect::<T>.after(powerups_collected),
+            TurnOrder::DetectSideEffect,
+        );
         self.add_event::<SideEffectEvent<T>>();
     }
 }
+
+// This is here just for the sake of ordering
+fn powerups_collected() {}
 
 fn delete_side_effect<T: SideEffect>(
     mut sides: Query<&Side, With<T>>,
@@ -188,6 +205,7 @@ fn collect_powerup<T: SideEffect>(
         (
             Entity,
             &GridCoords,
+            &Rotation,
             &TextureAtlasSprite,
             &Handle<TextureAtlas>,
         ),
@@ -198,11 +216,11 @@ fn collect_powerup<T: SideEffect>(
     asset_server: Res<AssetServer>,
 ) {
     for (player_coords, player_rotation, player_children) in players.iter() {
-        for (powerup, powerup_coords, sprite, atlas) in powerups.iter() {
+        for (powerup, powerup_coords, powerup_rotation, sprite, atlas) in powerups.iter() {
             if player_coords == powerup_coords {
                 for &side in player_children {
                     if let Ok(side_data) = sides.get_mut(side) {
-                        if (side_data.0 - player_rotation.0) % 4 == 0 {
+                        if (side_data.0 - player_rotation.0 + powerup_rotation.0) % 4 == 0 {
                             commands.entity(powerup).despawn();
                             commands.entity(side).remove::<Blank>().insert(T::default());
 
@@ -212,6 +230,8 @@ fn collect_powerup<T: SideEffect>(
                                 .insert(atlas.clone());
 
                             audio.play_sfx(asset_server.load("sfx/powerUp.wav"));
+
+                            info!("COLLECTED");
                         }
                     }
                 }

@@ -11,7 +11,10 @@ impl bevy::app::Plugin for Plugin {
         // EDIT: this is now unsafe POG
         #[allow(unused_unsafe)]
         unsafe {
-            app.add_turn_system(do_jump.after(player::falling_system)); // After falling makes it have higher priority
+            app.add_turn_system(
+                do_jump.after(player::falling_system),
+                TurnOrder::ApplySideEffects,
+            ); // After falling makes it have higher priority
         }
     }
 }

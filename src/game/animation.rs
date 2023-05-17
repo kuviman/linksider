@@ -10,8 +10,16 @@ impl bevy::app::Plugin for Plugin {
         app.add_system(init_prev_coords.in_schedule(OnEnter(turns::State::Turn)));
 
         app.add_system(start_animation.in_schedule(OnEnter(turns::State::Animation)));
+        app.add_system(setup_rotation_transform);
         app.add_system(update_transforms.in_set(OnUpdate(turns::State::Animation)));
         app.add_system(stop_animation.in_schedule(OnExit(turns::State::Animation)));
+    }
+}
+
+fn setup_rotation_transform(mut query: Query<(&mut Transform, &Rotation), Added<Rotation>>) {
+    for (mut transform, rotation) in query.iter_mut() {
+        // this is me converting the rotations into radians yea
+        transform.rotation = Quat::from_rotation_z(rotation.to_radians());
     }
 }
 

@@ -5,7 +5,7 @@ pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.register_ldtk_entity::<GoalBundle>("Goal");
-        app.add_turn_system(finish_level);
+        app.add_turn_system(finish_level, turns::TurnOrder::ApplySideEffects);
     }
 }
 

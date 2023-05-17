@@ -6,6 +6,8 @@ use bevy_ecs_ldtk::prelude::*;
 
 mod game;
 
+// BEVY IS GARBAGE, RUST IS GARBAGE, BADCOP_ IS THE BEST
+// I didn't write that comment ^ - @badcop_
 fn main() {
     let mut app = App::new();
     // This fixes sprite edges artifacts
