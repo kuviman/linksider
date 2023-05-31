@@ -2,8 +2,6 @@ use super::{player::Movable, turns::TurnOrder, *};
 use std::{f32::consts::PI, marker::PhantomData};
 
 mod jump;
-mod jump3;
-mod jump_no_friction;
 mod magnet;
 mod slide;
 
@@ -11,9 +9,7 @@ pub struct Plugin;
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        // app.add_plugin(jump::Plugin);
-        app.add_plugin(jump3::Plugin);
-        // app.add_plugin(jump_no_friction::Plugin);
+        app.add_plugin(jump::Plugin);
         app.add_plugin(slide::Plugin);
         app.add_plugin(magnet::Plugin);
 

@@ -49,7 +49,10 @@ fn do_jump(
                 (IVec2::from(*player_coords) + IVec2::new(0, -1)).into(),
                 &blocked,
             ) {
-                continue;
+                // Disable friction
+                if false {
+                    continue;
+                }
             }
             let path = path
                 .into_iter()
