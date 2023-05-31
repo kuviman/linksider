@@ -53,6 +53,9 @@ fn side_init(query: Query<Entity, Added<PickupSideEffects>>, mut commands: Comma
 }
 
 #[derive(Default, Component)]
+pub struct WallEffect;
+
+#[derive(Default, Component)]
 pub struct Powerup;
 
 /// Deletes the side effect
@@ -87,6 +90,26 @@ struct SideEffectEvent<T: SideEffect> {
     player: Entity,
     side: i32,
     phantom_data: PhantomData<T>,
+}
+
+fn detect_wall_side_effect<T: SideEffect>(
+    players: Query<(Entity, &GridCoords, &Rotation), (With<Movable>, With<Trigger>)>,
+    effects: Query<(&GridCoords, &Rotation), (With<WallEffect>, With<T>)>,
+    mut events: EventWriter<SideEffectEvent<T>>,
+) {
+    for (player, player_coords, player_rot) in &players {
+        for (effect_coords, effect_rot) in &effects {
+            if player_coords != effect_coords {
+                continue;
+            }
+            info!("Hello? I am wall effect");
+            events.send(SideEffectEvent {
+                player,
+                side: player_side(player_rot, -side_vec(effect_rot.0, 0)),
+                phantom_data: PhantomData,
+            });
+        }
+    }
 }
 
 fn detect_side_effect<T: SideEffect>(
@@ -137,6 +160,20 @@ fn detect_side_effect<T: SideEffect>(
 }
 
 #[derive(Bundle, LdtkEntity)]
+struct WallEffectBundle<T: 'static + Send + Sync + Component + Default> {
+    #[sprite_sheet_bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[grid_coords]
+    position: GridCoords,
+    effect: T,
+    #[from_entity_instance]
+    rotation: Rotation,
+    wall_effect: WallEffect,
+    #[with(entity_name)]
+    name: Name,
+}
+
+#[derive(Bundle, LdtkEntity)]
 struct PowerupBundle<T: 'static + Send + Sync + Component + Default> {
     #[sprite_sheet_bundle]
     sprite_sheet: SpriteSheetBundle,
@@ -157,6 +194,7 @@ trait AppExt {
 impl AppExt for App {
     fn register_side_effect<T: SideEffect>(&mut self, ldtk_name: &str) {
         self.register_ldtk_entity::<PowerupBundle<T>>(ldtk_name);
+        self.register_ldtk_entity::<WallEffectBundle<T>>(&format!("{ldtk_name}Wall"));
         self.add_turn_system(
             collect_powerup::<T>.before(powerups_collected),
             TurnOrder::CollectPowerups,
@@ -164,6 +202,10 @@ impl AppExt for App {
         self.add_turn_system(
             delete_side_effect::<T>.before(powerups_collected),
             TurnOrder::CollectPowerups,
+        );
+        self.add_turn_system(
+            detect_wall_side_effect::<T>.after(powerups_collected),
+            TurnOrder::DetectSideEffect,
         );
         self.add_turn_system(
             detect_side_effect::<T>.after(powerups_collected),

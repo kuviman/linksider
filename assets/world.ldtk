@@ -11,7 +11,7 @@
 	"iid": "87273510-c640-11ed-9b51-7d4f25692148",
 	"jsonVersion": "1.3.2",
 	"appBuildId": 467535,
-	"nextUid": 224,
+	"nextUid": 225,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "LinearVertical",
@@ -1560,7 +1560,7 @@
 			]
 		},
 		{
-			"identifier": "JumpNoFrictionPower",
+			"identifier": "JumpPowerWall",
 			"uid": 212,
 			"tags": [],
 			"exportToToc": false,
@@ -1586,7 +1586,45 @@
 			"limitBehavior": "MoveLastOne",
 			"pivotX": 0,
 			"pivotY": 0,
-			"fieldDefs": []
+			"fieldDefs": [
+				{
+					"identifier": "Side",
+					"doc": null,
+					"__type": "LocalEnum.Side",
+					"uid": 224,
+					"type": "F_Enum(217)",
+					"isArray": false,
+					"canBeNull": false,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 0,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "StraightArrow",
+					"editorAlwaysShow": true,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": ["Down"]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				}
+			]
 		},
 		{
 			"identifier": "SlidePower",
@@ -2117,18 +2155,35 @@
 							"fieldInstances": []
 						},
 						{
-							"__identifier": "JumpPower",
+							"__identifier": "JumpPowerWall",
+							"__grid": [11,8],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 6, "x": 144, "y": 80, "w": 16, "h": 16 },
+							"__smartColor": "#FEAE34",
+							"iid": "8dca8560-ed50-11ed-9b1e-01ef78fdc14a",
+							"width": 16,
+							"height": 16,
+							"defUid": 212,
+							"px": [176,128],
+							"fieldInstances": [{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Right", "__tile": null, "defUid": 224, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["Right"]
+							}] }]
+						},
+						{
+							"__identifier": "JumpPowerWall",
 							"__grid": [8,8],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": { "tilesetUid": 6, "x": 144, "y": 80, "w": 16, "h": 16 },
 							"__smartColor": "#FEAE34",
-							"iid": "28818320-ed50-11ed-9b1e-bd41b81f593c",
+							"iid": "8e751d40-ed50-11ed-9b1e-8f80d4c92153",
 							"width": 16,
 							"height": 16,
-							"defUid": 9,
+							"defUid": 212,
 							"px": [128,128],
-							"fieldInstances": [{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 218, "realEditorValues": [] }]
+							"fieldInstances": [{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 224, "realEditorValues": [] }]
 						}
 					]
 				},
@@ -2178,8 +2233,8 @@
 					"intGridCsv": [
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,
-						1,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,
+						0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
 						1,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -2195,11 +2250,6 @@
 						{ "px": [48,96], "src": [112,0], "f": 0, "t": 7, "d": [161,99], "a": 1 },
 						{ "px": [64,96], "src": [112,0], "f": 0, "t": 7, "d": [161,100], "a": 1 },
 						{ "px": [80,96], "src": [112,0], "f": 0, "t": 7, "d": [161,101], "a": 1 },
-						{ "px": [96,96], "src": [112,0], "f": 0, "t": 7, "d": [161,102], "a": 1 },
-						{ "px": [112,96], "src": [112,0], "f": 0, "t": 7, "d": [161,103], "a": 1 },
-						{ "px": [128,96], "src": [112,0], "f": 0, "t": 7, "d": [161,104], "a": 1 },
-						{ "px": [144,96], "src": [112,0], "f": 0, "t": 7, "d": [161,105], "a": 1 },
-						{ "px": [160,96], "src": [112,0], "f": 0, "t": 7, "d": [161,106], "a": 1 },
 						{ "px": [176,96], "src": [112,0], "f": 0, "t": 7, "d": [161,107], "a": 1 },
 						{ "px": [96,144], "src": [112,0], "f": 0, "t": 7, "d": [161,150], "a": 1 },
 						{ "px": [112,144], "src": [112,0], "f": 0, "t": 7, "d": [161,151], "a": 1 },
@@ -2208,6 +2258,8 @@
 						{ "px": [160,144], "src": [112,0], "f": 0, "t": 7, "d": [161,154], "a": 1 },
 						{ "px": [176,144], "src": [112,0], "f": 0, "t": 7, "d": [161,155], "a": 1 },
 						{ "px": [64,176], "src": [112,0], "f": 0, "t": 7, "d": [161,180], "a": 1 },
+						{ "px": [96,96], "src": [128,0], "f": 0, "t": 8, "d": [160,102], "a": 1 },
+						{ "px": [160,96], "src": [96,0], "f": 0, "t": 6, "d": [159,106], "a": 1 },
 						{ "px": [32,144], "src": [160,16], "f": 0, "t": 22, "d": [150,146], "a": 1 },
 						{ "px": [48,176], "src": [160,16], "f": 0, "t": 22, "d": [150,179], "a": 1 },
 						{ "px": [192,144], "src": [176,16], "f": 0, "t": 23, "d": [149,156], "a": 1 },
