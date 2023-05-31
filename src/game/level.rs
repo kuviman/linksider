@@ -12,6 +12,7 @@ impl bevy::app::Plugin for Plugin {
             ..Default::default()
         });
 
+        app.add_system(level_label);
         app.add_system(level_restart);
         app.add_system(change_level_cheats);
 
@@ -30,6 +31,54 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Name::new("World"),
     ));
+}
+
+#[derive(Component)]
+struct LevelLabel;
+
+fn level_label(
+    levels: Query<(Entity, &Handle<LdtkLevel>), Added<Handle<LdtkLevel>>>,
+    labels: Query<Entity, With<LevelLabel>>,
+    main: Query<&Handle<LdtkAsset>>,
+    main_assets: Res<Assets<LdtkAsset>>,
+    level_assets: Res<Assets<LdtkLevel>>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    let main = main.get_single().unwrap();
+    let main = main_assets.get(main).unwrap();
+    for (_level_entity, level) in &levels {
+        for label in &labels {
+            commands.entity(label).despawn();
+        }
+        let level = level_assets.get(level).unwrap();
+        let level = &level.level;
+        let index = main
+            .iter_levels()
+            .position(|lvl| lvl.uid == level.uid)
+            .unwrap();
+        commands.spawn((
+            TextBundle::from_section(
+                format!("{}: {}", index + 1, &level.identifier),
+                TextStyle {
+                    font: asset_server.load("Pixellari.ttf"),
+                    font_size: 100.0,
+                    color: Color::WHITE,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(5.0),
+                    right: Val::Px(15.0),
+                    ..default()
+                },
+                ..default()
+            }),
+            LevelLabel,
+        ));
+    }
 }
 
 #[derive(Default, Component)]
