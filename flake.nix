@@ -40,7 +40,7 @@
     {
       devShells.${system}.${app} = pkgs.mkShell {
         nativeBuildInputs = appNativeBuildInputs;
-        buildInputs = shellInputs ++ appBuildInputs;
+        buildInputs = shellInputs ++ appBuildInputs ++ (with pkgs; [ rust-analyzer ]);
 
         shellHook = ''
           export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath appRuntimeInputs}"
@@ -57,6 +57,7 @@
 
         nativeBuildInputs = appNativeBuildInputs;
         buildInputs = appBuildInputs;
+        # runtimeInputs = appBuildInputs;
 
         postInstall = ''
           cp -r assets $out/bin/
