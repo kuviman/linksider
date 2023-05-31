@@ -36,7 +36,7 @@ fn main() {
     .add_plugin(LdtkPlugin) // Ldtk is our level editor
     .add_plugin(game::Plugin);
 
-    if cfg!(debug_assertions) {
+    if false && cfg!(debug_assertions) {
         app.add_plugin(LogDiagnosticsPlugin::default())
             // .add_plugin(FrameTimeDiagnosticsPlugin::default()) // This reports FPS to console
             .add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
