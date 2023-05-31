@@ -9,7 +9,7 @@ impl bevy::app::Plugin for Plugin {
         app.insert_resource(AnimationEndSfx(None));
         app.insert_resource(AnimationEndVfx(None));
 
-        app.add_system(init_prev_coords.in_schedule(OnEnter(turns::State::Turn)));
+        app.add_system(init_prev_coords);
 
         app.add_system(start_animation.in_schedule(OnEnter(turns::State::Animation)));
         app.add_system(setup_rotation_transform);
@@ -26,20 +26,21 @@ fn setup_rotation_transform(mut query: Query<(&mut Transform, &Rotation), Added<
 }
 
 #[derive(Component)]
-struct PrevCoords(GridCoords);
+pub struct PrevCoords(pub GridCoords);
 
 #[derive(Component)]
-struct PrevRotation(Rotation);
+pub struct PrevRotation(pub Rotation);
 
 fn init_prev_coords(
-    query: Query<(Entity, &GridCoords, &Rotation), With<Movable>>,
+    coords: Query<(Entity, &GridCoords), Without<PrevCoords>>,
+    rot: Query<(Entity, &Rotation), Without<PrevRotation>>,
     mut commands: Commands,
 ) {
-    for (entity, position, rot) in query.iter() {
-        commands
-            .entity(entity)
-            .insert(PrevCoords(*position))
-            .insert(PrevRotation(*rot));
+    for (entity, coords) in coords.iter() {
+        commands.entity(entity).insert(PrevCoords(*coords));
+    }
+    for (entity, rot) in rot.iter() {
+        commands.entity(entity).insert(PrevRotation(*rot));
     }
 }
 
@@ -50,7 +51,12 @@ struct AnimationEndSfx(Option<Handle<AudioSource>>);
 struct AnimationEndVfx(Option<VfxBundle>);
 
 fn start_animation(
-    mut coords: Query<(&mut GridCoords, &mut Rotation)>,
+    mut coords: Query<(
+        &mut PrevCoords,
+        &mut PrevRotation,
+        &mut GridCoords,
+        &mut Rotation,
+    )>,
     mut events: EventReader<turns::MoveEvent>,
     mut commands: Commands,
     mut end_sfx: ResMut<AnimationEndSfx>,
@@ -59,6 +65,10 @@ fn start_animation(
     asset_server: Res<AssetServer>,
 ) {
     info!("Animation started");
+    for (mut prev_coords, mut prev_rot, coords, rot) in coords.iter_mut() {
+        *prev_coords = PrevCoords(*coords);
+        *prev_rot = PrevRotation(*rot);
+    }
     // TODO multiple sfx for each player?
     let mut sfx = None;
     // TODO what if multiple players have different animation time?
@@ -68,7 +78,7 @@ fn start_animation(
         event_per_player.insert(event.player, event);
     }
     for event in event_per_player.into_values() {
-        if let Ok((mut coords, mut rot)) = coords.get_mut(event.player) {
+        if let Ok((_, _, mut coords, mut rot)) = coords.get_mut(event.player) {
             animation_time *= ((rot.0 - event.rotation.0).abs() as f32).max(1.0);
             *coords = event.coords;
             *rot = event.rotation;
