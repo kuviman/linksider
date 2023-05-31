@@ -13,12 +13,53 @@ impl bevy::app::Plugin for Plugin {
         app.add_turn_system(falling_system, turns::TurnOrder::ApplySideEffects);
 
         app.register_ldtk_entity::<PlayerBundle>("Player");
+        app.register_ldtk_entity::<CrateBundle>("Crate");
         app.register_ldtk_entity::<BoxBundle>("Box");
+        app.register_ldtk_entity::<DisableBoxBundle>("DisableBox");
     }
 }
 
 #[derive(Bundle, LdtkEntity)]
 struct BoxBundle {
+    blocking: level::Blocking,
+    pushable: Pushable,
+    movable: Movable,
+    trigger: side::Trigger,
+    #[grid_coords]
+    position: GridCoords,
+    #[from_entity_instance]
+    rotation: Rotation,
+    #[from_entity_instance]
+    entity_instance: EntityInstance,
+    player_input: player::Input, // TODO remove
+    pickup: PickupSideEffects,
+    #[sprite_sheet_bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[with(entity_name)]
+    name: Name,
+}
+
+#[derive(Bundle, LdtkEntity)]
+struct DisableBoxBundle {
+    blocking: level::Blocking,
+    pushable: Pushable,
+    movable: Movable,
+    #[grid_coords]
+    position: GridCoords,
+    #[from_entity_instance]
+    rotation: Rotation,
+    #[from_entity_instance]
+    entity_instance: EntityInstance,
+    player_input: player::Input, // TODO remove
+    pickup: PickupSideEffects,
+    #[sprite_sheet_bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[with(entity_name)]
+    name: Name,
+}
+
+#[derive(Bundle, LdtkEntity)]
+struct CrateBundle {
     blocking: level::Blocking,
     movable: Movable,
     trigger: side::Trigger,
@@ -57,6 +98,9 @@ struct PlayerBundle {
     #[with(entity_name)]
     name: Name,
 }
+
+#[derive(Default, Component)]
+pub struct Pushable;
 
 #[derive(Default, Component)]
 pub struct Movable;
@@ -147,6 +191,7 @@ fn update_player_input(
 #[allow(clippy::type_complexity)]
 pub fn move_system(
     mut next_state: ResMut<NextState<turns::State>>,
+    pushable: Query<(Entity, &GridCoords, &Rotation), With<Pushable>>,
     blocked: Query<BlockedQuery, With<Blocking>>,
     players: Query<
         (
@@ -172,15 +217,47 @@ pub fn move_system(
             override_gravity.map_or([IVec2::new(0, -1)].as_slice(), |g| g.0.as_slice())
         {
             let mut new_coords = IVec2::from(*coords);
-            match input.direction {
-                Direction::Left => new_coords += gravity_dir.rotate(IVec2::new(0, -1)),
+            let move_dir = match input.direction {
+                Direction::Left => gravity_dir.rotate(IVec2::new(0, -1)),
                 Direction::None => {
                     continue;
                 }
-                Direction::Right => new_coords += gravity_dir.rotate(IVec2::new(0, 1)),
-            }
+                Direction::Right => gravity_dir.rotate(IVec2::new(0, 1)),
+            };
+            new_coords += move_dir;
             let mut new_coords = new_coords.into();
-            if is_blocked(new_coords, &blocked) {
+            let mut ignore_block = false;
+            if let Some((pushed_entity, _coords, pushed_rot)) = pushable
+                .iter()
+                .find(|&(_entity, &coords, _rot)| coords == new_coords)
+            {
+                let new_pushable_coords = (IVec2::from(new_coords) + move_dir).into();
+                if !is_blocked(new_pushable_coords, &blocked) {
+                    ignore_block = true;
+                    // TODO: this is wrong way of doing it
+                    events.send(turns::MoveEvent {
+                        player: pushed_entity,
+                        coords: new_pushable_coords,
+                        rotation: {
+                            let mut rot = *pushed_rot;
+                            // TODO this is also wrong
+                            match input.direction {
+                                Direction::Left => rot.rotate_left(),
+                                Direction::None => {
+                                    unreachable!()
+                                }
+                                Direction::Right => rot.rotate_right(),
+                            }
+                            rot
+                        },
+                        sfx: None,
+                        end_sfx: None,
+                        vfx: None,
+                        end_vfx: None,
+                    });
+                }
+            }
+            if !ignore_block && is_blocked(new_coords, &blocked) {
                 continue;
             }
             if override_gravity.is_some() {
