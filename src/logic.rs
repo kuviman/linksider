@@ -6,8 +6,17 @@ pub struct Position {
     pub angle: IntAngle,
 }
 
+impl Position {
+    pub fn normalize(&self) -> Self {
+        Self {
+            cell: self.cell,
+            angle: self.angle.normalize(),
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct Move {
+pub struct Moves {
     pub players: HashMap<usize, Position>,
 }
 
@@ -19,6 +28,14 @@ pub enum Input {
 }
 
 impl Input {
+    pub fn from_sign(x: i32) -> Self {
+        match x.signum() {
+            -1 => Self::Left,
+            0 => Self::Skip,
+            1 => Self::Right,
+            _ => unreachable!(),
+        }
+    }
     pub fn delta(&self) -> i32 {
         match self {
             Self::Left => -1,
@@ -51,8 +68,20 @@ pub struct Side {
 }
 
 pub struct Player {
+    pub prev_pos: Position,
     pub pos: Position,
     pub sides: [Side; 4],
+    pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
+}
+
+pub struct Goal {
+    pub pos: Position,
+    pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
+}
+
+pub struct Powerup {
+    pub pos: Position,
+    pub effect: Effect,
     pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
 }
 
@@ -85,8 +114,11 @@ pub struct GameState {
     pub level: Rc<ldtk::Level>,
     pub tiles: HashMap<vec2<i32>, Tile>,
     pub players: Vec<Player>,
+    pub powerups: Vec<Powerup>,
     pub selected_player: usize,
+    pub goals: Vec<Goal>,
 }
+
 impl GameState {
     pub fn new(level: &Rc<ldtk::Level>) -> Self {
         let mut tiles = HashMap::new();
@@ -121,6 +153,41 @@ impl GameState {
                         cell: entity.pos,
                         angle: IntAngle::RIGHT,
                     },
+                    prev_pos: Position {
+                        cell: entity.pos,
+                        angle: IntAngle::RIGHT,
+                    },
+                })
+                .collect(),
+            powerups: level
+                .layers
+                .iter()
+                .flat_map(|layer| &layer.entities)
+                .filter_map(|entity| {
+                    entity.identifier.strip_suffix("Power").map(|name| Powerup {
+                        effect: match name {
+                            "Jump" => Effect::Jump,
+                            _ => unimplemented!("{name:?} power is unimplemented"),
+                        },
+                        pos: Position {
+                            cell: entity.pos,
+                            angle: IntAngle::DOWN,
+                        },
+                        mesh: entity.mesh.clone(),
+                    })
+                })
+                .collect(),
+            goals: level
+                .layers
+                .iter()
+                .flat_map(|layer| &layer.entities)
+                .filter(|entity| entity.identifier == "Goal")
+                .map(|entity| Goal {
+                    pos: Position {
+                        cell: entity.pos,
+                        angle: IntAngle::RIGHT,
+                    },
+                    mesh: entity.mesh.clone(),
                 })
                 .collect(),
             selected_player: 0,
@@ -149,8 +216,9 @@ impl GameState {
         self.tile(pos).is_trigger() || self.players.iter().any(|player| player.pos.cell == pos)
     }
 
-    pub fn perform_move(&mut self, r#move: &Move) {
-        for (&player_index, &to) in &r#move.players {
+    pub fn perform_moves(&mut self, moves: &Moves) {
+        let Moves { players } = moves;
+        for (&player_index, &to) in players {
             self.players[player_index].pos = to;
         }
     }
@@ -184,8 +252,20 @@ impl GameState {
         jump_from: IntAngle,
     ) -> Option<Position> {
         log::debug!("Jumping from {jump_from:?}");
+
+        let player = &self.players[player_index];
+
+        let input = {
+            let last_move = player.pos.cell - player.prev_pos.cell;
+            if last_move.x.abs() == 1 && last_move.y == 0 {
+                Input::from_sign(last_move.x)
+            } else {
+                input
+            }
+        };
+
         let jump_to = jump_from.opposite();
-        let pos = self.players[player_index].pos;
+        let pos = player.pos;
         let mut path = vec![vec2(0, 1), vec2(0, 2)];
         if jump_to.is_up() {
             path.push(vec2(input.delta(), 2));
@@ -226,7 +306,7 @@ impl GameState {
         None
     }
 
-    fn move_player(&self, index: usize, input: Input) -> Option<Position> {
+    fn check_player_move(&self, index: usize, input: Input) -> Option<Position> {
         let systems: &[&dyn Fn(&Self, usize, Input) -> Option<Position>] =
             &[&Self::side_effects, &Self::gravity, &Self::just_move];
 
@@ -238,12 +318,12 @@ impl GameState {
         None
     }
 
-    pub fn check_move(&self, input: Input) -> Option<Move> {
-        let mut result = Move {
+    fn check_moves(&self, input: Input) -> Option<Moves> {
+        let mut result = Moves {
             players: HashMap::new(),
         };
         for index in 0..self.players.len() {
-            if let Some(new_pos) = self.move_player(
+            if let Some(new_pos) = self.check_player_move(
                 index,
                 if index == self.selected_player {
                     input
@@ -264,11 +344,62 @@ impl GameState {
         }
     }
 
+    pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
+        self.process_powerups();
+        let result = self.check_moves(input);
+        for player in &mut self.players {
+            player.prev_pos = player.pos;
+        }
+        result
+    }
+
+    fn process_powerups(&mut self) {
+        #[derive(Debug)]
+        pub struct CollectedPowerup {
+            pub player: usize,
+            pub player_side: usize,
+            pub powerup: usize,
+        }
+
+        let mut collected = Vec::new();
+        for (player_index, player) in self.players.iter().enumerate() {
+            for (powerup_index, powerup) in self.powerups.iter().enumerate() {
+                if player.pos.cell != powerup.pos.cell {
+                    continue;
+                }
+                let player_side = (powerup.pos.angle - player.pos.angle).side_index();
+                if player.sides[player_side].effect.is_none() {
+                    collected.push(CollectedPowerup {
+                        player: player_index,
+                        player_side: player_side,
+                        powerup: powerup_index,
+                    })
+                }
+            }
+        }
+        for event in collected {
+            let powerup = self.powerups.remove(event.powerup);
+            let prev_effect = self.players[event.player].sides[event.player_side]
+                .effect
+                .replace(powerup.effect);
+            assert!(prev_effect.is_none());
+        }
+    }
+
     pub fn selected_player(&self) -> &Player {
         &self.players[self.selected_player]
     }
 
     pub fn selected_player_mut(&mut self) -> &mut Player {
         &mut self.players[self.selected_player]
+    }
+
+    pub fn finished(&self) -> bool {
+        // TODO remove goal on player touch, have goals.is_empty() here
+        self.goals.iter().all(|goal| {
+            self.players
+                .iter()
+                .any(|player| player.pos.normalize() == goal.pos.normalize())
+        })
     }
 }

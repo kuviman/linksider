@@ -26,7 +26,7 @@ pub struct Assets {
 }
 
 struct Animation {
-    r#move: Move,
+    moves: Moves,
     t: f32,
 }
 
@@ -105,10 +105,10 @@ impl Game {
     }
 
     fn maybe_start_animation(&mut self, input: Input) {
-        let r#move = self.state.check_move(input);
-        log::debug!("{move:?}");
-        if let Some(r#move) = r#move {
-            self.animation = Some(Animation { r#move, t: 0.0 });
+        let moves = self.state.process_turn(input);
+        log::debug!("{moves:?}");
+        if let Some(moves) = moves {
+            self.animation = Some(Animation { moves, t: 0.0 });
         }
     }
 }
@@ -120,18 +120,22 @@ impl geng::State for Game {
         if let Some(animation) = &mut self.animation {
             animation.t += delta_time / self.assets.config.animation_time;
             if animation.t >= 1.0 {
-                self.state.perform_move(&animation.r#move);
+                self.state.perform_moves(&animation.moves);
                 self.animation = None;
 
-                let is_pressed = |&key| self.geng.window().is_key_pressed(key);
-                let input = if self.assets.config.controls.left.iter().any(is_pressed) {
-                    Input::Left
-                } else if self.assets.config.controls.right.iter().any(is_pressed) {
-                    Input::Right
+                if self.state.finished() {
+                    self.change_level(1);
                 } else {
-                    Input::Skip
-                };
-                self.maybe_start_animation(input); // TODO: keep or revert???
+                    let is_pressed = |&key| self.geng.window().is_key_pressed(key);
+                    let input = if self.assets.config.controls.left.iter().any(is_pressed) {
+                        Input::Left
+                    } else if self.assets.config.controls.right.iter().any(is_pressed) {
+                        Input::Right
+                    } else {
+                        Input::Skip
+                    };
+                    self.maybe_start_animation(input); // TODO: keep or revert input???
+                }
             }
         }
 
@@ -214,25 +218,68 @@ impl geng::State for Game {
                 self.draw_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
             }
         }
+        for goal in &self.state.goals {
+            self.draw_mesh(
+                framebuffer,
+                &goal.mesh,
+                Rgba::WHITE,
+                mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
+                    * goal.pos.angle.to_matrix()
+                    * mat3::translate(vec2::splat(-0.5)),
+            );
+        }
         for (index, player) in self.state.players.iter().enumerate() {
             let from = player.pos;
             let to = self
                 .animation
                 .as_ref()
-                .and_then(|animation| animation.r#move.players.get(&index))
+                .and_then(|animation| animation.moves.players.get(&index))
                 .copied()
                 .unwrap_or(from);
             let t = self.animation.as_ref().map_or(0.0, |animation| animation.t);
 
+            let transform = mat3::translate(lerp(
+                from.cell.map(|x| x as f32 + 0.5),
+                to.cell.map(|x| x as f32 + 0.5),
+                t,
+            )) * lerp(from.angle.to_matrix(), to.angle.to_matrix(), t)
+                * mat3::translate(vec2::splat(-0.5));
+
+            self.draw_mesh(framebuffer, &player.mesh, Rgba::WHITE, transform);
+
+            for (side_index, side) in player.sides.iter().enumerate() {
+                let transform = transform
+                    // TODO: mat3::rotate_around
+                    * mat3::translate(vec2::splat(0.5))
+                    * mat3::rotate(IntAngle::from_side(side_index).to_radians() - f32::PI / 2.0)
+                    * mat3::translate(vec2(-0.5, 0.5));
+                if let Some(effect) = &side.effect {
+                    // TODO: mesh should be found differently
+                    let mesh = self
+                        .state
+                        .level
+                        .layers
+                        .iter()
+                        .flat_map(|layer| &layer.entities)
+                        .find_map(|entity| {
+                            if entity.identifier == format!("{effect:?}Power") {
+                                Some(&entity.mesh)
+                            } else {
+                                None
+                            }
+                        })
+                        .expect("Failed to find mesh");
+                    self.draw_mesh(framebuffer, mesh, Rgba::WHITE, transform);
+                }
+            }
+        }
+        for powerup in &self.state.powerups {
             self.draw_mesh(
                 framebuffer,
-                &player.mesh,
+                &powerup.mesh,
                 Rgba::WHITE,
-                mat3::translate(lerp(
-                    from.cell.map(|x| x as f32 + 0.5),
-                    to.cell.map(|x| x as f32 + 0.5),
-                    t,
-                )) * lerp(from.angle.to_matrix(), to.angle.to_matrix(), t)
+                mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
+                    * (powerup.pos.angle - IntAngle::DOWN).to_matrix()
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
