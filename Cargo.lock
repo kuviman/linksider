@@ -2347,8 +2347,10 @@ dependencies = [
 name = "linksider"
 version = "0.1.0"
 dependencies = [
+ "batbox",
  "geng",
  "ldtk",
+ "serde",
 ]
 
 [[package]]

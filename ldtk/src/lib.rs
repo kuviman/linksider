@@ -2,16 +2,10 @@ use geng::prelude::{itertools::Itertools, *};
 use std::rc::Rc;
 pub mod json;
 
-// TODO: remove and just use Mesh
-pub struct Texture {
-    pub atlas: Rc<ugli::Texture>,
-    pub uvs: Aabb2<f32>,
-}
-
 pub struct Entity {
     pub identifier: String,
     pub pos: vec2<i32>,
-    pub texture: Rc<Texture>,
+    pub mesh: Rc<Mesh>,
 }
 
 pub struct Mesh {
@@ -19,9 +13,47 @@ pub struct Mesh {
     pub texture: Rc<ugli::Texture>,
 }
 
+#[derive(Clone)]
+pub struct Value {
+    identifier: Rc<String>,
+}
+
+impl Value {
+    pub fn as_str(&self) -> &str {
+        self.identifier.as_str()
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.identifier)
+    }
+}
+
+impl PartialEq<&str> for Value {
+    fn eq(&self, other: &&str) -> bool {
+        self.identifier.as_str() == *other
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.identifier, &other.identifier)
+    }
+}
+
+impl Eq for Value {}
+
+impl std::hash::Hash for Value {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.identifier.as_ptr().hash(state)
+    }
+}
+
 pub struct Layer {
     pub entities: Vec<Entity>,
-    pub mesh: Option<Mesh>,
+    pub mesh: Option<Rc<Mesh>>,
+    pub int_grid: Option<HashMap<vec2<i32>, Value>>,
 }
 
 pub struct Level {
@@ -30,7 +62,22 @@ pub struct Level {
 }
 
 pub struct Ldtk {
-    pub levels: Vec<Level>,
+    pub levels: Vec<Rc<Level>>,
+}
+
+fn quad(pos: Aabb2<f32>, uv: Aabb2<f32>, color: Rgba<f32>) -> [draw2d::TexturedVertex; 6] {
+    let v = |f: &dyn Fn(Aabb2<f32>) -> vec2<f32>| draw2d::TexturedVertex {
+        a_pos: f(pos),
+        a_vt: f(uv),
+        a_color: color,
+    };
+    let quad = [
+        v(&|x| x.bottom_left()),
+        v(&|x| x.bottom_right()),
+        v(&|x| x.top_right()),
+        v(&|x| x.top_left()),
+    ];
+    [quad[0], quad[1], quad[2], quad[0], quad[2], quad[3]]
 }
 
 impl geng::asset::Load for Ldtk {
@@ -71,7 +118,7 @@ impl geng::asset::Load for Ldtk {
                 .into_iter()
                 .try_collect()?;
             struct EntityDef {
-                texture: Rc<Texture>,
+                mesh: Rc<Mesh>,
             }
             let entities: HashMap<String, EntityDef> = json
                 .defs
@@ -82,25 +129,58 @@ impl geng::asset::Load for Ldtk {
                     (
                         entity.identifier,
                         EntityDef {
-                            texture: Rc::new(Texture {
-                                atlas: tileset.texture.clone(),
-                                uvs: {
-                                    let mut uvs =
-                                        Aabb2::point(vec2(entity.tile_rect.x, entity.tile_rect.y))
-                                            .extend_positive(vec2(
-                                                entity.tile_rect.w,
-                                                entity.tile_rect.h,
-                                            ))
-                                            .map(|x| x as f32)
-                                            .map_bounds(|v| {
-                                                v / tileset.texture.size().map(|x| x as f32)
-                                            })
-                                            .map_bounds(|v| vec2(v.x, 1.0 - v.y));
-                                    mem::swap(&mut uvs.min.y, &mut uvs.max.y);
-                                    uvs
-                                },
+                            mesh: Rc::new(Mesh {
+                                texture: tileset.texture.clone(),
+                                vertex_data: ugli::VertexBuffer::new_static(
+                                    manager.ugli(),
+                                    {
+                                        let mut uvs = Aabb2::point(vec2(
+                                            entity.tile_rect.x,
+                                            entity.tile_rect.y,
+                                        ))
+                                        .extend_positive(vec2(
+                                            entity.tile_rect.w,
+                                            entity.tile_rect.h,
+                                        ))
+                                        .map(|x| x as f32)
+                                        .map_bounds(|v| {
+                                            v / tileset.texture.size().map(|x| x as f32)
+                                        })
+                                        .map_bounds(|v| vec2(v.x, 1.0 - v.y));
+                                        mem::swap(&mut uvs.min.y, &mut uvs.max.y);
+                                        quad(
+                                            Aabb2::ZERO.extend_positive(vec2::splat(1.0)),
+                                            uvs,
+                                            Rgba::WHITE,
+                                        )
+                                    }
+                                    .into(),
+                                ),
                             }),
                         },
+                    )
+                })
+                .collect();
+            let int_grids: HashMap<String, HashMap<u32, Value>> = json
+                .defs
+                .layers
+                .iter()
+                .filter(|layer| !layer.int_grid_values.is_empty())
+                .map(|layer| {
+                    (
+                        layer.identifier.clone(),
+                        layer
+                            .int_grid_values
+                            .iter()
+                            .map(|value| {
+                                (
+                                    value.value,
+                                    Value {
+                                        identifier: Rc::new(value.identifier.clone()),
+                                    },
+                                )
+                            })
+                            .collect(),
                     )
                 })
                 .collect();
@@ -119,15 +199,37 @@ impl geng::asset::Load for Ldtk {
                                     .into_iter()
                                     .map(|entity| Entity {
                                         pos: vec2(entity.grid.x, -entity.grid.y),
-                                        texture: entities[&entity.identifier].texture.clone(),
+                                        mesh: entities[&entity.identifier].mesh.clone(),
                                         identifier: entity.identifier,
                                     })
                                     .collect(),
+                                int_grid: if layer.int_grid_csv.is_empty() {
+                                    None
+                                } else {
+                                    let values = &int_grids[&layer.identifier];
+                                    Some(
+                                        layer
+                                            .int_grid_csv
+                                            .into_iter()
+                                            .enumerate()
+                                            .filter(|(_index, value)| *value != 0)
+                                            .map(|(index, value)| {
+                                                (
+                                                    vec2(
+                                                        index as i32 % layer.grid_width as i32,
+                                                        -(index as i32 / layer.grid_width as i32),
+                                                    ),
+                                                    values[&value].clone(),
+                                                )
+                                            })
+                                            .collect(),
+                                    )
+                                },
                                 mesh: if !layer.auto_layer_tiles.is_empty() {
                                     let tileset = &tilesets[&layer
                                         .tileset_def_uid
                                         .expect("tileset uid not set for autotiled layer")];
-                                    Some(Mesh {
+                                    Some(Rc::new(Mesh {
                                         vertex_data: ugli::VertexBuffer::new_static(
                                             manager.ugli(),
                                             layer
@@ -152,43 +254,24 @@ impl geng::asset::Load for Ldtk {
 
                                                     // !hellobadcop
                                                     let color = Rgba::new(1.0, 1.0, 1.0, tile.a);
-                                                    let quad = [
-                                                        draw2d::TexturedVertex {
-                                                            a_pos: pos,
-                                                            a_vt: uv,
-                                                            a_color: color,
-                                                        },
-                                                        draw2d::TexturedVertex {
-                                                            a_pos: pos + vec2(1.0, 0.0),
-                                                            a_vt: uv + vec2(uv_size.x, 0.0),
-                                                            a_color: color,
-                                                        },
-                                                        draw2d::TexturedVertex {
-                                                            a_pos: pos + vec2(1.0, 1.0),
-                                                            a_vt: uv + uv_size,
-                                                            a_color: color,
-                                                        },
-                                                        draw2d::TexturedVertex {
-                                                            a_pos: pos + vec2(0.0, 1.0),
-                                                            a_vt: uv + vec2(0.0, uv_size.y),
-                                                            a_color: color,
-                                                        },
-                                                    ];
-                                                    [
-                                                        quad[0], quad[1], quad[2], quad[0],
-                                                        quad[2], quad[3],
-                                                    ]
+                                                    quad(
+                                                        Aabb2::point(pos)
+                                                            .extend_positive(vec2::splat(1.0)),
+                                                        Aabb2::point(uv).extend_positive(uv_size),
+                                                        color,
+                                                    )
                                                 })
                                                 .collect(),
                                         ),
                                         texture: tileset.texture.clone(),
-                                    })
+                                    }))
                                 } else {
                                     None
                                 },
                             })
                             .collect(),
                     })
+                    .map(Rc::new)
                     .collect(),
             })
         }

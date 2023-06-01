@@ -1,0 +1,13 @@
+camera_speed = 10
+animation_time = 0.2
+
+[controls]
+left = ["Left", "A"]
+right = ["Right", "D"]
+skip = ["Space"]
+next_player = ["Tab", "Up"]
+prev_player = ["Down"]
+
+[controls.cheats]
+next_level = ["PageUp"]
+prev_level = ["PageDown"]

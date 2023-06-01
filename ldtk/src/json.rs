@@ -37,9 +37,24 @@ pub struct TilesetDefinition {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct IntGridValue {
+    pub identifier: String,
+    pub value: u32,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct LayerDefinition {
+    pub identifier: String,
+    pub int_grid_values: Vec<IntGridValue>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Definitions {
     pub entities: Vec<EntityDefinition>,
     pub tilesets: Vec<TilesetDefinition>,
+    pub layers: Vec<LayerDefinition>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -75,10 +90,17 @@ pub struct TileInstance {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct LayerInstance {
+    #[serde(rename = "__identifier")]
+    pub identifier: String,
+    #[serde(rename = "__cWid")]
+    pub grid_width: usize,
+    #[serde(rename = "__cHei")]
+    pub grid_height: usize,
     #[serde(rename = "__tilesetDefUid")]
     pub tileset_def_uid: Option<i64>,
     pub entity_instances: Vec<EntityInstance>,
     pub auto_layer_tiles: Vec<TileInstance>,
+    pub int_grid_csv: Vec<u32>,
 }
 
 #[derive(Deserialize, Debug)]
