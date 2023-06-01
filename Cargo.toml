@@ -4,4 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-geng.git = "https://github.com/kuviman/geng"
+geng.git = "https://github.com/geng-engine/geng"
+ldtk.path = "ldtk"
