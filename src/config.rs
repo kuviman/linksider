@@ -23,17 +23,10 @@ pub struct Controls {
     pub cheats: Option<CheatsControls>,
 }
 
-#[derive(Deserialize)]
+#[derive(geng::asset::Load, Deserialize)]
+#[load(serde = "toml")]
 pub struct Config {
     pub camera_speed: f32,
     pub animation_time: f32,
     pub controls: Controls,
-}
-
-// TODO #[load(serde)]
-impl geng::asset::Load for Config {
-    fn load(_manager: &geng::asset::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
-        file::load_detect(path.to_owned()).boxed_local()
-    }
-    const DEFAULT_EXT: Option<&'static str> = Some("toml");
 }
