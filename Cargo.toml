@@ -1,0 +1,7 @@
+[package]
+name = "linksider"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+geng.git = "https://github.com/kuviman/geng"
