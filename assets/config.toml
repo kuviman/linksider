@@ -9,5 +9,6 @@ next_player = ["Tab", "Up"]
 prev_player = ["Down"]
 
 [controls.cheats]
-next_level = ["PageUp"]
-prev_level = ["PageDown"]
+next_level = "PageUp"
+prev_level = "PageDown"
+effect = { jump = "J", delete = "Delete" }

@@ -1,42 +1,17 @@
+#![allow(dead_code)]
+
 use geng::prelude::*;
 use ldtk::Ldtk;
 
+mod config;
+mod int_angle;
 mod logic;
 mod util;
 
+use config::Config;
+use int_angle::*;
 use logic::*;
 use util::*;
-
-#[derive(Deserialize)]
-pub struct CheatsControlsConfig {
-    pub prev_level: Vec<geng::Key>,
-    pub next_level: Vec<geng::Key>,
-}
-
-#[derive(Deserialize)]
-pub struct ControlsConfig {
-    pub left: Vec<geng::Key>,
-    pub right: Vec<geng::Key>,
-    pub skip: Vec<geng::Key>,
-    pub next_player: Vec<geng::Key>,
-    pub prev_player: Vec<geng::Key>,
-    pub cheats: Option<CheatsControlsConfig>,
-}
-
-#[derive(Deserialize)]
-pub struct Config {
-    pub camera_speed: f32,
-    pub animation_time: f32,
-    pub controls: ControlsConfig,
-}
-
-// TODO #[load(serde)]
-impl geng::asset::Load for Config {
-    fn load(_manager: &geng::asset::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
-        file::load_detect(path.to_owned()).boxed_local()
-    }
-    const DEFAULT_EXT: Option<&'static str> = Some("toml");
-}
 
 #[derive(geng::asset::Load)]
 pub struct Shaders {
@@ -176,12 +151,46 @@ impl geng::State for Game {
     fn handle_event(&mut self, event: geng::Event) {
         match event {
             geng::Event::KeyDown { key } => {
-                if let Some(input) = match key {
-                    geng::Key::Left => Some(Input::Left),
-                    geng::Key::Right => Some(Input::Right),
-                    geng::Key::Space => Some(Input::Skip),
-                    _ => None,
-                } {
+                if let Some(cheats) = &self.assets.config.controls.cheats {
+                    if key == cheats.prev_level {
+                        self.change_level(-1);
+                    } else if key == cheats.next_level {
+                        self.change_level(1);
+                    } else {
+                        let direction = match key {
+                            geng::Key::Left => Some(IntAngle::LEFT),
+                            geng::Key::Right => Some(IntAngle::RIGHT),
+                            geng::Key::Down => Some(IntAngle::DOWN),
+                            geng::Key::Up => Some(IntAngle::UP),
+                            _ => None,
+                        };
+                        if let Some(direction) = direction {
+                            let effect = if self.geng.window().is_key_pressed(cheats.effect.jump) {
+                                Some(Some(Effect::Jump))
+                            } else if self.geng.window().is_key_pressed(cheats.effect.delete) {
+                                Some(None)
+                            } else {
+                                None
+                            };
+                            if let Some(effect) = effect {
+                                self.state.selected_player_mut().sides[direction.side_index()]
+                                    .effect = effect;
+                                self.maybe_start_animation(Input::Skip);
+                            }
+                        }
+                    }
+                }
+
+                let input = if self.assets.config.controls.left.contains(&key) {
+                    Some(Input::Left)
+                } else if self.assets.config.controls.right.contains(&key) {
+                    Some(Input::Right)
+                } else if self.assets.config.controls.skip.contains(&key) {
+                    Some(Input::Skip)
+                } else {
+                    None
+                };
+                if let Some(input) = input {
                     if self.animation.is_none() {
                         self.maybe_start_animation(input);
                     }
@@ -191,14 +200,6 @@ impl geng::State for Game {
                 }
                 if self.assets.config.controls.prev_player.contains(&key) {
                     self.state.change_player_selection(-1);
-                }
-
-                if let Some(cheats) = &self.assets.config.controls.cheats {
-                    if cheats.prev_level.contains(&key) {
-                        self.change_level(-1);
-                    } else if cheats.next_level.contains(&key) {
-                        self.change_level(1);
-                    }
                 }
             }
             _ => {}
@@ -231,7 +232,7 @@ impl geng::State for Game {
                     from.cell.map(|x| x as f32 + 0.5),
                     to.cell.map(|x| x as f32 + 0.5),
                     t,
-                )) * lerp(from.rot.to_matrix(), to.rot.to_matrix(), t)
+                )) * lerp(from.angle.to_matrix(), to.angle.to_matrix(), t)
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }

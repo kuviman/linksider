@@ -1,48 +1,9 @@
 use super::*;
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub struct Rotation(i32);
-
-impl Rotation {
-    pub const ZERO: Self = Self(0);
-
-    pub fn to_matrix(&self) -> mat3<f32> {
-        mat3::rotate(self.0 as f32 * f32::PI / 2.0)
-    }
-
-    pub fn with_input(self, input: Input) -> Self {
-        match input {
-            Input::Left => self.rotate_counter_clockwise(),
-            Input::Skip => self,
-            Input::Right => self.rotate_clockwise(),
-        }
-    }
-
-    pub fn rotate_counter_clockwise(self) -> Self {
-        Self(self.0 + 1)
-    }
-
-    pub fn rotate_clockwise(self) -> Self {
-        Self(self.0 - 1)
-    }
-}
-
-impl Debug for Rotation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.0.rem_euclid(4) {
-            0 => write!(f, "Down"),
-            1 => write!(f, "Right"),
-            2 => write!(f, "Up"),
-            3 => write!(f, "Left"),
-            _ => unreachable!(),
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     pub cell: vec2<i32>,
-    pub rot: Rotation,
+    pub angle: IntAngle,
 }
 
 #[derive(Debug)]
@@ -57,8 +18,41 @@ pub enum Input {
     Right,
 }
 
+impl Input {
+    pub fn delta(&self) -> i32 {
+        match self {
+            Self::Left => -1,
+            Self::Skip => 0,
+            Self::Right => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Effect {
+    Jump,
+}
+impl Effect {
+    fn apply(
+        &self,
+        state: &GameState,
+        player_index: usize,
+        input: Input,
+        angle: IntAngle,
+    ) -> Option<Position> {
+        match self {
+            Self::Jump => state.jump_from(player_index, input, angle),
+        }
+    }
+}
+
+pub struct Side {
+    pub effect: Option<Effect>,
+}
+
 pub struct Player {
     pub pos: Position,
+    pub sides: [Side; 4],
     pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
 }
 
@@ -75,6 +69,14 @@ impl Tile {
             Nothing => false,
             Block => true,
             Disable => true,
+        }
+    }
+    pub fn is_trigger(&self) -> bool {
+        use Tile::*;
+        match self {
+            Nothing => false,
+            Block => true,
+            Disable => false,
         }
     }
 }
@@ -114,9 +116,10 @@ impl GameState {
                 .filter(|entity| entity.identifier == "Player")
                 .map(|entity| Player {
                     mesh: entity.mesh.clone(),
+                    sides: std::array::from_fn(|_| Side { effect: None }),
                     pos: Position {
                         cell: entity.pos,
-                        rot: Rotation::ZERO,
+                        angle: IntAngle::RIGHT,
                     },
                 })
                 .collect(),
@@ -142,6 +145,10 @@ impl GameState {
         self.tile(pos).is_blocking() || self.players.iter().any(|player| player.pos.cell == pos)
     }
 
+    pub fn is_trigger(&self, pos: vec2<i32>) -> bool {
+        self.tile(pos).is_trigger() || self.players.iter().any(|player| player.pos.cell == pos)
+    }
+
     pub fn perform_move(&mut self, r#move: &Move) {
         for (&player_index, &to) in &r#move.players {
             self.players[player_index].pos = to;
@@ -162,22 +169,66 @@ impl GameState {
             return None;
         }
         let mut new_pos = self.players[index].pos;
-        let next_cell = new_pos.cell
-            + match input {
-                Input::Left => vec2(-1, 0),
-                Input::Skip => vec2(0, 0),
-                Input::Right => vec2(1, 0),
-            };
+        let next_cell = new_pos.cell + vec2(input.delta(), 0);
         if !self.is_blocked(next_cell) {
             new_pos.cell = next_cell;
         }
-        new_pos.rot = new_pos.rot.with_input(input);
+        new_pos.angle = new_pos.angle.with_input(input);
         Some(new_pos)
+    }
+
+    fn jump_from(
+        &self,
+        player_index: usize,
+        input: Input,
+        jump_from: IntAngle,
+    ) -> Option<Position> {
+        log::debug!("Jumping from {jump_from:?}");
+        let jump_to = jump_from.opposite();
+        let pos = self.players[player_index].pos;
+        let mut path = vec![vec2(0, 1), vec2(0, 2)];
+        if jump_to.is_up() {
+            path.push(vec2(input.delta(), 2));
+        }
+        let path = path
+            .iter()
+            .map(|&p| pos.cell + (jump_to - IntAngle::UP).rotate_vec(p));
+
+        let mut new_pos = None;
+        for p in path {
+            if self.is_blocked(p) {
+                break;
+            }
+            new_pos = Some(Position {
+                cell: p,
+                angle: if jump_to.is_up() {
+                    pos.angle + input
+                } else {
+                    pos.angle
+                },
+            });
+        }
+        new_pos
+    }
+
+    fn side_effects(&self, player_index: usize, input: Input) -> Option<Position> {
+        let player = &self.players[player_index];
+        for (side_index, side) in player.sides.iter().enumerate() {
+            let side_angle = player.pos.angle + IntAngle::from_side(side_index);
+            if self.is_trigger(player.pos.cell + side_angle.to_vec()) {
+                if let Some(effect) = &side.effect {
+                    if let Some(pos) = effect.apply(self, player_index, input, side_angle) {
+                        return Some(pos);
+                    }
+                }
+            }
+        }
+        None
     }
 
     fn move_player(&self, index: usize, input: Input) -> Option<Position> {
         let systems: &[&dyn Fn(&Self, usize, Input) -> Option<Position>] =
-            &[&Self::gravity, &Self::just_move];
+            &[&Self::side_effects, &Self::gravity, &Self::just_move];
 
         for system in systems {
             if let Some(pos) = system(self, index, input) {
@@ -215,5 +266,9 @@ impl GameState {
 
     pub fn selected_player(&self) -> &Player {
         &self.players[self.selected_player]
+    }
+
+    pub fn selected_player_mut(&mut self) -> &mut Player {
+        &mut self.players[self.selected_player]
     }
 }

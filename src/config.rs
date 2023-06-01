@@ -1,9 +1,16 @@
 use super::*;
 
 #[derive(Deserialize)]
+pub struct CheatsEffectControls {
+    pub jump: geng::Key,
+    pub delete: geng::Key,
+}
+
+#[derive(Deserialize)]
 pub struct CheatsControls {
-    pub prev_level: Vec<geng::Key>,
-    pub next_level: Vec<geng::Key>,
+    pub prev_level: geng::Key,
+    pub next_level: geng::Key,
+    pub effect: CheatsEffectControls,
 }
 
 #[derive(Deserialize)]
