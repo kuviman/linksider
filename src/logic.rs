@@ -82,9 +82,28 @@ pub enum Effect {
     Slide,
     Magnet,
     DisableGravity,
+    DisableTrigger,
 }
 
 impl Effect {
+    // TODO derive
+    pub fn from_str(name: &str) -> Self {
+        match name {
+            "Jump" => Self::Jump,
+            "Magnet" => Self::Magnet,
+            "Slide" => Self::Slide,
+            "DisableGravity" => Self::DisableGravity,
+            "DisableTrigger" => Self::DisableTrigger,
+            _ => unimplemented!("{name:?} effect is unimplemented"),
+        }
+    }
+    /// Whether having this effect enables or disables other effects on the touching side
+    pub fn is_trigger(&self) -> bool {
+        match self {
+            Self::DisableTrigger => false,
+            _ => true,
+        }
+    }
     pub fn activate_self(&self) -> bool {
         true
     }
@@ -92,7 +111,7 @@ impl Effect {
         match self {
             Self::Jump | Self::Slide => Some(self.clone()),
             Self::Magnet => Some(Self::DisableGravity),
-            Self::DisableGravity => None,
+            Self::DisableGravity | Self::DisableTrigger => None,
         }
     }
     fn apply(
@@ -105,14 +124,8 @@ impl Effect {
         match self {
             Self::Jump => state.jump_from(entity_index, input, angle),
             Self::Slide => state.slide(entity_index, input, angle),
-            Self::Magnet => {
-                // Magnets are affecting gravity of regular move
-                None
-            }
-            Self::DisableGravity => {
-                // Happens in gravity system
-                None
-            }
+            // Some effects are handled in other systems
+            Self::Magnet | Self::DisableTrigger | Self::DisableGravity => None,
         }
     }
 }
@@ -159,6 +172,10 @@ impl Entity {
         // Side 0 is right, side 1 is up, etc
         // (if entity is not rotated)
         Self::relative_side_angle(side_index) + self.pos.angle
+    }
+
+    pub fn side_at_angle(&self, angle: IntAngle) -> &Side {
+        &self.sides[self.side_index(angle)]
     }
 
     pub fn relative_side_angle(side_index: usize) -> IntAngle {
@@ -253,12 +270,7 @@ impl GameState {
             );
             if let Some(effect) = entity.identifier.strip_suffix("Power") {
                 result.powerups.push(Powerup {
-                    effect: match effect {
-                        "Jump" => Effect::Jump,
-                        "Magnet" => Effect::Magnet,
-                        "Slide" => Effect::Slide,
-                        _ => unimplemented!("{effect:?} effect is unimplemented"),
-                    },
+                    effect: Effect::from_str(effect),
                     pos: Position::from_ldtk_entity(entity, IntAngle::DOWN),
                     mesh: entity.mesh.clone(),
                 });
@@ -336,8 +348,16 @@ impl GameState {
         self.tile(pos).is_blocking() || self.entities.iter().any(|entity| entity.pos.cell == pos)
     }
 
-    pub fn is_trigger(&self, pos: vec2<i32>) -> bool {
-        self.tile(pos).is_trigger() || self.entities.iter().any(|entity| entity.pos.cell == pos)
+    pub fn is_trigger(&self, pos: vec2<i32>, angle: IntAngle) -> bool {
+        self.tile(pos).is_trigger()
+            || self.entities.iter().any(|entity| {
+                entity.pos.cell == pos
+                    && entity
+                        .side_at_angle(angle)
+                        .effect
+                        .as_ref()
+                        .map_or(true, Effect::is_trigger)
+            })
     }
 
     pub fn perform_moves(&mut self, moves: &Moves) {
@@ -380,20 +400,22 @@ impl GameState {
         for (side_index, side) in entity.sides.iter().enumerate() {
             let side_angle = entity.side_angle(side_index);
             let side_cell = entity.pos.cell + side_angle.to_vec();
-            if self.is_trigger(side_cell) {
+            if self.is_trigger(side_cell, side_angle.opposite()) {
                 if let Some(effect) = &side.effect {
                     if effect.activate_self() {
                         result.push((side_angle, Cow::Borrowed(effect)));
                     }
                 }
             }
-            for other_entity in &self.entities {
-                if other_entity.pos.cell == side_cell {
-                    let other_side_index = other_entity.side_index(side_angle.opposite());
-                    let other_side = &other_entity.sides[other_side_index];
-                    if let Some(effect) = &other_side.effect {
-                        if let Some(effect_on_self) = effect.activate_other() {
-                            result.push((side_angle, Cow::Owned(effect_on_self)));
+            if self.is_trigger(entity.pos.cell, side_angle) {
+                for other_entity in &self.entities {
+                    if other_entity.pos.cell == side_cell {
+                        let other_side_index = other_entity.side_index(side_angle.opposite());
+                        let other_side = &other_entity.sides[other_side_index];
+                        if let Some(effect) = &other_side.effect {
+                            if let Some(effect_on_self) = effect.activate_other() {
+                                result.push((side_angle, Cow::Owned(effect_on_self)));
+                            }
                         }
                     }
                 }
