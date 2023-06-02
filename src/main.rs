@@ -1,4 +1,6 @@
 use geng::prelude::*;
+use std::borrow::Cow;
+
 use ldtk::Ldtk;
 
 mod background;
@@ -154,7 +156,7 @@ impl geng::State for Game {
         self.camera.center = lerp(
             self.camera.center,
             self.state
-                .selected_player()
+                .selected_entity()
                 .pos
                 .cell
                 .map(|x| x as f32 + 0.5),
@@ -189,8 +191,8 @@ impl geng::State for Game {
                                 None
                             };
                             if let Some(effect) = effect {
-                                let player = self.state.selected_player_mut();
-                                player.sides[player.side_index(direction)].effect = effect;
+                                let entity = self.state.selected_entity_mut();
+                                entity.sides[entity.side_index(direction)].effect = effect;
                                 self.maybe_start_animation(Input::Skip);
                             }
                         }
@@ -245,13 +247,13 @@ impl geng::State for Game {
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
-        for (index, player) in self.state.players.iter().enumerate() {
-            let from = player.pos;
+        for (index, entity) in self.state.entities.iter().enumerate() {
+            let from = entity.pos;
             let to = self
                 .animation
                 .as_ref()
-                .and_then(|animation| animation.moves.players.get(&index))
-                .map(|player_move| player_move.new_pos)
+                .and_then(|animation| animation.moves.entities.get(&index))
+                .map(|entity_move| entity_move.new_pos)
                 .unwrap_or(from);
             let t = self.animation.as_ref().map_or(0.0, |animation| animation.t);
 
@@ -311,13 +313,13 @@ impl geng::State for Game {
                 t,
             );
 
-            self.draw_mesh(framebuffer, &player.mesh, Rgba::WHITE, transform);
+            self.draw_mesh(framebuffer, &entity.mesh, Rgba::WHITE, transform);
 
-            for (side_index, side) in player.sides.iter().enumerate() {
+            for (side_index, side) in entity.sides.iter().enumerate() {
                 let transform = transform
                     // TODO: mat3::rotate_around
                     * mat3::translate(vec2::splat(0.5))
-                    * mat3::rotate(Player::relative_side_angle(side_index).to_radians() - f32::PI / 2.0)
+                    * mat3::rotate(Entity::relative_side_angle(side_index).to_radians() - f32::PI / 2.0)
                     * mat3::translate(vec2(-0.5, 0.5));
                 if let Some(effect) = &side.effect {
                     // TODO: mesh should be found differently
