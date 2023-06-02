@@ -48,7 +48,10 @@ impl Input {
 #[derive(Debug, Clone)]
 pub enum Effect {
     Jump,
+    Slide,
+    Magnet,
 }
+
 impl Effect {
     fn apply(
         &self,
@@ -59,6 +62,8 @@ impl Effect {
     ) -> Option<Position> {
         match self {
             Self::Jump => state.jump_from(player_index, input, angle),
+            Self::Slide => state.slide(player_index, input, angle),
+            Self::Magnet => todo!(),
         }
     }
 }
@@ -72,6 +77,18 @@ pub struct Player {
     pub pos: Position,
     pub sides: [Side; 4],
     pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
+}
+
+impl Player {
+    // TODO better name?
+    pub fn maybe_override_input(&self, input: Input) -> Input {
+        let last_move = self.pos.cell - self.prev_pos.cell;
+        if last_move.x != 0 && last_move.y == 0 {
+            Input::from_sign(last_move.x)
+        } else {
+            input
+        }
+    }
 }
 
 pub struct Goal {
@@ -90,6 +107,7 @@ pub enum Tile {
     Nothing,
     Block,
     Disable,
+    Cloud,
 }
 impl Tile {
     pub fn is_blocking(&self) -> bool {
@@ -98,6 +116,7 @@ impl Tile {
             Nothing => false,
             Block => true,
             Disable => true,
+            Cloud => false,
         }
     }
     pub fn is_trigger(&self) -> bool {
@@ -106,6 +125,7 @@ impl Tile {
             Nothing => false,
             Block => true,
             Disable => false,
+            Cloud => true,
         }
     }
 }
@@ -132,6 +152,7 @@ impl GameState {
                     pos,
                     match value.as_str() {
                         "block" => Tile::Block,
+                        "cloud" => Tile::Cloud,
                         "disable" => Tile::Disable,
                         _ => unreachable!(),
                     },
@@ -167,6 +188,8 @@ impl GameState {
                     entity.identifier.strip_suffix("Power").map(|name| Powerup {
                         effect: match name {
                             "Jump" => Effect::Jump,
+                            "Magnet" => Effect::Magnet,
+                            "Slide" => Effect::Slide,
                             _ => unimplemented!("{name:?} power is unimplemented"),
                         },
                         pos: Position {
@@ -245,6 +268,25 @@ impl GameState {
         Some(new_pos)
     }
 
+    fn slide(&self, player_index: usize, input: Input, side: IntAngle) -> Option<Position> {
+        if !side.is_down() {
+            return None;
+        }
+        log::debug!("Sliding on {side:?}");
+
+        let player = &self.players[player_index];
+        let input = player.maybe_override_input(input);
+
+        let new_pos = Position {
+            cell: player.pos.cell + vec2(input.delta(), 0),
+            angle: player.pos.angle,
+        };
+        if self.is_blocked(new_pos.cell) {
+            return None;
+        }
+        Some(new_pos)
+    }
+
     fn jump_from(
         &self,
         player_index: usize,
@@ -254,15 +296,7 @@ impl GameState {
         log::debug!("Jumping from {jump_from:?}");
 
         let player = &self.players[player_index];
-
-        let input = {
-            let last_move = player.pos.cell - player.prev_pos.cell;
-            if last_move.x.abs() == 1 && last_move.y == 0 {
-                Input::from_sign(last_move.x)
-            } else {
-                input
-            }
-        };
+        let input = player.maybe_override_input(input);
 
         let jump_to = jump_from.opposite();
         let pos = player.pos;
