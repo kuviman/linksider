@@ -30,9 +30,17 @@ impl Position {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Moves {
     pub entities: HashMap<usize, EntityMove>,
+}
+
+impl Moves {
+    pub fn single(entity_index: usize, entity_move: EntityMove) -> Self {
+        Self {
+            entities: std::iter::once((entity_index, entity_move)).collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -98,7 +106,7 @@ impl Effect {
         }
     }
     /// Whether having this effect enables or disables other effects on the touching side
-    pub fn is_trigger(&self) -> bool {
+    pub fn allow_trigger(&self) -> bool {
         match self {
             Self::DisableTrigger => false,
             _ => true,
@@ -139,6 +147,7 @@ pub struct Properties {
     pub block: bool,
     pub trigger: bool,
     pub player: bool,
+    pub pushable: bool,
 }
 
 /// Box entity
@@ -291,11 +300,25 @@ impl GameState {
                                 block: true,
                                 trigger: true,
                                 player: true,
+                                pushable: false,
                             },
                             "Crate" => Properties {
                                 block: true,
                                 trigger: true,
                                 player: false,
+                                pushable: false,
+                            },
+                            "Box" => Properties {
+                                block: true,
+                                trigger: true,
+                                player: false,
+                                pushable: true,
+                            },
+                            "DisableBox" => Properties {
+                                block: true,
+                                trigger: false,
+                                player: false,
+                                pushable: true,
                             },
                             _ => unimplemented!("Entity {entity_name:?} unimplemented"),
                         };
@@ -352,11 +375,12 @@ impl GameState {
         self.tile(pos).is_trigger()
             || self.entities.iter().any(|entity| {
                 entity.pos.cell == pos
+                    && entity.properties.trigger
                     && entity
                         .side_at_angle(angle)
                         .effect
                         .as_ref()
-                        .map_or(true, Effect::is_trigger)
+                        .map_or(true, Effect::allow_trigger)
             })
     }
 
@@ -435,7 +459,7 @@ impl GameState {
             })
     }
 
-    fn just_move(&self, entity_index: usize, input: Input) -> Option<EntityMove> {
+    fn just_move(&self, entity_index: usize, input: Input) -> Option<Moves> {
         if input == Input::Skip {
             return None;
         }
@@ -508,22 +532,54 @@ impl GameState {
 
         let mut new_pos = entity.pos;
         let next_cell = new_pos.cell + direction.move_dir;
+        let mut result = Moves::default();
         if !self.is_blocked(next_cell) {
             new_pos.cell = next_cell;
         }
-        new_pos.angle = new_pos.angle.with_input(input);
-        Some(EntityMove {
-            used_input: input,
-            new_pos,
-            move_type: if let Some(magnet_angle) = direction.magnet_angle {
-                EntityMoveType::Magnet {
-                    magnet_angle,
-                    move_dir: direction.move_dir,
+        if let Some(next_entity_index) = self
+            .entities
+            .iter()
+            .position(|entity| entity.pos.cell == next_cell)
+        {
+            let next_entity = &self.entities[next_entity_index];
+            if next_entity.properties.pushable {
+                let next_next_cell = next_cell + direction.move_dir;
+                if !self.is_blocked(next_next_cell) {
+                    new_pos.cell = next_cell;
+                    result.entities.insert(
+                        next_entity_index,
+                        EntityMove {
+                            used_input: Input::Skip,
+                            new_pos: Position {
+                                cell: next_next_cell,
+                                angle: next_entity
+                                    .pos
+                                    .angle
+                                    .with_input(Input::from_sign(direction.move_dir.x)),
+                            },
+                            move_type: EntityMoveType::Unsorted,
+                        },
+                    );
                 }
-            } else {
-                EntityMoveType::Unsorted
+            }
+        }
+        new_pos.angle = new_pos.angle.with_input(input);
+        result.entities.insert(
+            entity_index,
+            EntityMove {
+                used_input: input,
+                new_pos,
+                move_type: if let Some(magnet_angle) = direction.magnet_angle {
+                    EntityMoveType::Magnet {
+                        magnet_angle,
+                        move_dir: direction.move_dir,
+                    }
+                } else {
+                    EntityMoveType::Unsorted
+                },
             },
-        })
+        );
+        Some(result)
     }
 
     fn slide(&self, entity_index: usize, input: Input, side: IntAngle) -> Option<EntityMove> {
@@ -638,19 +694,29 @@ impl GameState {
         })
     }
 
-    fn check_entity_move(&self, index: usize, input: Input) -> Option<EntityMove> {
-        let systems: &[&dyn Fn(&Self, usize, Input) -> Option<EntityMove>] = &[
-            &Self::continue_magnet_move,
-            &Self::side_effects,
-            &Self::gravity,
-            &Self::just_move,
-        ];
+    fn check_entity_move(&self, entity_index: usize, input: Input) -> Option<Moves> {
+        macro_rules! system {
+            ($f:expr) => {
+                if let Some(moves) = $f(self, entity_index, input) {
+                    return Some(moves);
+                }
+            };
+        }
 
-        for system in systems {
-            if let Some(pos) = system(self, index, input) {
-                return Some(pos);
+        fn simple(
+            f: impl Fn(&GameState, usize, Input) -> Option<EntityMove>,
+        ) -> impl Fn(&GameState, usize, Input) -> Option<Moves> {
+            move |state, entity_index, input| {
+                f(state, entity_index, input)
+                    .map(|entity_move| Moves::single(entity_index, entity_move))
             }
         }
+
+        system!(simple(Self::continue_magnet_move));
+        system!(simple(Self::side_effects));
+        system!(simple(Self::gravity));
+        system!(Self::just_move);
+
         None
     }
 
@@ -659,7 +725,7 @@ impl GameState {
             entities: HashMap::new(),
         };
         for index in 0..self.entities.len() {
-            if let Some(entity_move) = self.check_entity_move(
+            if let Some(moves) = self.check_entity_move(
                 index,
                 if index == self.selected_player {
                     input
@@ -667,7 +733,8 @@ impl GameState {
                     Input::Skip
                 },
             ) {
-                result.entities.insert(index, entity_move);
+                // TODO check for conflicts
+                result.entities.extend(moves.entities);
             }
         }
         if result.entities.is_empty() {
