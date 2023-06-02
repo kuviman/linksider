@@ -30,5 +30,6 @@ pub struct Config {
     pub animation_time: f32,
     pub controls: Controls,
     pub cell_pixel_size: usize,
+    pub border_radius_pixels: usize,
     pub sound: sound::Config,
 }

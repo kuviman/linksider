@@ -249,12 +249,61 @@ impl geng::State for Game {
                 .unwrap_or(from);
             let t = self.animation.as_ref().map_or(0.0, |animation| animation.t);
 
-            let transform = mat3::translate(lerp(
-                from.cell.map(|x| x as f32 + 0.5),
-                to.cell.map(|x| x as f32 + 0.5),
+            fn cube_move_transform(
+                from: Position,
+                to: Position,
+                border_radius: f32,
+                t: f32,
+            ) -> mat3<f32> {
+                let from_pos = from.cell.map(|x| x as f32);
+                let to_pos = to.cell.map(|x| x as f32);
+                if from.angle == to.angle {
+                    return mat3::translate(lerp(from_pos, to_pos, t))
+                        * mat3::rotate_around(vec2::splat(0.5), to.angle.to_radians());
+                }
+                let delta_pos = to_pos - from_pos;
+                let delta_rot = to.angle.to_radians() - from.angle.to_radians();
+                let rotation_origin = vec2::splat(0.5)
+                    + from_pos
+                    + delta_pos / 2.0
+                    + delta_pos.rotate_90() / (delta_rot / 2.0).tan() / 2.0;
+
+                let from_transform = mat3::translate(from_pos)
+                    * mat3::rotate_around(vec2::splat(0.5), from.angle.to_radians());
+
+                // Double border radius when doing 180 since there is also border radius on the
+                // level geometry now
+                let border_radius: f32 = delta_rot.abs() / (f32::PI / 2.0) * border_radius;
+                let extra_len = (1.0 / ((1.0 - (t - 0.5).abs() * 2.0) * f32::PI / 4.0).cos() - 1.0)
+                    * border_radius;
+
+                mat3::rotate_around(rotation_origin, delta_rot * t)
+                    * mat3::translate(
+                        (rotation_origin - (from_pos + vec2::splat(0.5))).normalize_or_zero()
+                            * extra_len,
+                    )
+                    * from_transform
+
+                //
+                // *transform = Transform::from_translation(prev_pos.extend(transform.translation.z))
+                //     .with_rotation(Quat::from_rotation_z(prev_rot));
+                // transform.rotate_around(
+                //     rotation_origin.extend(123.45),
+                //     Quat::from_rotation_z(delta_rot * t),
+                // );
+                // transform.translation = (transform.translation.xy()
+                //     + (rotation_origin - transform.translation.xy()).normalize_or_zero()
+                //         * extra_len)
+                //     .extend(transform.translation.z);
+            }
+
+            let transform = cube_move_transform(
+                from,
+                to,
+                self.assets.config.border_radius_pixels as f32
+                    / self.assets.config.cell_pixel_size as f32,
                 t,
-            )) * lerp(from.angle.to_matrix(), to.angle.to_matrix(), t)
-                * mat3::translate(vec2::splat(-0.5));
+            );
 
             self.draw_mesh(framebuffer, &player.mesh, Rgba::WHITE, transform);
 
