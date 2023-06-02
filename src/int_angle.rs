@@ -78,14 +78,6 @@ impl IntAngle {
         mat3::rotate(self.to_radians())
     }
 
-    pub fn side_index(&self) -> usize {
-        self.normalize().0 as usize
-    }
-
-    pub fn from_side(size: usize) -> Self {
-        Self(size as i32)
-    }
-
     pub fn with_input(self, input: Input) -> Self {
         match input {
             Input::Left => self.rotate_counter_clockwise(),
@@ -120,6 +112,20 @@ impl IntAngle {
             3 => vec2(0, -1),
             _ => unreachable!(),
         }
+    }
+
+    pub fn try_from_vec(v: vec2<i32>) -> Option<Self> {
+        match (v.x.signum(), v.y.signum()) {
+            (-1, 0) => Some(Self::LEFT),
+            (1, 0) => Some(Self::RIGHT),
+            (0, 1) => Some(Self::UP),
+            (0, -1) => Some(Self::DOWN),
+            _ => None,
+        }
+    }
+
+    pub fn from_vec(v: vec2<i32>) -> Self {
+        Self::try_from_vec(v).unwrap()
     }
 }
 

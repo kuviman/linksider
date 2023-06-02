@@ -7,6 +7,21 @@ pub struct Position {
 }
 
 impl Position {
+    fn from_ldtk_entity(entity: &ldtk::Entity, down_angle: IntAngle) -> Self {
+        Self {
+            cell: entity.pos,
+            angle: entity.fields.get("Side").map_or(IntAngle::DOWN, |value| {
+                match value.as_str().expect("Side value not a string WTF") {
+                    "Down" => IntAngle::DOWN,
+                    "Right" => IntAngle::RIGHT,
+                    "Left" => IntAngle::LEFT,
+                    "Up" => IntAngle::UP,
+                    _ => unreachable!("Unexpected side value {value:?}"),
+                }
+            }) - IntAngle::DOWN
+                + down_angle,
+        }
+    }
     pub fn normalize(&self) -> Self {
         Self {
             cell: self.cell,
@@ -17,7 +32,23 @@ impl Position {
 
 #[derive(Debug)]
 pub struct Moves {
-    pub players: HashMap<usize, Position>,
+    pub players: HashMap<usize, PlayerMove>,
+}
+
+#[derive(Debug, Clone)]
+pub enum PlayerMoveType {
+    Magnet {
+        magnet_angle: IntAngle,
+        move_dir: vec2<i32>,
+    },
+    Unsorted, // TODO remove
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayerMove {
+    pub used_input: Input,
+    pub new_pos: Position,
+    pub move_type: PlayerMoveType,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -53,27 +84,46 @@ pub enum Effect {
 }
 
 impl Effect {
+    pub fn activate_self(&self) -> bool {
+        match self {
+            Effect::Jump => true,
+            Effect::Slide => true,
+            Effect::Magnet => true,
+        }
+    }
+    pub fn activate_other(&self) -> bool {
+        match self {
+            Effect::Jump => true,
+            Effect::Slide => true,
+            Effect::Magnet => false,
+        }
+    }
     fn apply(
         &self,
         state: &GameState,
         player_index: usize,
         input: Input,
         angle: IntAngle,
-    ) -> Option<Position> {
+    ) -> Option<PlayerMove> {
         match self {
             Self::Jump => state.jump_from(player_index, input, angle),
             Self::Slide => state.slide(player_index, input, angle),
-            Self::Magnet => todo!(),
+            Self::Magnet => {
+                // Magnets are affecting gravity of regular move
+                None
+            }
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Side {
     pub effect: Option<Effect>,
 }
 
 pub struct Player {
     pub prev_pos: Position,
+    pub prev_move: Option<PlayerMove>,
     pub pos: Position,
     pub sides: [Side; 4],
     pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
@@ -88,6 +138,22 @@ impl Player {
         } else {
             input
         }
+    }
+
+    /// Side index by absolute side angle
+    pub fn side_index(&self, angle: IntAngle) -> usize {
+        (angle - self.side_angle(0)).normalize().to_i32() as usize
+    }
+
+    /// Absolute side angle
+    pub fn side_angle(&self, side_index: usize) -> IntAngle {
+        // Side 0 is right, side 1 is up, etc
+        // (if player is not rotated)
+        Self::relative_side_angle(side_index) + self.pos.angle
+    }
+
+    pub fn relative_side_angle(side_index: usize) -> IntAngle {
+        IntAngle::from_i32(side_index as i32)
     }
 }
 
@@ -131,7 +197,7 @@ impl Tile {
 }
 
 pub struct GameState {
-    pub level: Rc<ldtk::Level>,
+    pub level: Rc<ldtk::Level>, // TODO remove, this is not state
     pub tiles: HashMap<vec2<i32>, Tile>,
     pub players: Vec<Player>,
     pub powerups: Vec<Powerup>,
@@ -167,17 +233,15 @@ impl GameState {
                 .iter()
                 .flat_map(|layer| &layer.entities)
                 .filter(|entity| entity.identifier == "Player")
-                .map(|entity| Player {
-                    mesh: entity.mesh.clone(),
-                    sides: std::array::from_fn(|_| Side { effect: None }),
-                    pos: Position {
-                        cell: entity.pos,
-                        angle: IntAngle::RIGHT,
-                    },
-                    prev_pos: Position {
-                        cell: entity.pos,
-                        angle: IntAngle::RIGHT,
-                    },
+                .map(|entity| {
+                    let pos = Position::from_ldtk_entity(entity, IntAngle::RIGHT);
+                    Player {
+                        mesh: entity.mesh.clone(),
+                        sides: std::array::from_fn(|_| Side { effect: None }),
+                        pos,
+                        prev_pos: pos,
+                        prev_move: None,
+                    }
                 })
                 .collect(),
             powerups: level
@@ -192,10 +256,7 @@ impl GameState {
                             "Slide" => Effect::Slide,
                             _ => unimplemented!("{name:?} power is unimplemented"),
                         },
-                        pos: Position {
-                            cell: entity.pos,
-                            angle: IntAngle::DOWN,
-                        },
+                        pos: Position::from_ldtk_entity(entity, IntAngle::DOWN),
                         mesh: entity.mesh.clone(),
                     })
                 })
@@ -241,34 +302,155 @@ impl GameState {
 
     pub fn perform_moves(&mut self, moves: &Moves) {
         let Moves { players } = moves;
-        for (&player_index, &to) in players {
-            self.players[player_index].pos = to;
+        for (&player_index, player_move) in players {
+            self.players[player_index].pos = player_move.new_pos;
         }
     }
 
-    fn gravity(&self, index: usize, _input: Input) -> Option<Position> {
-        let mut pos = self.players[index].pos;
-        pos.cell.y -= 1;
-        if !self.is_blocked(pos.cell) {
-            return Some(pos);
+    fn gravity(&self, player_index: usize, _input: Input) -> Option<PlayerMove> {
+        if self.player_magneted_angles(player_index).next().is_some() {
+            // No gravity when we have an active magnet
+            return None;
+        }
+        let mut new_pos = self.players[player_index].pos;
+        new_pos.cell.y -= 1;
+        if !self.is_blocked(new_pos.cell) {
+            return Some(PlayerMove {
+                used_input: Input::Skip,
+                new_pos,
+                move_type: PlayerMoveType::Unsorted,
+            });
         }
         None
     }
 
-    fn just_move(&self, index: usize, input: Input) -> Option<Position> {
+    fn player_active_effects(
+        &self,
+        player_index: usize,
+    ) -> impl Iterator<Item = (IntAngle, &Effect)> + '_ {
+        let player = &self.players[player_index];
+        let mut result = vec![];
+        for (side_index, side) in player.sides.iter().enumerate() {
+            let side_angle = player.side_angle(side_index);
+            let side_cell = player.pos.cell + side_angle.to_vec();
+            if self.is_trigger(side_cell) {
+                if let Some(effect) = &side.effect {
+                    if effect.activate_self() {
+                        result.push((side_angle, effect));
+                    }
+                }
+            }
+            for other_player in &self.players {
+                if other_player.pos.cell == side_cell {
+                    let other_side_index = other_player.side_index(side_angle.opposite());
+                    let other_side = &other_player.sides[other_side_index];
+                    if let Some(effect) = &other_side.effect {
+                        if effect.activate_other() {
+                            result.push((side_angle, effect));
+                        }
+                    }
+                }
+            }
+        }
+        result.into_iter()
+    }
+
+    fn player_magneted_angles(&self, player_index: usize) -> impl Iterator<Item = IntAngle> + '_ {
+        self.player_active_effects(player_index)
+            .flat_map(|(side, effect)| {
+                if let Effect::Magnet = effect {
+                    Some(side)
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn just_move(&self, player_index: usize, input: Input) -> Option<PlayerMove> {
         if input == Input::Skip {
             return None;
         }
-        let mut new_pos = self.players[index].pos;
-        let next_cell = new_pos.cell + vec2(input.delta(), 0);
+        let player = &self.players[player_index];
+
+        let magneted_angles: HashSet<IntAngle> = self
+            .player_magneted_angles(player_index)
+            .map(|angle| angle.normalize())
+            .collect();
+
+        struct Direction {
+            magnet_angle: Option<IntAngle>,
+            move_dir: vec2<i32>,
+        }
+
+        let mut left = Direction {
+            magnet_angle: None,
+            move_dir: vec2(-1, 0),
+        };
+        let mut right = Direction {
+            magnet_angle: None,
+            move_dir: vec2(1, 0),
+        };
+        let find_magnet_direction = |f: &dyn Fn(IntAngle) -> IntAngle| {
+            let mut possible = magneted_angles
+                .iter()
+                .map(|&angle| (angle, f(angle).normalize()))
+                .filter(|(_, dir)| {
+                    !magneted_angles.contains(dir)
+                        && !self.is_blocked(player.pos.cell + dir.to_vec())
+                })
+                .map(|(magnet_angle, dir)| Direction {
+                    magnet_angle: Some(magnet_angle),
+                    move_dir: dir.to_vec(),
+                });
+            let result = possible.next();
+            if result.is_some() && possible.next().is_some() {
+                // Means we are mageneted on opposite sides so we are stuck
+                return None;
+            }
+            result
+        };
+        if let Some(magneted) = find_magnet_direction(&IntAngle::rotate_clockwise) {
+            left = magneted;
+        }
+        if let Some(magneted) = find_magnet_direction(&IntAngle::rotate_counter_clockwise) {
+            right = magneted;
+        };
+
+        let locked = magneted_angles
+            .iter()
+            .any(|angle| magneted_angles.contains(&angle.opposite()));
+        if locked {
+            left.move_dir = vec2::ZERO;
+            right.move_dir = vec2::ZERO;
+        }
+
+        let direction = match input {
+            Input::Left => left,
+            Input::Right => right,
+            Input::Skip => unreachable!(),
+        };
+
+        let mut new_pos = player.pos;
+        let next_cell = new_pos.cell + direction.move_dir;
         if !self.is_blocked(next_cell) {
             new_pos.cell = next_cell;
         }
         new_pos.angle = new_pos.angle.with_input(input);
-        Some(new_pos)
+        Some(PlayerMove {
+            used_input: input,
+            new_pos,
+            move_type: if let Some(magnet_angle) = direction.magnet_angle {
+                PlayerMoveType::Magnet {
+                    magnet_angle,
+                    move_dir: direction.move_dir,
+                }
+            } else {
+                PlayerMoveType::Unsorted
+            },
+        })
     }
 
-    fn slide(&self, player_index: usize, input: Input, side: IntAngle) -> Option<Position> {
+    fn slide(&self, player_index: usize, input: Input, side: IntAngle) -> Option<PlayerMove> {
         if !side.is_down() {
             return None;
         }
@@ -284,7 +466,11 @@ impl GameState {
         if self.is_blocked(new_pos.cell) {
             return None;
         }
-        Some(new_pos)
+        Some(PlayerMove {
+            used_input: input,
+            new_pos,
+            move_type: PlayerMoveType::Unsorted,
+        })
     }
 
     fn jump_from(
@@ -292,7 +478,7 @@ impl GameState {
         player_index: usize,
         input: Input,
         jump_from: IntAngle,
-    ) -> Option<Position> {
+    ) -> Option<PlayerMove> {
         log::debug!("Jumping from {jump_from:?}");
 
         let player = &self.players[player_index];
@@ -322,27 +508,67 @@ impl GameState {
                 },
             });
         }
-        new_pos
+        if let Some(new_pos) = new_pos {
+            Some(PlayerMove {
+                used_input: input,
+                new_pos,
+                move_type: PlayerMoveType::Unsorted,
+            })
+        } else {
+            None
+        }
     }
 
-    fn side_effects(&self, player_index: usize, input: Input) -> Option<Position> {
-        let player = &self.players[player_index];
-        for (side_index, side) in player.sides.iter().enumerate() {
-            let side_angle = player.pos.angle + IntAngle::from_side(side_index);
-            if self.is_trigger(player.pos.cell + side_angle.to_vec()) {
-                if let Some(effect) = &side.effect {
-                    if let Some(pos) = effect.apply(self, player_index, input, side_angle) {
-                        return Some(pos);
-                    }
-                }
+    fn side_effects(&self, player_index: usize, input: Input) -> Option<PlayerMove> {
+        for (side, effect) in self.player_active_effects(player_index) {
+            if let Some(pos) = effect.apply(self, player_index, input, side) {
+                return Some(pos);
             }
         }
         None
     }
 
-    fn check_player_move(&self, index: usize, input: Input) -> Option<Position> {
-        let systems: &[&dyn Fn(&Self, usize, Input) -> Option<Position>] =
-            &[&Self::side_effects, &Self::gravity, &Self::just_move];
+    fn continue_magnet_move(&self, index: usize, input: Input) -> Option<PlayerMove> {
+        let player = &self.players[index];
+        let Some(PlayerMove {
+            used_input: prev_input,
+            move_type: PlayerMoveType::Magnet {
+                magnet_angle,
+                move_dir,
+            },
+            ..
+        }) = player.prev_move else {
+            return None;
+        };
+        if move_dir == vec2::ZERO {
+            // Cant continue after locked in place rotation
+            return None;
+        }
+        if prev_input != input {
+            return None;
+        }
+        let new_pos = Position {
+            cell: player.pos.cell + magnet_angle.to_vec(),
+            angle: player.pos.angle.with_input(input),
+        };
+        if self.is_blocked(new_pos.cell) {
+            return None;
+        }
+        Some(PlayerMove {
+            used_input: input,
+            new_pos,
+            move_type: PlayerMoveType::Unsorted, // Can not continue magnet move more than 180
+                                                 // degrees
+        })
+    }
+
+    fn check_player_move(&self, index: usize, input: Input) -> Option<PlayerMove> {
+        let systems: &[&dyn Fn(&Self, usize, Input) -> Option<PlayerMove>] = &[
+            &Self::continue_magnet_move,
+            &Self::side_effects,
+            &Self::gravity,
+            &Self::just_move,
+        ];
 
         for system in systems {
             if let Some(pos) = system(self, index, input) {
@@ -357,7 +583,7 @@ impl GameState {
             players: HashMap::new(),
         };
         for index in 0..self.players.len() {
-            if let Some(new_pos) = self.check_player_move(
+            if let Some(player_move) = self.check_player_move(
                 index,
                 if index == self.selected_player {
                     input
@@ -365,12 +591,9 @@ impl GameState {
                     Input::Skip
                 },
             ) {
-                result.players.insert(index, new_pos);
+                result.players.insert(index, player_move);
             }
         }
-        result
-            .players
-            .retain(|&index, &mut to| self.players[index].pos != to);
         if result.players.is_empty() {
             None
         } else {
@@ -378,11 +601,16 @@ impl GameState {
         }
     }
 
+    // TODO not return anything
     pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
         self.process_powerups();
         let result = self.check_moves(input);
-        for player in &mut self.players {
+        for (player_index, player) in self.players.iter_mut().enumerate() {
             player.prev_pos = player.pos;
+            player.prev_move = result
+                .as_ref()
+                .and_then(|moves| moves.players.get(&player_index))
+                .cloned();
         }
         result
     }
@@ -401,7 +629,7 @@ impl GameState {
                 if player.pos.cell != powerup.pos.cell {
                     continue;
                 }
-                let player_side = (powerup.pos.angle - player.pos.angle).side_index();
+                let player_side = player.side_index(powerup.pos.angle);
                 if player.sides[player_side].effect.is_none() {
                     collected.push(CollectedPowerup {
                         player: player_index,

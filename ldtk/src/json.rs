@@ -59,7 +59,12 @@ pub struct Definitions {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct FieldInstance {}
+pub struct FieldInstance {
+    #[serde(rename = "__identifier")]
+    pub identifier: String,
+    #[serde(rename = "__value")]
+    pub value: serde_json::Value,
+}
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

@@ -6,6 +6,7 @@ pub struct Entity {
     pub identifier: String,
     pub pos: vec2<i32>,
     pub mesh: Rc<Mesh>,
+    pub fields: HashMap<String, serde_json::Value>,
 }
 
 pub struct Mesh {
@@ -201,6 +202,11 @@ impl geng::asset::Load for Ldtk {
                                         pos: vec2(entity.grid.x, -entity.grid.y),
                                         mesh: entities[&entity.identifier].mesh.clone(),
                                         identifier: entity.identifier,
+                                        fields: entity
+                                            .field_instances
+                                            .into_iter()
+                                            .map(|field| (field.identifier, field.value))
+                                            .collect(),
                                     })
                                     .collect(),
                                 int_grid: if layer.int_grid_csv.is_empty() {

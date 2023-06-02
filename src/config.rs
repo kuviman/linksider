@@ -18,6 +18,7 @@ pub struct Controls {
     pub left: Vec<geng::Key>,
     pub right: Vec<geng::Key>,
     pub skip: Vec<geng::Key>,
+    pub restart: Vec<geng::Key>,
     pub next_player: Vec<geng::Key>,
     pub prev_player: Vec<geng::Key>,
     pub cheats: Option<CheatsControls>,

@@ -1,5 +1,3 @@
-// #![allow(dead_code)]
-
 use geng::prelude::*;
 use ldtk::Ldtk;
 
@@ -95,6 +93,10 @@ impl Game {
         );
     }
 
+    pub fn restart(&mut self) {
+        self.change_level(0);
+    }
+
     pub fn change_level(&mut self, change: isize) {
         let current_index = self
             .assets
@@ -187,12 +189,16 @@ impl geng::State for Game {
                                 None
                             };
                             if let Some(effect) = effect {
-                                self.state.selected_player_mut().sides[direction.side_index()]
-                                    .effect = effect;
+                                let player = self.state.selected_player_mut();
+                                player.sides[player.side_index(direction)].effect = effect;
                                 self.maybe_start_animation(Input::Skip);
                             }
                         }
                     }
+                }
+
+                if self.assets.config.controls.restart.contains(&key) {
+                    self.restart();
                 }
 
                 let input = if self.assets.config.controls.left.contains(&key) {
@@ -245,7 +251,7 @@ impl geng::State for Game {
                 .animation
                 .as_ref()
                 .and_then(|animation| animation.moves.players.get(&index))
-                .copied()
+                .map(|player_move| player_move.new_pos)
                 .unwrap_or(from);
             let t = self.animation.as_ref().map_or(0.0, |animation| animation.t);
 
@@ -311,7 +317,7 @@ impl geng::State for Game {
                 let transform = transform
                     // TODO: mat3::rotate_around
                     * mat3::translate(vec2::splat(0.5))
-                    * mat3::rotate(IntAngle::from_side(side_index).to_radians() - f32::PI / 2.0)
+                    * mat3::rotate(Player::relative_side_angle(side_index).to_radians() - f32::PI / 2.0)
                     * mat3::translate(vec2(-0.5, 0.5));
                 if let Some(effect) = &side.effect {
                     // TODO: mesh should be found differently
