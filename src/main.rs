@@ -1,8 +1,9 @@
-#![allow(dead_code)]
+// #![allow(dead_code)]
 
 use geng::prelude::*;
 use ldtk::Ldtk;
 
+mod background;
 mod config;
 mod int_angle;
 mod logic;
@@ -16,6 +17,7 @@ use util::*;
 #[derive(geng::asset::Load)]
 pub struct Shaders {
     pub texture: ugli::Program,
+    pub fullscreen_texture: ugli::Program,
 }
 
 #[derive(geng::asset::Load)]
@@ -23,6 +25,7 @@ pub struct Assets {
     pub config: Config,
     pub world: Ldtk,
     pub shaders: Shaders,
+    pub background: background::Assets,
 }
 
 struct Animation {
@@ -38,6 +41,7 @@ struct Game {
     camera: Camera2d,
     animation: Option<Animation>,
     transition: Option<geng::state::Transition>,
+    background: background::State,
 }
 
 impl Game {
@@ -55,6 +59,7 @@ impl Game {
             },
             animation: None,
             transition: None,
+            background: background::State::new(geng, assets),
         };
         result.maybe_start_animation(Input::Skip);
         result
@@ -211,7 +216,8 @@ impl geng::State for Game {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        ugli::clear(framebuffer, Some(Rgba::BLACK), None, None);
+
+        self.background.draw(framebuffer, &self.camera);
 
         for layer in &self.state.level.layers {
             if let Some(mesh) = &layer.mesh {

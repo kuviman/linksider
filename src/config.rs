@@ -29,4 +29,5 @@ pub struct Config {
     pub camera_speed: f32,
     pub animation_time: f32,
     pub controls: Controls,
+    pub cell_pixel_size: usize,
 }

@@ -5,7 +5,6 @@ varying vec2 v_vt;
 attribute vec2 a_pos;
 attribute vec2 a_vt;
 attribute vec4 a_color;
-uniform ivec2 u_framebuffer_size;
 uniform mat3 u_projection_matrix;
 uniform mat3 u_view_matrix;
 uniform mat3 u_model_matrix;
