@@ -7,6 +7,7 @@ mod background;
 mod config;
 mod int_angle;
 mod logic;
+mod sound;
 mod util;
 
 use config::Config;
@@ -26,6 +27,7 @@ pub struct Assets {
     pub world: Ldtk,
     pub shaders: Shaders,
     pub background: background::Assets,
+    pub sound: sound::Assets,
 }
 
 struct Animation {
@@ -42,10 +44,11 @@ struct Game {
     animation: Option<Animation>,
     transition: Option<geng::state::Transition>,
     background: background::State,
+    sound: Rc<sound::State>,
 }
 
 impl Game {
-    pub fn new(geng: &Geng, assets: &Rc<Assets>, level: usize) -> Self {
+    pub fn new(geng: &Geng, assets: &Rc<Assets>, sound: &Rc<sound::State>, level: usize) -> Self {
         let level = &assets.world.levels[level];
         let mut result = Self {
             geng: geng.clone(),
@@ -60,6 +63,7 @@ impl Game {
             animation: None,
             transition: None,
             background: background::State::new(geng, assets),
+            sound: sound.clone(),
         };
         result.maybe_start_animation(Input::Skip);
         result
@@ -104,6 +108,7 @@ impl Game {
             self.transition = Some(geng::state::Transition::Switch(Box::new(Self::new(
                 &self.geng,
                 &self.assets,
+                &self.sound,
                 new_index as usize,
             ))));
         }
@@ -317,11 +322,15 @@ fn main() {
     geng::setup_panic_handler();
     let geng = Geng::new("linksider");
     geng.clone().run_loading(async move {
+        let geng = &geng;
         let assets: Assets = geng
             .asset_manager()
             .load(run_dir().join("assets"))
             .await
             .unwrap();
-        Game::new(&geng, &Rc::new(assets), 0)
+        let assets = Rc::new(assets);
+        let assets = &assets;
+        let sound = Rc::new(sound::State::new(&geng, assets));
+        Game::new(geng, assets, &sound, 0)
     });
 }

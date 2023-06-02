@@ -2,6 +2,9 @@ camera_speed = 10
 animation_time = 0.2
 cell_pixel_size = 16
 
+[sound]
+volume = 0.1
+
 [controls]
 left = ["Left", "A"]
 right = ["Right", "D"]
