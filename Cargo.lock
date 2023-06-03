@@ -1217,15 +1217,15 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "exr"
-version = "1.6.3"
+version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdd2162b720141a91a054640662d3edce3d50a944a50ffca5313cd951abb35b4"
+checksum = "279d3efcc55e19917fff7ab3ddd6c14afb6a90881a0078465196fe2f99d08c56"
 dependencies = [
  "bit_field",
  "flume",
  "half",
  "lebe",
- "miniz_oxide 0.6.2",
+ "miniz_oxide 0.7.1",
  "rayon-core",
  "smallvec",
  "zune-inflate",
@@ -1720,7 +1720,8 @@ dependencies = [
 [[package]]
 name = "gilrs"
 version = "0.10.2"
-source = "git+https://gitlab.com/gilrs-project/gilrs#9d39ada6c6f7832f90f56b4a556b6144df373984"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62fd19844d0eb919aca41d3e4ea0e0b6bf60e1e827558b101c269015b8f5f27a"
 dependencies = [
  "fnv",
  "gilrs-core",
@@ -1733,7 +1734,8 @@ dependencies = [
 [[package]]
 name = "gilrs-core"
 version = "0.5.5"
-source = "git+https://gitlab.com/gilrs-project/gilrs#9d39ada6c6f7832f90f56b4a556b6144df373984"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd745b0cb1a207756e8fabacf5623066ad6aa543ea0be4bab34e897e6bbe24f9"
 dependencies = [
  "core-foundation",
  "io-kit-sys",

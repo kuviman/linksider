@@ -81,11 +81,11 @@
         "utils": "utils"
       },
       "locked": {
-        "lastModified": 1685778328,
-        "narHash": "sha256-rrXJ1yh85O2ZhS08u9UFnykFSdRtnJ1h9JGFdp//VrM=",
+        "lastModified": 1685828808,
+        "narHash": "sha256-VCzXcu3MwU69KmSD7Qpt+XaxabZYBqzxluhwhsAT3zQ=",
         "owner": "geng-engine",
         "repo": "geng",
-        "rev": "75a133ef1de04833c5bdbe28d426caea124fe083",
+        "rev": "8da1922cf34eb9a88aa1ea777acebd1c0c76aff7",
         "type": "github"
       },
       "original": {
@@ -112,11 +112,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1685677062,
-        "narHash": "sha256-zoHF7+HNwNwne2XEomphbdc4Y8tdWT16EUxUTXpOKpQ=",
+        "lastModified": 1685714850,
+        "narHash": "sha256-OcvbIJq4CGwwFr9m7M/SQcDPZ64hhR4t77oZgEeh7ZY=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "95be94370d09f97f6af6a1df1eb9649b5260724e",
+        "rev": "c6ffce3d5df7b4c588ce80a0c6e2d2348a611707",
         "type": "github"
       },
       "original": {
