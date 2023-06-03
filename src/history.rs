@@ -34,7 +34,7 @@ impl Player {
         result
     }
 
-    pub fn process_move(&mut self, input: Input) {
+    pub fn process_move(&mut self, input: Input) -> Option<&Moves> {
         assert!(self.playback_pos == self.target_pos as f32);
         let mut new_state = self.states[self.target_pos].clone();
         log::debug!("Processing move (input = {input:?})...");
@@ -49,8 +49,10 @@ impl Player {
             self.moves.push(moves);
             self.target_pos += 1;
             self.auto_continue = true;
+            self.moves.last()
         } else {
             self.auto_continue = false;
+            None
         }
     }
 
@@ -74,7 +76,12 @@ impl Player {
         }
     }
 
-    pub fn update(&mut self, delta_time: f32, input: Option<Input>, timeline_input: Option<isize>) {
+    pub fn update(
+        &mut self,
+        delta_time: f32,
+        input: Option<Input>,
+        timeline_input: Option<isize>,
+    ) -> Option<&Moves> {
         if self.playback_pos == self.target_pos as f32 {
             if let Some(input) = timeline_input {
                 match input {
@@ -88,7 +95,7 @@ impl Player {
                     input = Some(Input::Skip);
                 }
                 if let Some(input) = input {
-                    self.process_move(input);
+                    return self.process_move(input);
                 }
             }
         } else {
@@ -101,6 +108,7 @@ impl Player {
                 self.playback_pos += change * diff.signum();
             }
         }
+        None
     }
 
     pub fn restart(&mut self) {

@@ -5,10 +5,29 @@ pub struct Config {
     volume: f64,
 }
 
+pub struct Sound {
+    inner: geng::Sound,
+}
+
+impl geng::asset::Load for Sound {
+    fn load(manager: &geng::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
+        geng::Sound::load(manager, path)
+            .map_ok(|inner| Self { inner })
+            .boxed_local()
+    }
+    const DEFAULT_EXT: Option<&'static str> = Some("wav");
+}
+
 #[derive(geng::asset::Load)]
 pub struct Assets {
     #[load(ext = "mp3", postprocess = "make_looped")]
-    music: geng::Sound,
+    pub music: Sound,
+    pub enter_goal: Sound,
+    pub magnet: Sound,
+    #[load(path = "move.wav")]
+    pub r#move: Sound,
+    pub slide: Sound,
+    pub jump: Sound,
 }
 
 struct StopOnDrop(geng::SoundEffect);
@@ -29,8 +48,8 @@ impl SoundEffectExt for geng::SoundEffect {
     }
 }
 
-fn make_looped(sound: &mut geng::Sound) {
-    sound.set_looped(true);
+fn make_looped(sound: &mut Sound) {
+    sound.inner.set_looped(true);
 }
 
 pub struct State {
@@ -45,7 +64,25 @@ impl State {
         Self {
             geng: geng.clone(),
             assets: assets.clone(),
-            music: assets.sound.music.play().stop_on_drop(),
+            music: assets.sound.music.inner.play().stop_on_drop(),
+        }
+    }
+
+    pub fn play_moves(&self, moves: &Moves) {
+        for entity_move in &moves.entity_moves {
+            let assets = &self.assets.sound;
+            let sound = match entity_move.move_type {
+                EntityMoveType::Magnet { .. } => &assets.magnet,
+                EntityMoveType::MagnetContinue => continue,
+                EntityMoveType::EnterGoal { .. } => &assets.enter_goal,
+                EntityMoveType::Gravity => continue,
+                EntityMoveType::Move => &assets.r#move,
+                EntityMoveType::Pushed => continue,
+                EntityMoveType::SlideStart => &assets.slide,
+                EntityMoveType::SlideContinue => &assets.slide,
+                EntityMoveType::Jump => &assets.jump,
+            };
+            sound.inner.play();
         }
     }
 }

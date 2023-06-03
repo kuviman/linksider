@@ -49,10 +49,16 @@ pub enum EntityMoveType {
         magnet_angle: IntAngle,
         move_dir: vec2<i32>,
     },
-    Unsorted, // TODO remove
     EnterGoal {
         goal_id: Id,
     },
+    Gravity,
+    Move,
+    Pushed,
+    SlideStart,
+    SlideContinue,
+    Jump,
+    MagnetContinue,
 }
 
 #[derive(Debug, Clone, HasId)]
@@ -456,7 +462,7 @@ impl GameState {
                 used_input: Input::Skip,
                 prev_pos: entity.pos,
                 new_pos,
-                move_type: EntityMoveType::Unsorted,
+                move_type: EntityMoveType::Gravity,
             });
         }
         None
@@ -603,7 +609,7 @@ impl GameState {
                                 .angle
                                 .with_input(Input::from_sign(direction.move_dir.x)),
                         },
-                        move_type: EntityMoveType::Unsorted,
+                        move_type: EntityMoveType::Pushed,
                     });
                 }
             }
@@ -620,7 +626,7 @@ impl GameState {
                     move_dir: direction.move_dir,
                 }
             } else {
-                EntityMoveType::Unsorted
+                EntityMoveType::Move
             },
         });
         Some(result)
@@ -647,7 +653,15 @@ impl GameState {
                 used_input: input,
                 prev_pos: entity.pos,
                 new_pos,
-                move_type: EntityMoveType::Unsorted,
+                move_type: if let Some(EntityMove {
+                    move_type: EntityMoveType::SlideStart | EntityMoveType::SlideContinue,
+                    ..
+                }) = &entity.prev_move
+                {
+                    EntityMoveType::SlideContinue
+                } else {
+                    EntityMoveType::SlideStart
+                },
             })
         };
         slide_with_input(entity.maybe_override_input(input)).or(slide_with_input(input))
@@ -689,7 +703,7 @@ impl GameState {
                 used_input: input,
                 prev_pos: entity.pos,
                 new_pos,
-                move_type: EntityMoveType::Unsorted,
+                move_type: EntityMoveType::Jump,
             })
         } else {
             None
@@ -736,8 +750,7 @@ impl GameState {
             used_input: input,
             prev_pos: entity.pos,
             new_pos,
-            move_type: EntityMoveType::Unsorted, // Can not continue magnet move more than 180
-                                                 // degrees
+            move_type: EntityMoveType::MagnetContinue, // Can not continue magnet move more than 180 degrees
         })
     }
 
