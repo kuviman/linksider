@@ -79,7 +79,7 @@ impl State {
                 EntityMoveType::Move => &assets.r#move,
                 EntityMoveType::Pushed => continue,
                 EntityMoveType::SlideStart => &assets.slide,
-                EntityMoveType::SlideContinue => &assets.slide,
+                EntityMoveType::SlideContinue => continue,
                 EntityMoveType::Jump => &assets.jump,
             };
             sound.inner.play();
