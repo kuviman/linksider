@@ -5,12 +5,14 @@ use ldtk::Ldtk;
 
 mod background;
 mod config;
+mod id;
 mod int_angle;
 mod logic;
 mod sound;
 mod util;
 
 use config::Config;
+use id::Id;
 use int_angle::*;
 use logic::*;
 use util::*;
@@ -245,11 +247,11 @@ impl geng::State for Game {
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
-        for (index, entity) in self.state.entities.iter().enumerate() {
+        for entity in &self.state.entities {
             let entity_move = self
                 .animation
                 .as_ref()
-                .and_then(|animation| animation.moves.entities.get(&index));
+                .and_then(|animation| animation.moves.entity_moves.get(&entity.id));
             let (from, to) = match entity_move {
                 Some(entity_move) => (entity_move.prev_pos, entity_move.new_pos),
                 None => (entity.pos, entity.pos),
