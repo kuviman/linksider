@@ -50,11 +50,15 @@ pub enum EntityMoveType {
         move_dir: vec2<i32>,
     },
     Unsorted, // TODO remove
+    EnterGoal {
+        goal_index: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct EntityMove {
     pub used_input: Input,
+    pub prev_pos: Position,
     pub new_pos: Position,
     pub move_type: EntityMoveType,
 }
@@ -384,11 +388,26 @@ impl GameState {
             })
     }
 
-    pub fn perform_moves(&mut self, moves: &Moves) {
-        let Moves { entities } = moves;
-        for (&entity_index, entity_move) in entities {
-            self.entities[entity_index].pos = entity_move.new_pos;
+    fn enter_goal(&self, entity_index: usize, _input: Input) -> Option<EntityMove> {
+        let entity = &self.entities[entity_index];
+        // TODO not only players?
+        if !entity.properties.player {
+            return None;
         }
+        if let Some(goal_index) = self
+            .goals
+            .iter()
+            .position(|goal| goal.pos.normalize() == entity.pos.normalize())
+        {
+            return Some(EntityMove {
+                used_input: Input::Skip,
+                prev_pos: entity.pos,
+                new_pos: entity.pos,
+                move_type: EntityMoveType::EnterGoal { goal_index },
+            });
+        }
+
+        None
     }
 
     fn gravity(&self, entity_index: usize, _input: Input) -> Option<EntityMove> {
@@ -403,11 +422,13 @@ impl GameState {
             // Or any DisableGravity effect is active
             return None;
         }
-        let mut new_pos = self.entities[entity_index].pos;
+        let entity = &self.entities[entity_index];
+        let mut new_pos = entity.pos;
         new_pos.cell.y -= 1;
         if !self.is_blocked(new_pos.cell) {
             return Some(EntityMove {
                 used_input: Input::Skip,
+                prev_pos: entity.pos,
                 new_pos,
                 move_type: EntityMoveType::Unsorted,
             });
@@ -550,6 +571,7 @@ impl GameState {
                         next_entity_index,
                         EntityMove {
                             used_input: Input::Skip,
+                            prev_pos: next_entity.pos,
                             new_pos: Position {
                                 cell: next_next_cell,
                                 angle: next_entity
@@ -568,6 +590,7 @@ impl GameState {
             entity_index,
             EntityMove {
                 used_input: input,
+                prev_pos: entity.pos,
                 new_pos,
                 move_type: if let Some(magnet_angle) = direction.magnet_angle {
                     EntityMoveType::Magnet {
@@ -600,6 +623,7 @@ impl GameState {
         }
         Some(EntityMove {
             used_input: input,
+            prev_pos: entity.pos,
             new_pos,
             move_type: EntityMoveType::Unsorted,
         })
@@ -643,6 +667,7 @@ impl GameState {
         if let Some(new_pos) = new_pos {
             Some(EntityMove {
                 used_input: input,
+                prev_pos: entity.pos,
                 new_pos,
                 move_type: EntityMoveType::Unsorted,
             })
@@ -688,6 +713,7 @@ impl GameState {
         }
         Some(EntityMove {
             used_input: input,
+            prev_pos: entity.pos,
             new_pos,
             move_type: EntityMoveType::Unsorted, // Can not continue magnet move more than 180
                                                  // degrees
@@ -715,6 +741,7 @@ impl GameState {
         system!(simple(Self::continue_magnet_move));
         system!(simple(Self::side_effects));
         system!(simple(Self::gravity));
+        system!(simple(Self::enter_goal));
         system!(Self::just_move);
 
         None
@@ -744,18 +771,34 @@ impl GameState {
         }
     }
 
-    // TODO not return anything
+    fn perform_moves(&mut self, moves: &Moves) {
+        let Moves { entities } = moves;
+        for (&entity_index, entity_move) in entities {
+            let entity = &mut self.entities[entity_index];
+            assert_eq!(entity.pos, entity_move.prev_pos);
+            entity.pos = entity_move.new_pos;
+            if let EntityMoveType::EnterGoal { goal_index } = entity_move.move_type {
+                self.goals.remove(goal_index);
+                self.entities.remove(entity_index);
+            }
+        }
+    }
+
     pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
         self.process_powerups();
-        let result = self.check_moves(input);
+        let moves = self.check_moves(input);
+        // TODO check for conflicts
         for (entity_index, entity) in self.entities.iter_mut().enumerate() {
             entity.prev_pos = entity.pos;
-            entity.prev_move = result
+            entity.prev_move = moves
                 .as_ref()
                 .and_then(|moves| moves.entities.get(&entity_index))
                 .cloned();
         }
-        result
+        if let Some(moves) = &moves {
+            self.perform_moves(moves);
+        }
+        moves
     }
 
     fn process_powerups(&mut self) {
@@ -791,20 +834,15 @@ impl GameState {
         }
     }
 
-    pub fn selected_entity(&self) -> &Entity {
-        &self.entities[self.selected_player]
+    pub fn selected_entity(&self) -> Option<&Entity> {
+        self.entities.get(self.selected_player)
     }
 
-    pub fn selected_entity_mut(&mut self) -> &mut Entity {
-        &mut self.entities[self.selected_player]
+    pub fn selected_entity_mut(&mut self) -> Option<&mut Entity> {
+        self.entities.get_mut(self.selected_player)
     }
 
     pub fn finished(&self) -> bool {
-        // TODO remove goal on entity touch, have goals.is_empty() here
-        self.goals.iter().all(|goal| {
-            self.entities
-                .iter()
-                .any(|entity| entity.pos.normalize() == goal.pos.normalize())
-        })
+        self.goals.is_empty()
     }
 }

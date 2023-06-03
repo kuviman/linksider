@@ -134,7 +134,6 @@ impl geng::State for Game {
         if let Some(animation) = &mut self.animation {
             animation.t += delta_time / self.assets.config.animation_time;
             if animation.t >= 1.0 {
-                self.state.perform_moves(&animation.moves);
                 self.animation = None;
 
                 if self.state.finished() {
@@ -153,15 +152,13 @@ impl geng::State for Game {
             }
         }
 
-        self.camera.center = lerp(
-            self.camera.center,
-            self.state
-                .selected_entity()
-                .pos
-                .cell
-                .map(|x| x as f32 + 0.5),
-            (delta_time * self.assets.config.camera_speed).min(1.0),
-        );
+        if let Some(entity) = self.state.selected_entity() {
+            self.camera.center = lerp(
+                self.camera.center,
+                entity.pos.cell.map(|x| x as f32 + 0.5),
+                (delta_time * self.assets.config.camera_speed).min(1.0),
+            );
+        }
     }
     fn transition(&mut self) -> Option<geng::state::Transition> {
         self.transition.take()
@@ -191,9 +188,10 @@ impl geng::State for Game {
                                 None
                             };
                             if let Some(effect) = effect {
-                                let entity = self.state.selected_entity_mut();
-                                entity.sides[entity.side_index(direction)].effect = effect;
-                                self.maybe_start_animation(Input::Skip);
+                                if let Some(entity) = self.state.selected_entity_mut() {
+                                    entity.sides[entity.side_index(direction)].effect = effect;
+                                    self.maybe_start_animation(Input::Skip);
+                                }
                             }
                         }
                     }
@@ -248,13 +246,14 @@ impl geng::State for Game {
             );
         }
         for (index, entity) in self.state.entities.iter().enumerate() {
-            let from = entity.pos;
-            let to = self
+            let entity_move = self
                 .animation
                 .as_ref()
-                .and_then(|animation| animation.moves.entities.get(&index))
-                .map(|entity_move| entity_move.new_pos)
-                .unwrap_or(from);
+                .and_then(|animation| animation.moves.entities.get(&index));
+            let (from, to) = match entity_move {
+                Some(entity_move) => (entity_move.prev_pos, entity_move.new_pos),
+                None => (entity.pos, entity.pos),
+            };
             let t = self.animation.as_ref().map_or(0.0, |animation| animation.t);
 
             fn cube_move_transform(
