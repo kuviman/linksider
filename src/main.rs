@@ -142,6 +142,9 @@ impl geng::State for Game {
                 (delta_time * self.assets.config.camera_speed).min(1.0),
             );
         }
+        if self.history_player.frame().current_state.finished() {
+            self.change_level(1);
+        }
     }
     fn transition(&mut self) -> Option<geng::state::Transition> {
         self.transition.take()
