@@ -11,7 +11,7 @@
 	"iid": "87273510-c640-11ed-9b51-7d4f25692148",
 	"jsonVersion": "1.3.2",
 	"appBuildId": 467535,
-	"nextUid": 237,
+	"nextUid": 238,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "LinearVertical",
@@ -1456,6 +1456,40 @@
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
+				},
+				{
+					"identifier": "FinalPos",
+					"doc": null,
+					"__type": "Point",
+					"uid": 237,
+					"type": "F_Point",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "PointStar",
+					"editorDisplayScale": 0,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "DashedLine",
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
 				}
 			]
 		},
@@ -2224,11 +2258,11 @@
 		{ "id": "Up", "tileRect": null, "tileId": -1, "color": 14984818, "__tileSrcRect": null }
 	], "iconTilesetUid": 6, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{
-			"identifier": "String",
+			"identifier": "Solutions",
 			"doc": null,
 			"__type": "String",
 			"uid": 229,
-			"type": "F_String",
+			"type": "F_Text",
 			"isArray": false,
 			"canBeNull": true,
 			"arrayMinLength": null,
@@ -2278,7 +2312,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [null] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -2332,7 +2366,8 @@
 							"px": [64,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -2350,20 +2385,21 @@
 							"fieldInstances": [{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 218, "realEditorValues": [] }]
 						},
 						{
-							"__identifier": "DisableBox",
-							"__grid": [6,6],
+							"__identifier": "Player",
+							"__grid": [13,5],
 							"__pivot": [0,0],
 							"__tags": [],
-							"__tile": { "tilesetUid": 6, "x": 80, "y": 48, "w": 16, "h": 16 },
+							"__tile": { "tilesetUid": 6, "x": 176, "y": 80, "w": 16, "h": 16 },
 							"__smartColor": "#F6757A",
-							"iid": "6b6d5160-ed50-11ed-b524-c9edf26d91ff",
+							"iid": "d0969130-ed50-11ed-8514-0b58fffdd5e9",
 							"width": 16,
 							"height": 16,
-							"defUid": 234,
-							"px": [96,96],
+							"defUid": 7,
+							"px": [208,80],
 							"fieldInstances": [
-								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 235, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 236, "realEditorValues": [] }
+								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [null] }
 							]
 						}
 					]
@@ -2415,8 +2451,8 @@
 						0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
 						1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,0,0,1,
 						1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,
-						1,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,1,1,1,
-						1,1,1,1,1,0,0,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,0,0,0,
+						1,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,
+						1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0
 					],
 					"autoLayerTiles": [
@@ -2447,9 +2483,12 @@
 						{ "px": [224,128], "src": [112,64], "f": 0, "t": 55, "d": [177,150], "a": 1 },
 						{ "px": [208,16], "src": [96,32], "f": 0, "t": 30, "d": [176,30], "a": 1 },
 						{ "px": [224,32], "src": [96,32], "f": 0, "t": 30, "d": [176,48], "a": 1 },
+						{ "px": [176,128], "src": [96,32], "f": 0, "t": 30, "d": [176,147], "a": 1 },
+						{ "px": [128,128], "src": [112,32], "f": 0, "t": 31, "d": [175,144], "a": 1 },
 						{ "px": [32,48], "src": [112,16], "f": 0, "t": 19, "d": [174,53], "a": 1 },
 						{ "px": [48,112], "src": [112,16], "f": 0, "t": 19, "d": [174,122], "a": 1 },
 						{ "px": [224,96], "src": [96,16], "f": 0, "t": 18, "d": [173,116], "a": 1 },
+						{ "px": [176,112], "src": [96,16], "f": 0, "t": 18, "d": [173,130], "a": 1 },
 						{ "px": [96,0], "src": [96,64], "f": 0, "t": 54, "d": [172,6], "a": 1 },
 						{ "px": [16,32], "src": [96,64], "f": 0, "t": 54, "d": [172,35], "a": 1 },
 						{ "px": [16,48], "src": [96,64], "f": 0, "t": 54, "d": [172,52], "a": 1 },
@@ -2460,15 +2499,15 @@
 						{ "px": [224,80], "src": [96,64], "f": 0, "t": 54, "d": [172,99], "a": 1 },
 						{ "px": [16,96], "src": [96,64], "f": 0, "t": 54, "d": [172,103], "a": 1 },
 						{ "px": [16,112], "src": [96,64], "f": 0, "t": 54, "d": [172,120], "a": 1 },
-						{ "px": [176,112], "src": [96,64], "f": 0, "t": 54, "d": [172,130], "a": 1 },
 						{ "px": [16,128], "src": [96,64], "f": 0, "t": 54, "d": [172,137], "a": 1 },
-						{ "px": [176,128], "src": [96,64], "f": 0, "t": 54, "d": [172,147], "a": 1 },
 						{ "px": [112,16], "src": [112,80], "f": 0, "t": 67, "d": [171,24], "a": 1 },
 						{ "px": [128,16], "src": [112,80], "f": 0, "t": 67, "d": [171,25], "a": 1 },
 						{ "px": [144,16], "src": [112,80], "f": 0, "t": 67, "d": [171,26], "a": 1 },
 						{ "px": [160,16], "src": [112,80], "f": 0, "t": 67, "d": [171,27], "a": 1 },
 						{ "px": [176,16], "src": [112,80], "f": 0, "t": 67, "d": [171,28], "a": 1 },
 						{ "px": [192,16], "src": [112,80], "f": 0, "t": 67, "d": [171,29], "a": 1 },
+						{ "px": [144,128], "src": [112,80], "f": 0, "t": 67, "d": [171,145], "a": 1 },
+						{ "px": [160,128], "src": [112,80], "f": 0, "t": 67, "d": [171,146], "a": 1 },
 						{ "px": [32,144], "src": [112,80], "f": 0, "t": 67, "d": [171,155], "a": 1 },
 						{ "px": [48,144], "src": [112,80], "f": 0, "t": 67, "d": [171,156], "a": 1 },
 						{ "px": [64,144], "src": [112,80], "f": 0, "t": 67, "d": [171,157], "a": 1 },
@@ -2490,7 +2529,6 @@
 						{ "px": [48,96], "src": [128,64], "f": 0, "t": 56, "d": [170,105], "a": 1 },
 						{ "px": [240,96], "src": [128,64], "f": 0, "t": 56, "d": [170,117], "a": 1 },
 						{ "px": [240,112], "src": [128,64], "f": 0, "t": 56, "d": [170,134], "a": 1 },
-						{ "px": [128,128], "src": [128,64], "f": 0, "t": 56, "d": [170,144], "a": 1 },
 						{ "px": [240,128], "src": [128,64], "f": 0, "t": 56, "d": [170,151], "a": 1 },
 						{ "px": [192,96], "src": [112,48], "f": 0, "t": 43, "d": [169,114], "a": 1 },
 						{ "px": [208,96], "src": [112,48], "f": 0, "t": 43, "d": [169,115], "a": 1 },
@@ -2498,12 +2536,14 @@
 						{ "px": [80,112], "src": [112,48], "f": 0, "t": 43, "d": [169,124], "a": 1 },
 						{ "px": [96,112], "src": [112,48], "f": 0, "t": 43, "d": [169,125], "a": 1 },
 						{ "px": [112,112], "src": [112,48], "f": 0, "t": 43, "d": [169,126], "a": 1 },
+						{ "px": [128,112], "src": [112,48], "f": 0, "t": 43, "d": [169,127], "a": 1 },
+						{ "px": [144,112], "src": [112,48], "f": 0, "t": 43, "d": [169,128], "a": 1 },
+						{ "px": [160,112], "src": [112,48], "f": 0, "t": 43, "d": [169,129], "a": 1 },
 						{ "px": [208,32], "src": [96,80], "f": 0, "t": 66, "d": [168,47], "a": 1 },
 						{ "px": [16,144], "src": [96,80], "f": 0, "t": 66, "d": [168,154], "a": 1 },
 						{ "px": [176,144], "src": [96,80], "f": 0, "t": 66, "d": [168,164], "a": 1 },
 						{ "px": [128,144], "src": [128,80], "f": 0, "t": 68, "d": [167,161], "a": 1 },
 						{ "px": [240,144], "src": [128,80], "f": 0, "t": 68, "d": [167,168], "a": 1 },
-						{ "px": [128,112], "src": [128,48], "f": 0, "t": 44, "d": [166,127], "a": 1 },
 						{ "px": [16,16], "src": [96,48], "f": 0, "t": 42, "d": [165,18], "a": 1 },
 						{ "px": [176,96], "src": [96,48], "f": 0, "t": 42, "d": [165,113], "a": 1 },
 						{ "px": [48,16], "src": [112,0], "f": 0, "t": 7, "d": [161,20], "a": 1 },
@@ -2545,7 +2585,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -2585,7 +2625,8 @@
 							"px": [128,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -2816,7 +2857,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -2856,7 +2897,8 @@
 							"px": [144,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -3145,7 +3187,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -3185,7 +3227,8 @@
 							"px": [160,80],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -3230,7 +3273,8 @@
 							"px": [128,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -3482,7 +3526,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -3536,7 +3580,8 @@
 							"px": [48,128],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -3581,7 +3626,8 @@
 							"px": [48,160],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -3785,7 +3831,10 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": ">>>>\n<>>>>>", "__tile": null, "defUid": 229, "realEditorValues": [{
+				"id": "V_String",
+				"params": [">>>>\\n<>>>>>"]
+			}] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -3825,7 +3874,8 @@
 							"px": [80,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -4030,7 +4080,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -4084,7 +4134,8 @@
 							"px": [80,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -4269,7 +4320,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -4323,7 +4374,8 @@
 							"px": [64,80],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -4515,7 +4567,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -4555,7 +4607,8 @@
 							"px": [144,128],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -4774,7 +4827,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -4814,7 +4867,8 @@
 							"px": [64,192],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -5092,7 +5146,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -5132,7 +5186,8 @@
 							"px": [96,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -5397,7 +5452,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -5437,7 +5492,8 @@
 							"px": [128,64],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -5468,7 +5524,8 @@
 							"px": [80,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -5647,7 +5704,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -5687,7 +5744,8 @@
 							"px": [64,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -5718,7 +5776,8 @@
 							"px": [48,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -5934,7 +5993,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -5974,7 +6033,8 @@
 							"px": [64,64],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -6202,7 +6262,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -6242,7 +6302,8 @@
 							"px": [48,128],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -6494,7 +6555,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -6534,7 +6595,8 @@
 							"px": [64,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -6730,7 +6792,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -6770,7 +6832,8 @@
 							"px": [48,48],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -7008,7 +7071,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -7062,7 +7125,8 @@
 							"px": [112,48],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -7093,7 +7157,8 @@
 							"px": [64,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -7291,7 +7356,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -7331,7 +7396,8 @@
 							"px": [48,80],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -7516,7 +7582,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -7556,7 +7622,8 @@
 							"px": [80,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -7643,7 +7710,8 @@
 							"px": [48,48],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -7854,7 +7922,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -7922,7 +7990,8 @@
 							"px": [112,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -8103,7 +8172,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -8157,7 +8226,8 @@
 							"px": [64,48],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8188,7 +8258,8 @@
 							"px": [128,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [0] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8383,7 +8454,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -8423,7 +8494,8 @@
 							"px": [64,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8645,7 +8717,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -8727,7 +8799,8 @@
 							"px": [48,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 2, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [2] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8744,7 +8817,8 @@
 							"px": [128,64],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8761,7 +8835,8 @@
 							"px": [128,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8972,7 +9047,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -9012,7 +9087,8 @@
 							"px": [80,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -9267,7 +9343,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -9307,7 +9383,8 @@
 							"px": [160,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -9338,7 +9415,8 @@
 							"px": [144,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 2, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [2] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -9498,7 +9576,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -9538,7 +9616,8 @@
 							"px": [48,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -9989,7 +10068,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -10029,7 +10108,8 @@
 							"px": [48,128],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -10060,7 +10140,8 @@
 							"px": [80,80],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -10321,7 +10402,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -10361,7 +10442,8 @@
 							"px": [80,256],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -10729,7 +10811,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -10797,7 +10879,8 @@
 							"px": [96,48],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -11040,7 +11123,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -11080,7 +11163,8 @@
 							"px": [144,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -11097,7 +11181,8 @@
 							"px": [96,96],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -11353,7 +11438,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -11393,7 +11478,8 @@
 							"px": [48,144],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -11480,7 +11566,8 @@
 							"px": [208,64],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -11717,7 +11804,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -11757,7 +11844,8 @@
 							"px": [176,176],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -11802,7 +11890,8 @@
 							"px": [80,48],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -12108,7 +12197,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -12148,7 +12237,8 @@
 							"px": [96,160],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -12221,7 +12311,8 @@
 							"px": [64,80],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 2, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [2] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -12252,7 +12343,8 @@
 							"px": [176,160],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 1, "__tile": null, "defUid": 178, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						}
 					]
@@ -12489,7 +12581,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -12543,7 +12635,8 @@
 							"px": [64,128],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -12560,7 +12653,8 @@
 							"px": [112,128],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -12797,7 +12891,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -12837,7 +12931,8 @@
 							"px": [64,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -12854,7 +12949,8 @@
 							"px": [96,64],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{
@@ -13093,7 +13189,7 @@
 			"__smartColor": "#9EA6B4",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "String", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "Solutions", "__type": "String", "__value": null, "__tile": null, "defUid": 229, "realEditorValues": [] }],
 			"layerInstances": [
 				{
 					"__identifier": "Entities",
@@ -13133,7 +13229,8 @@
 							"px": [80,112],
 							"fieldInstances": [
 								{ "__identifier": "Index", "__type": "Int", "__value": 0, "__tile": null, "defUid": 178, "realEditorValues": [] },
-								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] }
+								{ "__identifier": "Side", "__type": "LocalEnum.Side", "__value": "Down", "__tile": null, "defUid": 219, "realEditorValues": [] },
+								{ "__identifier": "FinalPos", "__type": "Point", "__value": null, "__tile": null, "defUid": 237, "realEditorValues": [] }
 							]
 						},
 						{

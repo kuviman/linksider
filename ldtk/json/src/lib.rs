@@ -1,4 +1,3 @@
-use batbox_la::*;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -70,7 +69,7 @@ pub struct FieldInstance {
 #[serde(rename_all = "camelCase")]
 pub struct EntityInstance {
     #[serde(rename = "__grid")]
-    pub grid: vec2<i32>,
+    pub grid: [i32; 2],
     #[serde(rename = "__identifier")]
     pub identifier: String,
     pub field_instances: Vec<FieldInstance>,
@@ -87,9 +86,9 @@ pub struct TileInstance {
     /// Examples: f=0 (no flip), f=1 (X flip only), f=2 (Y flip only), f=3 (both flips)
     pub f: u8,
     /// Pixel coordinates of the tile in the layer ([x,y] format). Don't forget optional layer offsets, if they exist!
-    pub px: vec2<i32>,
+    pub px: [i32; 2],
     /// Pixel coordinates of the tile in the tileset ([x,y] format)
-    pub src: vec2<i32>,
+    pub src: [i32; 2],
 }
 
 #[derive(Deserialize, Debug)]
@@ -113,6 +112,7 @@ pub struct LayerInstance {
 pub struct Level {
     pub identifier: String,
     pub layer_instances: Vec<LayerInstance>,
+    pub field_instances: Vec<FieldInstance>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -120,18 +120,4 @@ pub struct Level {
 pub struct Ldtk {
     pub defs: Definitions,
     pub levels: Vec<Level>,
-}
-
-#[test]
-fn test_load() {
-    let file = std::fs::File::open(
-        std::path::Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap())
-            .join("..")
-            .join("assets")
-            .join("world.ldtk"),
-    )
-    .unwrap();
-    let reader = std::io::BufReader::new(file);
-    let ldtk: Ldtk = serde_json::from_reader(reader).unwrap();
-    eprintln!("{ldtk:#?}");
 }

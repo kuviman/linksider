@@ -1,69 +1,27 @@
 use geng::prelude::{itertools::Itertools, *};
 use std::rc::Rc;
-pub mod json;
-
-pub struct Entity {
-    pub identifier: String,
-    pub pos: vec2<i32>,
-    pub mesh: Rc<Mesh>,
-    pub fields: HashMap<String, serde_json::Value>,
-}
 
 pub struct Mesh {
     pub vertex_data: ugli::VertexBuffer<draw2d::TexturedVertex>,
     pub texture: Rc<ugli::Texture>,
 }
 
-#[derive(Clone)]
-pub struct Value {
-    identifier: Rc<String>,
-}
-
-impl Value {
-    pub fn as_str(&self) -> &str {
-        self.identifier.as_str()
-    }
-}
-
-impl Debug for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.identifier)
-    }
-}
-
-impl PartialEq<&str> for Value {
-    fn eq(&self, other: &&str) -> bool {
-        self.identifier.as_str() == *other
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.identifier, &other.identifier)
-    }
-}
-
-impl Eq for Value {}
-
-impl std::hash::Hash for Value {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.identifier.as_ptr().hash(state)
-    }
-}
-
 pub struct Layer {
-    pub entities: Vec<Entity>,
     pub mesh: Option<Rc<Mesh>>,
-    pub int_grid: Option<HashMap<vec2<i32>, Value>>,
 }
 
 pub struct Level {
-    pub identifier: String,
     pub layers: Vec<Layer>,
 }
 
+pub struct EntityDef {
+    pub mesh: Rc<Mesh>,
+}
+
 pub struct Ldtk {
+    pub entity_defs: HashMap<String, EntityDef>,
     pub levels: Vec<Rc<Level>>,
+    pub json: ldtk_json::Ldtk,
 }
 
 fn quad(pos: Aabb2<f32>, uv: Aabb2<f32>, color: Rgba<f32>) -> [draw2d::TexturedVertex; 6] {
@@ -88,17 +46,17 @@ impl geng::asset::Load for Ldtk {
         async move {
             let manager = &manager;
             let base_path = path.parent().unwrap();
-            let json: json::Ldtk = file::load_json(&path).await?;
+            let json: ldtk_json::Ldtk = file::load_json(&path).await?;
             struct TilesetDef {
                 texture: Rc<ugli::Texture>,
                 tile_size: f32,
             }
             let tilesets: HashMap<i64, TilesetDef> =
-                future::join_all(json.defs.tilesets.into_iter().map(|tileset| async move {
+                future::join_all(json.defs.tilesets.iter().map(|tileset| async move {
                     Ok::<_, anyhow::Error>((
                         tileset.uid,
                         TilesetDef {
-                            texture: match tileset.rel_path {
+                            texture: match &tileset.rel_path {
                                 Some(path) => {
                                     let mut texture: ugli::Texture =
                                         manager.load(base_path.join(path)).await?;
@@ -118,17 +76,14 @@ impl geng::asset::Load for Ldtk {
                 .await
                 .into_iter()
                 .try_collect()?;
-            struct EntityDef {
-                mesh: Rc<Mesh>,
-            }
-            let entities: HashMap<String, EntityDef> = json
+            let entity_defs: HashMap<String, EntityDef> = json
                 .defs
                 .entities
-                .into_iter()
+                .iter()
                 .map(|entity| {
                     let tileset = &tilesets[&entity.tileset_id];
                     (
-                        entity.identifier,
+                        entity.identifier.clone(),
                         EntityDef {
                             mesh: Rc::new(Mesh {
                                 texture: tileset.texture.clone(),
@@ -162,75 +117,15 @@ impl geng::asset::Load for Ldtk {
                     )
                 })
                 .collect();
-            let int_grids: HashMap<String, HashMap<u32, Value>> = json
-                .defs
-                .layers
-                .iter()
-                .filter(|layer| !layer.int_grid_values.is_empty())
-                .map(|layer| {
-                    (
-                        layer.identifier.clone(),
-                        layer
-                            .int_grid_values
-                            .iter()
-                            .map(|value| {
-                                (
-                                    value.value,
-                                    Value {
-                                        identifier: Rc::new(value.identifier.clone()),
-                                    },
-                                )
-                            })
-                            .collect(),
-                    )
-                })
-                .collect();
             Ok(Self {
                 levels: json
                     .levels
-                    .into_iter()
+                    .iter()
                     .map(|level| Level {
-                        identifier: level.identifier,
                         layers: level
                             .layer_instances
-                            .into_iter()
+                            .iter()
                             .map(|layer| Layer {
-                                entities: layer
-                                    .entity_instances
-                                    .into_iter()
-                                    .map(|entity| Entity {
-                                        pos: vec2(entity.grid.x, -entity.grid.y),
-                                        mesh: entities[&entity.identifier].mesh.clone(),
-                                        identifier: entity.identifier,
-                                        fields: entity
-                                            .field_instances
-                                            .into_iter()
-                                            .map(|field| (field.identifier, field.value))
-                                            .collect(),
-                                    })
-                                    .collect(),
-                                int_grid: if layer.int_grid_csv.is_empty() {
-                                    None
-                                } else {
-                                    let values = &int_grids[&layer.identifier];
-                                    Some(
-                                        layer
-                                            .int_grid_csv
-                                            .into_iter()
-                                            .enumerate()
-                                            .filter(|(_index, value)| *value != 0)
-                                            .map(|(index, value)| {
-                                                (
-                                                    vec2(
-                                                        index as i32 % layer.grid_width as i32,
-                                                        -(index as i32 / layer.grid_width as i32),
-                                                    ),
-                                                    values[&value].clone(),
-                                                )
-                                            })
-                                            .collect(),
-                                    )
-                                },
                                 mesh: if !layer.auto_layer_tiles.is_empty() {
                                     let tileset = &tilesets[&layer
                                         .tileset_def_uid
@@ -240,13 +135,13 @@ impl geng::asset::Load for Ldtk {
                                             manager.ugli(),
                                             layer
                                                 .auto_layer_tiles
-                                                .into_iter()
+                                                .iter()
                                                 .flat_map(|tile| {
                                                     let uv = vec2(
-                                                        tile.src.x as f32,
+                                                        tile.src[0] as f32,
                                                         tileset.texture.size().y as f32
                                                             - tileset.tile_size
-                                                            - tile.src.y as f32,
+                                                            - tile.src[1] as f32,
                                                     ) / tileset
                                                         .texture
                                                         .size()
@@ -254,7 +149,7 @@ impl geng::asset::Load for Ldtk {
                                                     let uv_size = vec2::splat(tileset.tile_size)
                                                         / tileset.texture.size().map(|x| x as f32);
 
-                                                    let pos = vec2(tile.px.x, -tile.px.y)
+                                                    let pos = vec2(tile.px[0], -tile.px[1])
                                                         .map(|x| x as f32)
                                                         / tileset.tile_size;
 
@@ -279,6 +174,8 @@ impl geng::asset::Load for Ldtk {
                     })
                     .map(Rc::new)
                     .collect(),
+                entity_defs,
+                json,
             })
         }
         .boxed_local()

@@ -1,4 +1,11 @@
-use super::*;
+use batbox::prelude::*;
+use std::borrow::Cow;
+
+pub mod id;
+mod int_angle;
+
+pub use id::Id;
+pub use int_angle::IntAngle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
@@ -7,18 +14,23 @@ pub struct Position {
 }
 
 impl Position {
-    fn from_ldtk_entity(entity: &ldtk::Entity, down_angle: IntAngle) -> Self {
+    fn from_ldtk_entity(entity: &ldtk_json::EntityInstance, down_angle: IntAngle) -> Self {
         Self {
-            cell: entity.pos,
-            angle: entity.fields.get("Side").map_or(IntAngle::DOWN, |value| {
-                match value.as_str().expect("Side value not a string WTF") {
-                    "Down" => IntAngle::DOWN,
-                    "Right" => IntAngle::RIGHT,
-                    "Left" => IntAngle::LEFT,
-                    "Up" => IntAngle::UP,
-                    _ => unreachable!("Unexpected side value {value:?}"),
-                }
-            }) - IntAngle::DOWN
+            cell: vec2(entity.grid[0], -entity.grid[1]),
+            angle: entity
+                .field_instances
+                .iter()
+                .find(|field| field.identifier == "Side")
+                .map_or(IntAngle::DOWN, |field| {
+                    match field.value.as_str().expect("Side value not a string WTF") {
+                        "Down" => IntAngle::DOWN,
+                        "Right" => IntAngle::RIGHT,
+                        "Left" => IntAngle::LEFT,
+                        "Up" => IntAngle::UP,
+                        value => unreachable!("Unexpected side value {value:?}"),
+                    }
+                })
+                - IntAngle::DOWN
                 + down_angle,
         }
     }
@@ -167,12 +179,12 @@ pub struct Properties {
 #[derive(Clone, HasId)]
 pub struct Entity {
     pub id: Id,
+    pub ldtk_identifier: String, // TODO remove
     pub properties: Properties,
     pub pos: Position,
     pub prev_pos: Position,
     pub prev_move: Option<EntityMove>,
     pub sides: [Side; 4],
-    pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
 }
 
 impl Entity {
@@ -211,7 +223,6 @@ impl Entity {
 pub struct Goal {
     pub id: Id,
     pub pos: Position,
-    pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
 }
 
 #[derive(Clone, HasId)]
@@ -219,7 +230,6 @@ pub struct Powerup {
     pub id: Id,
     pub pos: Position,
     pub effect: Effect,
-    pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -253,7 +263,6 @@ impl Tile {
 #[derive(Clone)]
 pub struct GameState {
     id_gen: id::Gen,
-    pub level: Rc<ldtk::Level>, // TODO remove, this is not state
     pub tiles: HashMap<vec2<i32>, Tile>,
     pub entities: Collection<Entity>,
     pub powerups: Collection<Powerup>,
@@ -262,35 +271,60 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(level: &Rc<ldtk::Level>) -> Self {
-        let mut tiles = HashMap::new();
-        for grid in level
+    pub fn from_ldtk(ldtk: &ldtk_json::Ldtk, level: usize) -> Self {
+        let level = &ldtk.levels[level];
+        let tile_by_int: HashMap<u32, Tile> = ldtk
+            .defs
             .layers
             .iter()
-            .filter_map(|layer| layer.int_grid.as_ref())
-        {
-            for (&pos, value) in grid {
-                tiles.insert(
-                    pos,
-                    match value.as_str() {
+            .flat_map(|layer| &layer.int_grid_values)
+            .filter_map(|value| {
+                Some((
+                    value.value,
+                    match value.identifier.as_str() {
                         "block" => Tile::Block,
                         "cloud" => Tile::Cloud,
                         "disable" => Tile::Disable,
-                        _ => unreachable!(),
+                        _ => return None,
                     },
-                );
-            }
-        }
+                ))
+            })
+            .collect();
+        let tiles = level
+            .layer_instances
+            .iter()
+            .filter(|layer| !layer.int_grid_csv.is_empty())
+            .flat_map(|layer| {
+                layer
+                    .int_grid_csv
+                    .iter()
+                    .copied()
+                    .enumerate()
+                    .filter(|(_index, value)| *value != 0)
+                    .map(|(index, value)| {
+                        (
+                            vec2(
+                                index as i32 % layer.grid_width as i32,
+                                -(index as i32 / layer.grid_width as i32),
+                            ),
+                            tile_by_int[&value].clone(),
+                        )
+                    })
+            })
+            .collect();
         let mut result = Self {
             id_gen: id::Gen::new(),
             tiles,
-            level: level.clone(),
             entities: default(),
             powerups: default(),
             goals: default(),
             selected_player: None,
         };
-        for entity in level.layers.iter().flat_map(|layer| &layer.entities) {
+        for entity in level
+            .layer_instances
+            .iter()
+            .flat_map(|layer| &layer.entity_instances)
+        {
             let pos = Position::from_ldtk_entity(
                 entity,
                 if entity.identifier.starts_with("Power") {
@@ -304,18 +338,13 @@ impl GameState {
                     id: result.id_gen.gen(),
                     effect: Effect::from_str(effect),
                     pos: Position::from_ldtk_entity(entity, IntAngle::DOWN),
-                    mesh: entity.mesh.clone(),
                 });
             } else {
                 match entity.identifier.as_str() {
                     "Goal" => {
                         result.goals.insert(Goal {
                             id: result.id_gen.gen(),
-                            pos: Position {
-                                cell: entity.pos,
-                                angle: IntAngle::RIGHT,
-                            },
-                            mesh: entity.mesh.clone(),
+                            pos: Position::from_ldtk_entity(entity, IntAngle::RIGHT),
                         });
                     }
                     entity_name => {
@@ -348,8 +377,8 @@ impl GameState {
                         };
                         result.entities.insert(Entity {
                             id: result.id_gen.gen(),
+                            ldtk_identifier: entity.identifier.clone(),
                             properties,
-                            mesh: entity.mesh.clone(),
                             sides: std::array::from_fn(|_| Side { effect: None }),
                             pos,
                             prev_pos: pos,
@@ -368,7 +397,7 @@ impl GameState {
         result
     }
 
-    pub fn change_player_selection(&mut self, delta: isize) {
+    fn player_ids(&self) -> impl Iterator<Item = Id> {
         let mut player_ids: Vec<Id> = self
             .entities
             .iter()
@@ -381,20 +410,31 @@ impl GameState {
             })
             .collect();
         player_ids.sort_by_key(|id| id.raw());
-        let index = player_ids
-            .iter()
-            .position(|&id| Some(id) == self.selected_player);
-        let Some(index) = index else {
-            self.selected_player = player_ids.first().copied();
+        player_ids.into_iter()
+    }
+
+    pub fn selected_player_index(&self) -> Option<usize> {
+        self.player_ids()
+            .position(|id| Some(id) == self.selected_player)
+    }
+
+    pub fn select_player(&mut self, index: usize) {
+        self.selected_player = self.player_ids().nth(index)
+    }
+
+    pub fn change_player_selection(&mut self, delta: isize) {
+        let Some(current_index) =  self.selected_player_index() else {
+            self.select_player(0);
             return;
         };
-        let mut new = index as isize + delta;
+        let players_count = self.player_ids().count();
+        let mut new = current_index as isize + delta;
         if new < 0 {
-            new = player_ids.len() as isize - 1;
-        } else if new >= player_ids.len() as isize {
+            new = players_count as isize - 1;
+        } else if new >= players_count as isize {
             new = 0;
         }
-        self.selected_player = Some(player_ids[usize::try_from(new).unwrap()]);
+        self.select_player(new as usize);
     }
 
     pub fn tile(&self, pos: vec2<i32>) -> Tile {

@@ -1,10 +1,12 @@
+[workspace]
+
 [package]
 name = "linksider"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-batbox.git = "https://github.com/geng-engine/geng"
 geng.git = "https://github.com/geng-engine/geng"
+logicsider.path = "logicsider"
 ldtk.path = "ldtk"
 serde = "1"

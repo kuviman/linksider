@@ -1,0 +1,9 @@
+[package]
+name = "logicsider"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ldtk-json.path = "../ldtk/json"
+batbox.git = "https://github.com/geng-engine/geng"
+serde = "1"

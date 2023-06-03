@@ -1,21 +1,15 @@
 use geng::prelude::*;
-use std::borrow::Cow;
 
 use ldtk::Ldtk;
 
 mod background;
 mod config;
 mod history;
-mod id;
-mod int_angle;
-mod logic;
 mod sound;
 mod util;
 
 use config::Config;
-use id::Id;
-use int_angle::*;
-use logic::*;
+use logicsider::*;
 use util::*;
 
 #[derive(geng::asset::Load)]
@@ -37,6 +31,7 @@ struct Game {
     framebuffer_size: vec2<f32>,
     geng: Geng,
     assets: Rc<Assets>,
+    level: usize,
     history_player: history::Player,
     camera: Camera2d,
     transition: Option<geng::state::Transition>,
@@ -46,13 +41,13 @@ struct Game {
 
 impl Game {
     pub fn new(geng: &Geng, assets: &Rc<Assets>, sound: &Rc<sound::State>, level: usize) -> Self {
-        let level = &assets.world.levels[level];
         Self {
             geng: geng.clone(),
             assets: assets.clone(),
+            level,
             framebuffer_size: vec2::splat(1.0),
             history_player: history::Player::new(
-                GameState::new(level),
+                GameState::from_ldtk(&assets.world.json, level),
                 assets.config.animation_time,
             ),
             camera: Camera2d {
@@ -93,20 +88,13 @@ impl Game {
     }
 
     pub fn change_level(&mut self, change: isize) {
-        let current_index = self
-            .assets
-            .world
-            .levels
-            .iter()
-            .position(|level| Rc::ptr_eq(level, self.history_player.level()))
-            .unwrap();
-        let new_index = current_index as isize + change;
-        if (0..self.assets.world.levels.len() as isize).contains(&new_index) {
+        let new_level = self.level as isize + change;
+        if (0..self.assets.world.levels.len() as isize).contains(&new_level) {
             self.transition = Some(geng::state::Transition::Switch(Box::new(Self::new(
                 &self.geng,
                 &self.assets,
                 &self.sound,
-                new_index as usize,
+                new_level as usize,
             ))));
         }
     }
@@ -207,7 +195,11 @@ impl geng::State for Game {
 
         let frame = self.history_player.frame();
 
-        for layer in &frame.current_state.level.layers {
+        // TODO: dont rely on world for rendering the level
+        let ldtk = &self.assets.world;
+        let level = &ldtk.levels[self.level];
+
+        for layer in &level.layers {
             if let Some(mesh) = &layer.mesh {
                 self.draw_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
             }
@@ -215,7 +207,7 @@ impl geng::State for Game {
         for goal in &frame.current_state.goals {
             self.draw_mesh(
                 framebuffer,
-                &goal.mesh,
+                &ldtk.entity_defs["Goal"].mesh,
                 Rgba::WHITE,
                 mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
                     * goal.pos.angle.to_matrix()
@@ -292,63 +284,39 @@ impl geng::State for Game {
                 t,
             );
 
-            self.draw_mesh(framebuffer, &entity.mesh, Rgba::WHITE, transform);
+            self.draw_mesh(
+                framebuffer,
+                &ldtk.entity_defs[&entity.ldtk_identifier].mesh,
+                Rgba::WHITE,
+                transform,
+            );
 
             for (side_index, side) in entity.sides.iter().enumerate() {
-                let transform = transform
-                    // TODO: mat3::rotate_around
-                    * mat3::translate(vec2::splat(0.5))
-                    * mat3::rotate(Entity::relative_side_angle(side_index).to_radians() - f32::PI / 2.0)
-                    * mat3::translate(vec2(-0.5, 0.5));
                 if let Some(effect) = &side.effect {
-                    // TODO: mesh should be found differently
-                    let mesh = frame
-                        .current_state
-                        .level
-                        .layers
-                        .iter()
-                        .flat_map(|layer| &layer.entities)
-                        .find_map(|entity| {
-                            if entity.identifier == format!("{effect:?}Power") {
-                                Some(&entity.mesh)
-                            } else {
-                                None
-                            }
-                        })
-                        .expect("Failed to find mesh");
-                    self.draw_mesh(framebuffer, mesh, Rgba::WHITE, transform);
+                    self.draw_mesh(
+                        framebuffer,
+                        &ldtk.entity_defs[&format!("{effect:?}Power")].mesh,
+                        Rgba::WHITE,
+                        transform
+                            * mat3::rotate_around(
+                                vec2::splat(0.5),
+                                Entity::relative_side_angle(side_index).to_radians()
+                                    - f32::PI / 2.0,
+                            )
+                            * mat3::translate(vec2(0.0, 1.0)),
+                    );
                 }
             }
         }
         for powerup in &frame.current_state.powerups {
             self.draw_mesh(
                 framebuffer,
-                &powerup.mesh,
+                &ldtk.entity_defs[&format!("{:?}Power", powerup.effect)].mesh,
                 Rgba::WHITE,
                 mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
                     * (powerup.pos.angle - IntAngle::DOWN).to_matrix()
                     * mat3::translate(vec2::splat(-0.5)),
             );
-        }
-
-        if false {
-            for layer in &frame.current_state.level.layers {
-                if let Some(grid) = &layer.int_grid {
-                    for (&pos, value) in grid {
-                        self.geng.draw2d().draw2d(
-                            framebuffer,
-                            &self.camera,
-                            &draw2d::Text::unit(
-                                &**self.geng.default_font(),
-                                format!("{value:?}"),
-                                Rgba::WHITE,
-                            )
-                            .scale_uniform(0.1)
-                            .translate(pos.map(|x| x as f32 + 0.5)),
-                        );
-                    }
-                }
-            }
         }
     }
 }

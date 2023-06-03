@@ -53,8 +53,9 @@ fn make_looped(sound: &mut Sound) {
 }
 
 pub struct State {
-    geng: Geng,
     assets: Rc<crate::Assets>,
+    // This field used for its Drop impl
+    #[allow(dead_code)]
     music: StopOnDrop,
 }
 
@@ -62,7 +63,6 @@ impl State {
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
         geng.audio().set_volume(assets.config.sound.volume);
         Self {
-            geng: geng.clone(),
             assets: assets.clone(),
             music: assets.sound.music.inner.play().stop_on_drop(),
         }

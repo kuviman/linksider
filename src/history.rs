@@ -56,11 +56,6 @@ impl Player {
         }
     }
 
-    // TODO: remove
-    pub fn level(&self) -> &Rc<ldtk::Level> {
-        &self.states[0].level
-    }
-
     pub fn frame(&self) -> Frame {
         Frame {
             current_state: &self.states[self.playback_pos.ceil() as usize],

@@ -9,7 +9,6 @@ pub struct Assets {
 }
 
 pub struct State {
-    geng: Geng,
     assets: Rc<crate::Assets>,
     quad: ugli::VertexBuffer<draw2d::Vertex>,
 }
@@ -17,7 +16,6 @@ pub struct State {
 impl State {
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
         Self {
-            geng: geng.clone(),
             assets: assets.clone(),
             quad: ugli::VertexBuffer::new_static(
                 geng.ugli(),
