@@ -631,22 +631,24 @@ impl GameState {
         log::debug!("Sliding on {side:?}");
 
         let entity = self.entities.get(&entity_id).unwrap();
-        let input = entity.maybe_override_input(input);
 
-        let new_pos = Position {
-            cell: entity.pos.cell + vec2(input.delta(), 0),
-            angle: entity.pos.angle,
+        let slide_with_input = |input: Input| -> Option<EntityMove> {
+            let new_pos = Position {
+                cell: entity.pos.cell + vec2(input.delta(), 0),
+                angle: entity.pos.angle,
+            };
+            if self.is_blocked(new_pos.cell) {
+                return None;
+            }
+            Some(EntityMove {
+                entity_id: entity.id,
+                used_input: input,
+                prev_pos: entity.pos,
+                new_pos,
+                move_type: EntityMoveType::Unsorted,
+            })
         };
-        if self.is_blocked(new_pos.cell) {
-            return None;
-        }
-        Some(EntityMove {
-            entity_id: entity.id,
-            used_input: input,
-            prev_pos: entity.pos,
-            new_pos,
-            move_type: EntityMoveType::Unsorted,
-        })
+        slide_with_input(entity.maybe_override_input(input)).or(slide_with_input(input))
     }
 
     fn jump_from(&self, entity_id: Id, input: Input, jump_from: IntAngle) -> Option<EntityMove> {
