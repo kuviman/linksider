@@ -11,6 +11,8 @@ left = ["Left", "A"]
 right = ["Right", "D"]
 skip = ["Space"]
 restart = ["R"]
+undo = ["Z", "U"]
+redo = ["X", "Y"]
 next_player = ["Tab", "Up"]
 prev_player = ["Down"]
 

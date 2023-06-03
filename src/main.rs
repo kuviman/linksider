@@ -5,6 +5,7 @@ use ldtk::Ldtk;
 
 mod background;
 mod config;
+mod history;
 mod id;
 mod int_angle;
 mod logic;
@@ -32,18 +33,12 @@ pub struct Assets {
     pub sound: sound::Assets,
 }
 
-struct Animation {
-    moves: Moves,
-    t: f32,
-}
-
 struct Game {
     framebuffer_size: vec2<f32>,
     geng: Geng,
     assets: Rc<Assets>,
-    state: GameState,
+    history_player: history::Player,
     camera: Camera2d,
-    animation: Option<Animation>,
     transition: Option<geng::state::Transition>,
     background: background::State,
     sound: Rc<sound::State>,
@@ -52,23 +47,23 @@ struct Game {
 impl Game {
     pub fn new(geng: &Geng, assets: &Rc<Assets>, sound: &Rc<sound::State>, level: usize) -> Self {
         let level = &assets.world.levels[level];
-        let mut result = Self {
+        Self {
             geng: geng.clone(),
             assets: assets.clone(),
             framebuffer_size: vec2::splat(1.0),
-            state: GameState::new(level),
+            history_player: history::Player::new(
+                GameState::new(level),
+                assets.config.animation_time,
+            ),
             camera: Camera2d {
                 center: vec2::ZERO,
                 rotation: 0.0,
                 fov: 200.0 / 16.0,
             },
-            animation: None,
             transition: None,
             background: background::State::new(geng, assets),
             sound: sound.clone(),
-        };
-        result.maybe_start_animation(Input::Skip);
-        result
+        }
     }
     pub fn draw_mesh(
         &self,
@@ -97,17 +92,13 @@ impl Game {
         );
     }
 
-    pub fn restart(&mut self) {
-        self.change_level(0);
-    }
-
     pub fn change_level(&mut self, change: isize) {
         let current_index = self
             .assets
             .world
             .levels
             .iter()
-            .position(|level| Rc::ptr_eq(level, &self.state.level))
+            .position(|level| Rc::ptr_eq(level, self.history_player.level()))
             .unwrap();
         let new_index = current_index as isize + change;
         if (0..self.assets.world.levels.len() as isize).contains(&new_index) {
@@ -119,42 +110,32 @@ impl Game {
             ))));
         }
     }
-
-    fn maybe_start_animation(&mut self, input: Input) {
-        let moves = self.state.process_turn(input);
-        log::debug!("{moves:?}");
-        if let Some(moves) = moves {
-            self.animation = Some(Animation { moves, t: 0.0 });
-        }
-    }
 }
 
 impl geng::State for Game {
     fn update(&mut self, delta_time: f64) {
         let delta_time = delta_time as f32;
 
-        if let Some(animation) = &mut self.animation {
-            animation.t += delta_time / self.assets.config.animation_time;
-            if animation.t >= 1.0 {
-                self.animation = None;
-
-                if self.state.finished() {
-                    self.change_level(1);
-                } else {
-                    let is_pressed = |&key| self.geng.window().is_key_pressed(key);
-                    let input = if self.assets.config.controls.left.iter().any(is_pressed) {
-                        Input::Left
-                    } else if self.assets.config.controls.right.iter().any(is_pressed) {
-                        Input::Right
-                    } else {
-                        Input::Skip
-                    };
-                    self.maybe_start_animation(input); // TODO: keep or revert input???
-                }
-            }
-        }
-
-        if let Some(entity) = self.state.selected_entity() {
+        let is_pressed = |&key| self.geng.window().is_key_pressed(key);
+        let input = if self.assets.config.controls.left.iter().any(is_pressed) {
+            Some(Input::Left)
+        } else if self.assets.config.controls.right.iter().any(is_pressed) {
+            Some(Input::Right)
+        } else if self.assets.config.controls.skip.iter().any(is_pressed) {
+            Some(Input::Skip)
+        } else {
+            None
+        };
+        let timeline_input = if self.assets.config.controls.undo.iter().any(is_pressed) {
+            Some(-1)
+        } else if self.assets.config.controls.redo.iter().any(is_pressed) {
+            Some(1)
+        } else {
+            None
+        };
+        self.history_player
+            .update(delta_time, input, timeline_input);
+        if let Some(entity) = self.history_player.frame().current_state.selected_entity() {
             self.camera.center = lerp(
                 self.camera.center,
                 entity.pos.cell.map(|x| x as f32 + 0.5),
@@ -173,34 +154,17 @@ impl geng::State for Game {
                         self.change_level(-1);
                     } else if key == cheats.next_level {
                         self.change_level(1);
-                    } else {
-                        let direction = match key {
-                            geng::Key::Left => Some(IntAngle::LEFT),
-                            geng::Key::Right => Some(IntAngle::RIGHT),
-                            geng::Key::Down => Some(IntAngle::DOWN),
-                            geng::Key::Up => Some(IntAngle::UP),
-                            _ => None,
-                        };
-                        if let Some(direction) = direction {
-                            let effect = if self.geng.window().is_key_pressed(cheats.effect.jump) {
-                                Some(Some(Effect::Jump))
-                            } else if self.geng.window().is_key_pressed(cheats.effect.delete) {
-                                Some(None)
-                            } else {
-                                None
-                            };
-                            if let Some(effect) = effect {
-                                if let Some(entity) = self.state.selected_entity_mut() {
-                                    entity.sides[entity.side_index(direction)].effect = effect;
-                                    self.maybe_start_animation(Input::Skip);
-                                }
-                            }
-                        }
                     }
                 }
 
                 if self.assets.config.controls.restart.contains(&key) {
-                    self.restart();
+                    self.history_player.restart();
+                }
+                if self.assets.config.controls.undo.contains(&key) {
+                    self.history_player.undo();
+                }
+                if self.assets.config.controls.redo.contains(&key) {
+                    self.history_player.redo();
                 }
 
                 let input = if self.assets.config.controls.left.contains(&key) {
@@ -213,15 +177,15 @@ impl geng::State for Game {
                     None
                 };
                 if let Some(input) = input {
-                    if self.animation.is_none() {
-                        self.maybe_start_animation(input);
+                    if self.history_player.frame().animation.is_none() {
+                        self.history_player.process_move(input);
                     }
                 }
                 if self.assets.config.controls.next_player.contains(&key) {
-                    self.state.change_player_selection(1);
+                    self.history_player.change_player_selection(1);
                 }
                 if self.assets.config.controls.prev_player.contains(&key) {
-                    self.state.change_player_selection(-1);
+                    self.history_player.change_player_selection(-1);
                 }
             }
             _ => {}
@@ -232,12 +196,14 @@ impl geng::State for Game {
 
         self.background.draw(framebuffer, &self.camera);
 
-        for layer in &self.state.level.layers {
+        let frame = self.history_player.frame();
+
+        for layer in &frame.current_state.level.layers {
             if let Some(mesh) = &layer.mesh {
                 self.draw_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
             }
         }
-        for goal in &self.state.goals {
+        for goal in &frame.current_state.goals {
             self.draw_mesh(
                 framebuffer,
                 &goal.mesh,
@@ -247,8 +213,8 @@ impl geng::State for Game {
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
-        for entity in &self.state.entities {
-            let entity_move = self
+        for entity in &frame.current_state.entities {
+            let entity_move = frame
                 .animation
                 .as_ref()
                 .and_then(|animation| animation.moves.entity_moves.get(&entity.id));
@@ -256,7 +222,10 @@ impl geng::State for Game {
                 Some(entity_move) => (entity_move.prev_pos, entity_move.new_pos),
                 None => (entity.pos, entity.pos),
             };
-            let t = self.animation.as_ref().map_or(0.0, |animation| animation.t);
+            let t = frame
+                .animation
+                .as_ref()
+                .map_or(0.0, |animation| animation.t);
 
             fn cube_move_transform(
                 from: Position,
@@ -324,8 +293,8 @@ impl geng::State for Game {
                     * mat3::translate(vec2(-0.5, 0.5));
                 if let Some(effect) = &side.effect {
                     // TODO: mesh should be found differently
-                    let mesh = self
-                        .state
+                    let mesh = frame
+                        .current_state
                         .level
                         .layers
                         .iter()
@@ -342,7 +311,7 @@ impl geng::State for Game {
                 }
             }
         }
-        for powerup in &self.state.powerups {
+        for powerup in &frame.current_state.powerups {
             self.draw_mesh(
                 framebuffer,
                 &powerup.mesh,
@@ -354,7 +323,7 @@ impl geng::State for Game {
         }
 
         if false {
-            for layer in &self.state.level.layers {
+            for layer in &frame.current_state.level.layers {
                 if let Some(grid) = &layer.int_grid {
                     for (&pos, value) in grid {
                         self.geng.draw2d().draw2d(

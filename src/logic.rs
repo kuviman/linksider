@@ -30,17 +30,17 @@ impl Position {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Moves {
-    pub entity_moves: Collection<EntityMove>,
+#[derive(Debug)]
+pub struct CollectedPowerup {
+    pub entity: Id,
+    pub entity_side: usize,
+    pub powerup: Id,
 }
 
-impl Moves {
-    pub fn single(entity_move: EntityMove) -> Self {
-        Self {
-            entity_moves: std::iter::once(entity_move).collect(),
-        }
-    }
+#[derive(Debug, Default)]
+pub struct Moves {
+    pub collected_powerups: Vec<CollectedPowerup>,
+    pub entity_moves: Collection<EntityMove>,
 }
 
 #[derive(Debug, Clone)]
@@ -144,11 +144,12 @@ impl Effect {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Side {
     pub effect: Option<Effect>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Properties {
     pub block: bool,
     pub trigger: bool,
@@ -157,7 +158,7 @@ pub struct Properties {
 }
 
 /// Box entity
-#[derive(HasId)]
+#[derive(Clone, HasId)]
 pub struct Entity {
     pub id: Id,
     pub properties: Properties,
@@ -200,14 +201,14 @@ impl Entity {
     }
 }
 
-#[derive(HasId)]
+#[derive(Clone, HasId)]
 pub struct Goal {
     pub id: Id,
     pub pos: Position,
     pub mesh: Rc<ldtk::Mesh>, // TODO should not be here
 }
 
-#[derive(HasId)]
+#[derive(Clone, HasId)]
 pub struct Powerup {
     pub id: Id,
     pub pos: Position,
@@ -243,6 +244,7 @@ impl Tile {
     }
 }
 
+#[derive(Clone)]
 pub struct GameState {
     id_gen: id::Gen,
     pub level: Rc<ldtk::Level>, // TODO remove, this is not state
@@ -504,7 +506,7 @@ impl GameState {
             })
     }
 
-    fn just_move(&self, entity_id: Id, input: Input) -> Option<Moves> {
+    fn just_move(&self, entity_id: Id, input: Input) -> Option<Collection<EntityMove>> {
         if input == Input::Skip {
             return None;
         }
@@ -577,7 +579,7 @@ impl GameState {
 
         let mut new_pos = entity.pos;
         let next_cell = new_pos.cell + direction.move_dir;
-        let mut result = Moves::default();
+        let mut result = Collection::new();
         if !self.is_blocked(next_cell) {
             new_pos.cell = next_cell;
         }
@@ -590,7 +592,7 @@ impl GameState {
                 let next_next_cell = next_cell + direction.move_dir;
                 if !self.is_blocked(next_next_cell) {
                     new_pos.cell = next_cell;
-                    result.entity_moves.insert(EntityMove {
+                    result.insert(EntityMove {
                         entity_id: next_entity.id,
                         used_input: Input::Skip,
                         prev_pos: next_entity.pos,
@@ -607,7 +609,7 @@ impl GameState {
             }
         }
         new_pos.angle = new_pos.angle.with_input(input);
-        result.entity_moves.insert(EntityMove {
+        result.insert(EntityMove {
             entity_id: entity.id,
             used_input: input,
             prev_pos: entity.pos,
@@ -739,7 +741,7 @@ impl GameState {
         })
     }
 
-    fn check_entity_move(&self, entity_id: Id, input: Input) -> Option<Moves> {
+    fn check_entity_move(&self, entity_id: Id, input: Input) -> Option<Collection<EntityMove>> {
         macro_rules! system {
             ($f:expr) => {
                 if let Some(moves) = $f(self, entity_id, input) {
@@ -750,8 +752,14 @@ impl GameState {
 
         fn simple(
             f: impl Fn(&GameState, Id, Input) -> Option<EntityMove>,
-        ) -> impl Fn(&GameState, Id, Input) -> Option<Moves> {
-            move |state, entity_id, input| f(state, entity_id, input).map(Moves::single)
+        ) -> impl Fn(&GameState, Id, Input) -> Option<Collection<EntityMove>> {
+            move |state, entity_id, input| {
+                f(state, entity_id, input).map(|entity_move| {
+                    let mut result = Collection::new();
+                    result.insert(entity_move);
+                    result
+                })
+            }
         }
 
         system!(simple(Self::continue_magnet_move));
@@ -763,10 +771,8 @@ impl GameState {
         None
     }
 
-    fn check_moves(&self, input: Input) -> Option<Moves> {
-        let mut result = Moves {
-            entity_moves: Collection::new(),
-        };
+    fn check_moves(&self, input: Input) -> Collection<EntityMove> {
+        let mut result = Collection::new();
         for &id in self.entities.ids() {
             if let Some(moves) = self.check_entity_move(
                 id,
@@ -777,19 +783,14 @@ impl GameState {
                 },
             ) {
                 // TODO check for conflicts
-                result.entity_moves.extend(moves.entity_moves);
+                result.extend(moves);
             }
         }
-        if result.entity_moves.is_empty() {
-            None
-        } else {
-            Some(result)
-        }
+        result
     }
 
-    fn perform_moves(&mut self, moves: &Moves) {
-        let Moves { entity_moves } = moves;
-        for entity_move in entity_moves {
+    fn perform_moves(&mut self, moves: &Collection<EntityMove>) {
+        for entity_move in moves {
             let entity = self.entities.get_mut(&entity_move.entity_id).unwrap();
             assert_eq!(entity.pos, entity_move.prev_pos);
             entity.pos = entity_move.new_pos;
@@ -801,30 +802,26 @@ impl GameState {
     }
 
     pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
-        self.process_powerups();
-        let moves = self.check_moves(input);
-        // TODO check for conflicts
-        for entity in self.entities.iter_mut() {
-            entity.prev_pos = entity.pos;
-            entity.prev_move = moves
-                .as_ref()
-                .and_then(|moves| moves.entity_moves.get(&entity.id))
-                .cloned();
+        let result = Moves {
+            collected_powerups: self.process_powerups(),
+            entity_moves: {
+                let moves = self.check_moves(input);
+                // TODO check for conflicts
+                for entity in self.entities.iter_mut() {
+                    entity.prev_pos = entity.pos;
+                    entity.prev_move = moves.get(&entity.id).cloned();
+                }
+                self.perform_moves(&moves);
+                moves
+            },
+        };
+        if result.collected_powerups.is_empty() && result.entity_moves.is_empty() {
+            return None;
         }
-        if let Some(moves) = &moves {
-            self.perform_moves(moves);
-        }
-        moves
+        Some(result)
     }
 
-    fn process_powerups(&mut self) {
-        #[derive(Debug)]
-        pub struct CollectedPowerup {
-            pub entity: Id,
-            pub entity_side: usize,
-            pub powerup: Id,
-        }
-
+    fn process_powerups(&mut self) -> Vec<CollectedPowerup> {
         let mut collected = Vec::new();
         for entity in &self.entities {
             for powerup in &self.powerups {
@@ -841,7 +838,7 @@ impl GameState {
                 }
             }
         }
-        for event in collected {
+        for event in &collected {
             let powerup = self.powerups.remove(&event.powerup).unwrap();
             let prev_effect = self.entities.get_mut(&event.entity).unwrap().sides
                 [event.entity_side]
@@ -849,15 +846,11 @@ impl GameState {
                 .replace(powerup.effect);
             assert!(prev_effect.is_none());
         }
+        collected
     }
 
     pub fn selected_entity(&self) -> Option<&Entity> {
         self.selected_player.and_then(|id| self.entities.get(&id))
-    }
-
-    pub fn selected_entity_mut(&mut self) -> Option<&mut Entity> {
-        self.selected_player
-            .and_then(|id| self.entities.get_mut(&id))
     }
 
     pub fn finished(&self) -> bool {
