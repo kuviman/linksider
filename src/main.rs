@@ -25,6 +25,7 @@ pub struct Assets {
     pub shaders: Shaders,
     pub background: background::Assets,
     pub sound: sound::Assets,
+    pub tileset: autotile::Tileset,
 }
 
 struct Game {
@@ -37,19 +38,59 @@ struct Game {
     transition: Option<geng::state::Transition>,
     background: background::State,
     sound: Rc<sound::State>,
+    level_mesh: ugli::VertexBuffer<draw2d::TexturedVertex>,
 }
 
 impl Game {
     pub fn new(geng: &Geng, assets: &Rc<Assets>, sound: &Rc<sound::State>, level: usize) -> Self {
+        let game_state = GameState::from_ldtk(&assets.world.json, level);
+        let level_mesh = ugli::VertexBuffer::new_static(
+            geng.ugli(),
+            assets
+                .tileset
+                .def
+                .generate_mesh({
+                    struct TileMap<'a> {
+                        state: &'a GameState,
+                    }
+                    impl autotile::TileMap for TileMap<'_> {
+                        type NonEmptyIter<'a> = Box<dyn Iterator<Item = vec2<i32>> + 'a> where Self:'a ;
+                        fn non_empty_tiles(&self) -> Self::NonEmptyIter<'_> {
+                            Box::new(self.state.tiles.keys().copied())
+                        }
+
+                        fn get_at(&self, pos: vec2<i32>) -> Option<&str> {
+                            Some(match self.state.tiles.get(&pos)? {
+                                Tile::Nothing => return None,
+                                Tile::Block => "block",
+                                Tile::Disable => "disable",
+                                Tile::Cloud => todo!(),
+                            })
+                        }
+                    }
+                    &TileMap { state: &game_state }
+                })
+                .flat_map(|tile| {
+                    let pos = Aabb2::point(tile.pos)
+                        .extend_positive(vec2::splat(1))
+                        .map(|x| x as f32);
+                    let corners: Vec<_> = pos.corners().into_iter().zip(tile.uv.corners()).collect();
+                    [corners[0], corners[1], corners[2], corners[0], corners[2], corners[3]]
+                })
+                .map(|(pos, uv)| draw2d::TexturedVertex {
+                    a_pos: pos,
+                    a_color: Rgba::WHITE,
+                    a_vt: uv,
+                })
+                .collect(),
+        );
+        let history_player = history::Player::new(game_state, assets.config.animation_time);
         Self {
             geng: geng.clone(),
             assets: assets.clone(),
             level,
             framebuffer_size: vec2::splat(1.0),
-            history_player: history::Player::new(
-                GameState::from_ldtk(&assets.world.json, level),
-                assets.config.animation_time,
-            ),
+            history_player,
             camera: Camera2d {
                 center: vec2::ZERO,
                 rotation: 0.0,
@@ -58,12 +99,24 @@ impl Game {
             transition: None,
             background: background::State::new(geng, assets),
             sound: sound.clone(),
+            level_mesh,
         }
     }
-    pub fn draw_mesh(
+    pub fn draw_ldtk_mesh(
         &self,
         framebuffer: &mut ugli::Framebuffer,
         mesh: &ldtk::Mesh,
+        color: Rgba<f32>,
+        matrix: mat3<f32>,
+    ) {
+        self.draw_mesh(framebuffer, &mesh.vertex_data, &mesh.texture, color, matrix)
+    }
+
+    pub fn draw_mesh(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        vertex_data: impl ugli::VertexDataSource,
+        texture: &ugli::Texture,
         color: Rgba<f32>,
         matrix: mat3<f32>,
     ) {
@@ -71,12 +124,12 @@ impl Game {
             framebuffer,
             &self.assets.shaders.texture,
             ugli::DrawMode::Triangles,
-            &mesh.vertex_data,
+            vertex_data,
             (
                 ugli::uniforms! {
                     u_model_matrix: matrix,
                     u_color: color,
-                    u_texture: &*mesh.texture,
+                    u_texture: texture,
                 },
                 self.camera.uniforms(self.framebuffer_size),
             ),
@@ -215,13 +268,24 @@ impl geng::State for Game {
         let ldtk = &self.assets.world;
         let level = &ldtk.levels[self.level];
 
-        for layer in &level.layers {
-            if let Some(mesh) = &layer.mesh {
-                self.draw_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
+        if self.assets.config.use_ldtk_render {
+            for layer in &level.layers {
+                if let Some(mesh) = &layer.mesh {
+                    self.draw_ldtk_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
+                }
             }
-        }
-        for goal in &prev_state.goals {
+        } else {
             self.draw_mesh(
+                framebuffer,
+                &self.level_mesh,
+                &self.assets.tileset.texture,
+                Rgba::WHITE,
+                mat3::identity(),
+            );
+        }
+
+        for goal in &prev_state.goals {
+            self.draw_ldtk_mesh(
                 framebuffer,
                 &ldtk.entity_defs["Goal"].mesh,
                 Rgba::WHITE,
@@ -293,7 +357,7 @@ impl geng::State for Game {
                 t,
             );
 
-            self.draw_mesh(
+            self.draw_ldtk_mesh(
                 framebuffer,
                 &ldtk.entity_defs[&entity.ldtk_identifier].mesh,
                 Rgba::WHITE,
@@ -302,7 +366,7 @@ impl geng::State for Game {
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
-                    self.draw_mesh(
+                    self.draw_ldtk_mesh(
                         framebuffer,
                         &ldtk.entity_defs[&format!("{effect:?}Power")].mesh,
                         Rgba::WHITE,
@@ -318,7 +382,7 @@ impl geng::State for Game {
             }
         }
         for powerup in &prev_state.powerups {
-            self.draw_mesh(
+            self.draw_ldtk_mesh(
                 framebuffer,
                 &ldtk.entity_defs[&format!("{:?}Power", powerup.effect)].mesh,
                 Rgba::WHITE,

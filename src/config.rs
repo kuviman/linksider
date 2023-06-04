@@ -29,6 +29,7 @@ pub struct Controls {
 #[derive(geng::asset::Load, Deserialize)]
 #[load(serde = "toml")]
 pub struct Config {
+    pub use_ldtk_render: bool,
     pub camera_speed: f32,
     pub animation_time: f32,
     pub controls: Controls,

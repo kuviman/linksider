@@ -302,6 +302,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "autotile"
+version = "0.1.0"
+dependencies = [
+ "geng",
+ "image",
+ "serde",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2319,6 +2328,7 @@ dependencies = [
 name = "linksider"
 version = "0.1.0"
 dependencies = [
+ "autotile",
  "geng",
  "ldtk",
  "logicsider",

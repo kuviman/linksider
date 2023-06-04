@@ -1,6 +1,8 @@
 use geng::prelude::{itertools::Itertools, *};
 use std::rc::Rc;
 
+pub use ldtk_json as json;
+
 pub struct Mesh {
     pub vertex_data: ugli::VertexBuffer<draw2d::TexturedVertex>,
     pub texture: Rc<ugli::Texture>,

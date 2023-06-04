@@ -1,0 +1,8 @@
+{
+  "blue": "Same",
+  "red": "Different",
+  "white": "Empty",
+  "black": null,
+  "green": "Anything",
+  "magenta": "NotEmpty"
+}

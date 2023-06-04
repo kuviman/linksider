@@ -1,13 +1,9 @@
-[workspace]
-
 [package]
-name = "linksider"
+name = "autotile"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 geng.git = "https://github.com/geng-engine/geng"
-logicsider.path = "logicsider"
-ldtk.path = "ldtk"
-autotile.path = "autotile"
+image = "0.24"
 serde = "1"
