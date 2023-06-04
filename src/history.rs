@@ -88,6 +88,7 @@ impl Player {
     ) -> Update {
         if self.playback_pos == self.target_pos as f32 {
             if let Some(input) = timeline_input {
+                self.auto_continue = false;
                 match input {
                     -1 => self.undo(),
                     1 => self.redo(),
