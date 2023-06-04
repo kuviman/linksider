@@ -10,7 +10,7 @@ pub struct Sound {
 }
 
 impl geng::asset::Load for Sound {
-    fn load(manager: &geng::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
+    fn load(manager: &geng::asset::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
         geng::Sound::load(manager, path)
             .map_ok(|inner| Self { inner })
             .boxed_local()
