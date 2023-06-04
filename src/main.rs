@@ -193,7 +193,20 @@ impl geng::State for Game {
 
         self.background.draw(framebuffer, &self.camera);
 
-        let frame = self.history_player.frame();
+        let history::Frame {
+            current_state,
+            animation,
+        } = self.history_player.frame();
+        let no_moves = Moves::default();
+        let history::Animation {
+            prev_state,
+            moves,
+            t,
+        } = animation.unwrap_or(history::Animation {
+            prev_state: current_state,
+            moves: &no_moves,
+            t: 0.0,
+        });
 
         // TODO: dont rely on world for rendering the level
         let ldtk = &self.assets.world;
@@ -204,7 +217,7 @@ impl geng::State for Game {
                 self.draw_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
             }
         }
-        for goal in &frame.current_state.goals {
+        for goal in &prev_state.goals {
             self.draw_mesh(
                 framebuffer,
                 &ldtk.entity_defs["Goal"].mesh,
@@ -214,19 +227,12 @@ impl geng::State for Game {
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
-        for entity in &frame.current_state.entities {
-            let entity_move = frame
-                .animation
-                .as_ref()
-                .and_then(|animation| animation.moves.entity_moves.get(&entity.id));
+        for entity in &prev_state.entities {
+            let entity_move = moves.entity_moves.get(&entity.id);
             let (from, to) = match entity_move {
                 Some(entity_move) => (entity_move.prev_pos, entity_move.new_pos),
                 None => (entity.pos, entity.pos),
             };
-            let t = frame
-                .animation
-                .as_ref()
-                .map_or(0.0, |animation| animation.t);
 
             fn cube_move_transform(
                 from: Position,
@@ -308,7 +314,7 @@ impl geng::State for Game {
                 }
             }
         }
-        for powerup in &frame.current_state.powerups {
+        for powerup in &prev_state.powerups {
             self.draw_mesh(
                 framebuffer,
                 &ldtk.entity_defs[&format!("{:?}Power", powerup.effect)].mesh,

@@ -106,7 +106,6 @@ impl GameState {
     pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
         let state = self;
         let result = Moves {
-            collected_powerups: powerups::process(state),
             entity_moves: {
                 let moves = check_moves(state, input);
                 // TODO check for conflicts
@@ -117,6 +116,7 @@ impl GameState {
                 perform_moves(state, &moves);
                 moves
             },
+            collected_powerups: powerups::process(state),
         };
         if result.collected_powerups.is_empty() && result.entity_moves.is_empty() {
             return None;
