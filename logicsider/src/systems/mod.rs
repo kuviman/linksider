@@ -15,6 +15,8 @@ impl Entity {
         let last_move = self.pos.cell - self.prev_pos.cell;
         if last_move.x != 0 && last_move.y == 0 {
             Input::from_sign(last_move.x)
+        } else if last_move == vec2::ZERO && self.pos.angle != self.prev_pos.angle {
+            Input::from_sign(-(self.pos.angle - self.prev_pos.angle).to_i32())
         } else {
             input
         }
