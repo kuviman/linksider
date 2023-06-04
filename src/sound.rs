@@ -28,6 +28,7 @@ pub struct Assets {
     pub r#move: Sound,
     pub slide: Sound,
     pub jump: Sound,
+    pub powerup: Sound,
 }
 
 struct StopOnDrop(geng::SoundEffect);
@@ -68,10 +69,14 @@ impl State {
         }
     }
 
-    pub fn play_moves(&self, moves: &Moves) {
+    fn play(&self, sound: &Sound) {
+        sound.inner.play();
+    }
+
+    pub fn play_turn_start_sounds(&self, moves: &Moves) {
+        let assets = &self.assets.sound;
         for entity_move in &moves.entity_moves {
-            let assets = &self.assets.sound;
-            let sound = match entity_move.move_type {
+            self.play(match entity_move.move_type {
                 EntityMoveType::Magnet { .. } => &assets.magnet,
                 EntityMoveType::MagnetContinue => continue,
                 EntityMoveType::EnterGoal { .. } => &assets.enter_goal,
@@ -81,8 +86,14 @@ impl State {
                 EntityMoveType::SlideStart => &assets.slide,
                 EntityMoveType::SlideContinue => continue,
                 EntityMoveType::Jump => &assets.jump,
-            };
-            sound.inner.play();
+            });
+        }
+    }
+
+    pub fn play_turn_end_sounds(&self, moves: &Moves) {
+        let assets = &self.assets.sound;
+        if !moves.collected_powerups.is_empty() {
+            self.play(&assets.powerup);
         }
     }
 }

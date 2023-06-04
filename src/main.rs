@@ -121,11 +121,14 @@ impl geng::State for Game {
         } else {
             None
         };
-        if let Some(moves) = self
+        let update = self
             .history_player
-            .update(delta_time, input, timeline_input)
-        {
-            self.sound.play_moves(moves);
+            .update(delta_time, input, timeline_input);
+        if let Some(moves) = update.started {
+            self.sound.play_turn_start_sounds(moves);
+        }
+        if let Some(moves) = update.finished {
+            self.sound.play_turn_end_sounds(moves);
         }
         if let Some(entity) = self.history_player.frame().current_state.selected_entity() {
             self.camera.center = lerp(
@@ -174,7 +177,7 @@ impl geng::State for Game {
                 if let Some(input) = input {
                     if self.history_player.frame().animation.is_none() {
                         if let Some(moves) = self.history_player.process_move(input) {
-                            self.sound.play_moves(moves);
+                            self.sound.play_turn_start_sounds(moves);
                         }
                     }
                 }

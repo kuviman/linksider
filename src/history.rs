@@ -15,11 +15,6 @@ pub struct Animation<'a> {
     pub t: f32,
 }
 
-pub struct Frame<'a> {
-    pub current_state: &'a GameState,
-    pub animation: Option<Animation<'a>>,
-}
-
 impl Player {
     pub fn new(state: GameState, animation_time: f32) -> Self {
         let mut result = Self {
@@ -55,7 +50,14 @@ impl Player {
             None
         }
     }
+}
 
+pub struct Frame<'a> {
+    pub current_state: &'a GameState,
+    pub animation: Option<Animation<'a>>,
+}
+
+impl Player {
     pub fn frame(&self) -> Frame {
         Frame {
             current_state: &self.states[self.playback_pos.ceil() as usize],
@@ -70,13 +72,20 @@ impl Player {
             },
         }
     }
+}
 
+pub struct Update<'a> {
+    pub started: Option<&'a Moves>,
+    pub finished: Option<&'a Moves>,
+}
+
+impl Player {
     pub fn update(
         &mut self,
         delta_time: f32,
         input: Option<Input>,
         timeline_input: Option<isize>,
-    ) -> Option<&Moves> {
+    ) -> Update {
         if self.playback_pos == self.target_pos as f32 {
             if let Some(input) = timeline_input {
                 match input {
@@ -90,10 +99,14 @@ impl Player {
                     input = Some(Input::Skip);
                 }
                 if let Some(input) = input {
-                    return self.process_move(input);
+                    return Update {
+                        started: self.process_move(input),
+                        finished: None,
+                    };
                 }
             }
         } else {
+            let prev_pos = self.playback_pos.floor() as usize;
             let diff = self.target_pos as f32 - self.playback_pos;
             let speed = diff.abs().max(1.0) / self.animation_time;
             let change = speed * delta_time;
@@ -102,8 +115,19 @@ impl Player {
             } else {
                 self.playback_pos += change * diff.signum();
             }
+            let new_pos = self.playback_pos.floor() as usize;
+            // if auto_continue is false means we are rewinding
+            if self.auto_continue && new_pos == prev_pos + 1 {
+                return Update {
+                    started: None,
+                    finished: Some(&self.moves[prev_pos]),
+                };
+            }
         }
-        None
+        Update {
+            started: None,
+            finished: None,
+        }
     }
 
     pub fn restart(&mut self) {
