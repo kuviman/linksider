@@ -23,3 +23,7 @@ effect = { jump = "J", delete = "Delete" }
 
 [controls.editor]
 toggle = "E"
+camera_drag = "Middle"
+create = "Left"
+delete = "Right"
+choose = "Tab"

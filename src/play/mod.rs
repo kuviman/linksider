@@ -36,7 +36,7 @@ impl State {
             assets: assets.clone(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
-                center: vec2::ZERO,
+                center: game_state.center(),
                 rotation: 0.0,
                 fov: 200.0 / 16.0,
             },

@@ -86,7 +86,7 @@ impl Renderer {
             t: 0.0,
         });
 
-        self.draw_mesh(
+        self.draw_mesh_impl(
             framebuffer,
             camera,
             &level_mesh.0,
@@ -96,11 +96,10 @@ impl Renderer {
         );
 
         for goal in &prev_state.goals {
-            self.draw_mesh(
+            self.draw_tile(
                 framebuffer,
                 camera,
-                &self.entity_meshes["Goal"],
-                &self.assets.renderer.tileset.texture,
+                "Goal",
                 Rgba::WHITE,
                 mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
                     * goal.pos.angle.to_matrix()
@@ -170,22 +169,20 @@ impl Renderer {
                 t,
             );
 
-            self.draw_mesh(
+            self.draw_tile(
                 framebuffer,
                 camera,
-                &self.entity_meshes[&entity.identifier],
-                &self.assets.renderer.tileset.texture,
+                &entity.identifier,
                 Rgba::WHITE,
                 transform,
             );
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
-                    self.draw_mesh(
+                    self.draw_tile(
                         framebuffer,
                         camera,
-                        &self.entity_meshes[&format!("{effect:?}Power")],
-                        &self.assets.renderer.tileset.texture,
+                        &format!("{effect:?}Power"),
                         Rgba::WHITE,
                         transform
                             * mat3::rotate_around(
@@ -199,11 +196,10 @@ impl Renderer {
             }
         }
         for powerup in &prev_state.powerups {
-            self.draw_mesh(
+            self.draw_tile(
                 framebuffer,
                 camera,
-                &self.entity_meshes[&format!("{:?}Power", powerup.effect)],
-                &self.assets.renderer.tileset.texture,
+                &format!("{:?}Power", powerup.effect),
                 Rgba::WHITE,
                 mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
                     * (powerup.pos.angle - IntAngle::DOWN).to_matrix()
@@ -212,7 +208,29 @@ impl Renderer {
         }
     }
 
-    pub fn draw_mesh(
+    pub fn draw_tile(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        name: &str,
+        color: Rgba<f32>,
+        matrix: mat3<f32>,
+    ) {
+        let Some(vertex_data) = self.entity_meshes.get(name) else {
+            log::error!("No data for rendering {name:?}");
+            return;
+        };
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            vertex_data,
+            &self.assets.renderer.tileset.texture,
+            color,
+            matrix,
+        )
+    }
+
+    fn draw_mesh_impl(
         &self,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,

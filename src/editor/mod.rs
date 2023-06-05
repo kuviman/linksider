@@ -3,6 +3,10 @@ use super::*;
 #[derive(Deserialize)]
 pub struct Controls {
     pub toggle: geng::Key,
+    camera_drag: geng::MouseButton,
+    create: geng::MouseButton,
+    delete: geng::MouseButton,
+    choose: geng::Key,
 }
 
 pub struct State {
@@ -16,6 +20,7 @@ pub struct State {
     renderer: Rc<Renderer>,
     level_mesh: renderer::LevelMesh,
     finish_callback: play::FinishCallback,
+    camera_drag: Option<vec2<f64>>,
 }
 
 impl State {
@@ -32,9 +37,9 @@ impl State {
             assets: assets.clone(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
-                center: vec2::ZERO,
+                center: game_state.center(),
                 rotation: 0.0,
-                fov: 200.0 / 16.0,
+                fov: 250.0 / 16.0,
             },
             transition: None,
             sound: sound.clone(),
@@ -42,13 +47,25 @@ impl State {
             level_mesh: renderer.level_mesh(&game_state),
             game_state,
             finish_callback,
+            camera_drag: None,
         }
     }
+
+    fn screen_to_tile(&self, screen_pos: vec2<f64>) -> vec2<i32> {
+        let world_pos = self
+            .camera
+            .screen_to_world(self.framebuffer_size, screen_pos.map(|x| x as f32));
+        world_pos.map(|x| x.floor() as i32)
+    }
+
+    fn create(&mut self, pos: vec2<f64>) {}
+
+    fn delete(&mut self, pos: vec2<f64>) {}
 }
 
 impl geng::State for State {
     fn update(&mut self, delta_time: f64) {
-        let delta_time = delta_time as f32;
+        let _delta_time = delta_time as f32;
     }
     fn transition(&mut self) -> Option<geng::state::Transition> {
         self.transition.take()
@@ -72,6 +89,34 @@ impl geng::State for State {
                         ))));
                 }
             }
+            geng::Event::MouseDown { position, button } if button == controls.create => {
+                self.create(position);
+            }
+            geng::Event::MouseDown { position, button } if button == controls.delete => {
+                self.delete(position);
+            }
+            geng::Event::MouseDown { position, button } if button == controls.camera_drag => {
+                self.camera_drag = Some(position);
+            }
+            geng::Event::MouseUp { button, .. } if button == controls.camera_drag => {
+                self.camera_drag = None;
+            }
+            geng::Event::MouseMove { position, .. } => {
+                if self.geng.window().is_button_pressed(controls.create) {
+                    self.create(position);
+                } else if self.geng.window().is_button_pressed(controls.delete) {
+                    self.delete(position);
+                } else if let Some(drag) = &mut self.camera_drag {
+                    let world_pos = |pos: vec2<f64>| -> vec2<f32> {
+                        self.camera
+                            .screen_to_world(self.framebuffer_size, pos.map(|x| x as f32))
+                    };
+                    let before = world_pos(*drag);
+                    let now = world_pos(position);
+                    self.camera.center += before - now;
+                    *drag = position;
+                }
+            }
             _ => {}
         }
     }
@@ -85,6 +130,16 @@ impl geng::State for State {
                 animation: None,
             },
             &self.level_mesh,
+        );
+        self.renderer.draw_tile(
+            framebuffer,
+            &self.camera,
+            "EditorSelect",
+            Rgba::WHITE,
+            mat3::translate(
+                self.screen_to_tile(self.geng.window().cursor_position())
+                    .map(|x| x as f32),
+            ),
         );
     }
 }

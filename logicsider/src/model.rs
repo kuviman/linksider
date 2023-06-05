@@ -16,6 +16,13 @@ impl GameState {
     pub fn tile(&self, pos: vec2<i32>) -> Tile {
         self.tiles.get(&pos).copied().unwrap_or(Tile::Nothing)
     }
+
+    pub fn center(&self) -> vec2<f32> {
+        Aabb2::points_bounding_box(self.tiles.keys().copied())
+            .extend_positive(vec2::splat(1))
+            .map(|x| x as f32)
+            .center()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

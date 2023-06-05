@@ -19,6 +19,7 @@
     "Crate": At(4, 4),
     "DisableBox": At(5, 3),
     "cloud": At(5, 5),
+    "EditorSelect": At(2, 2),
   },
   error: At(5, 1),
 )
