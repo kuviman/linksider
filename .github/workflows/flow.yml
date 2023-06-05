@@ -1,0 +1,53 @@
+name: CI
+on: push
+
+jobs:
+  build-web:
+    name: Build
+    runs-on: ubuntu-latest
+    container: kuviman/geng
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - run: cargo geng build --release --target wasm32-unknown-unknown
+      - name: Upload artifacts (web)
+        uses: actions/upload-artifact@v2
+        with:
+          name: web
+          path: target/geng
+
+  build-native:
+    name: Build (Native)
+    runs-on: ${{ matrix.platform.runs-on }}
+    strategy:
+      matrix:
+        platform:
+          - runs-on: ubuntu-latest
+            channel: linux
+          - runs-on: macos-latest
+            channel: mac
+          - runs-on: windows-latest
+            channel: windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install things
+        if: matrix.platform.channel == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install cargo-geng
+        run: cargo install cargo-geng --git https://github.com/kuviman/geng
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: geng
+          args: build --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.platform.channel }}
+          path: target/geng
