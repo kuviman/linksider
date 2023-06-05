@@ -13,7 +13,7 @@ pub struct Moves {
     pub collected_powerups: Vec<CollectedPowerup>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EntityMoveType {
     Magnet {
         magnet_angle: IntAngle,
