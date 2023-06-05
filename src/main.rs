@@ -39,6 +39,7 @@ struct Game {
     background: background::State,
     sound: Rc<sound::State>,
     level_mesh: ugli::VertexBuffer<draw2d::TexturedVertex>,
+    entity_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
 }
 
 impl Game {
@@ -64,7 +65,7 @@ impl Game {
                                 Tile::Nothing => return None,
                                 Tile::Block => "block",
                                 Tile::Disable => "disable",
-                                Tile::Cloud => todo!(),
+                                Tile::Cloud => "cloud",
                             })
                         }
                     }
@@ -101,18 +102,41 @@ impl Game {
             background: background::State::new(geng, assets),
             sound: sound.clone(),
             level_mesh,
+            entity_meshes: assets
+                .tileset
+                .def
+                .tiles
+                .iter()
+                .filter_map(|(name, tile)| {
+                    tile.default.map(|tileset_pos| {
+                        (
+                            name.to_owned(),
+                            ugli::VertexBuffer::new_static(geng.ugli(), {
+                                let uv = assets
+                                    .tileset
+                                    .def
+                                    .uv(tileset_pos, assets.tileset.texture.size());
+                                let pos = Aabb2::ZERO.extend_positive(vec2::splat(1.0));
+                                let corners = pos.zip(uv).corners();
+                                [
+                                    corners[0], corners[1], corners[2], corners[0], corners[2],
+                                    corners[3],
+                                ]
+                                .map(
+                                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
+                                        a_pos: vec2(pos_x, pos_y),
+                                        a_color: Rgba::WHITE,
+                                        a_vt: vec2(uv_x, uv_y),
+                                    },
+                                )
+                                .to_vec()
+                            }),
+                        )
+                    })
+                })
+                .collect(),
         }
     }
-    pub fn draw_ldtk_mesh(
-        &self,
-        framebuffer: &mut ugli::Framebuffer,
-        mesh: &ldtk::Mesh,
-        color: Rgba<f32>,
-        matrix: mat3<f32>,
-    ) {
-        self.draw_mesh(framebuffer, &mesh.vertex_data, &mesh.texture, color, matrix)
-    }
-
     pub fn draw_mesh(
         &self,
         framebuffer: &mut ugli::Framebuffer,
@@ -265,30 +289,19 @@ impl geng::State for Game {
             t: 0.0,
         });
 
-        // TODO: dont rely on world for rendering the level
-        let ldtk = &self.assets.world;
-        let level = &ldtk.levels[self.level];
-
-        if self.assets.config.use_ldtk_render {
-            for layer in &level.layers {
-                if let Some(mesh) = &layer.mesh {
-                    self.draw_ldtk_mesh(framebuffer, mesh, Rgba::WHITE, mat3::identity());
-                }
-            }
-        } else {
-            self.draw_mesh(
-                framebuffer,
-                &self.level_mesh,
-                &self.assets.tileset.texture,
-                Rgba::WHITE,
-                mat3::identity(),
-            );
-        }
+        self.draw_mesh(
+            framebuffer,
+            &self.level_mesh,
+            &self.assets.tileset.texture,
+            Rgba::WHITE,
+            mat3::identity(),
+        );
 
         for goal in &prev_state.goals {
-            self.draw_ldtk_mesh(
+            self.draw_mesh(
                 framebuffer,
-                &ldtk.entity_defs["Goal"].mesh,
+                &self.entity_meshes["Goal"],
+                &self.assets.tileset.texture,
                 Rgba::WHITE,
                 mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
                     * goal.pos.angle.to_matrix()
@@ -358,18 +371,20 @@ impl geng::State for Game {
                 t,
             );
 
-            self.draw_ldtk_mesh(
+            self.draw_mesh(
                 framebuffer,
-                &ldtk.entity_defs[&entity.ldtk_identifier].mesh,
+                &self.entity_meshes[&entity.identifier],
+                &self.assets.tileset.texture,
                 Rgba::WHITE,
                 transform,
             );
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
-                    self.draw_ldtk_mesh(
+                    self.draw_mesh(
                         framebuffer,
-                        &ldtk.entity_defs[&format!("{effect:?}Power")].mesh,
+                        &self.entity_meshes[&format!("{effect:?}Power")],
+                        &self.assets.tileset.texture,
                         Rgba::WHITE,
                         transform
                             * mat3::rotate_around(
@@ -383,9 +398,10 @@ impl geng::State for Game {
             }
         }
         for powerup in &prev_state.powerups {
-            self.draw_ldtk_mesh(
+            self.draw_mesh(
                 framebuffer,
-                &ldtk.entity_defs[&format!("{:?}Power", powerup.effect)].mesh,
+                &self.entity_meshes[&format!("{:?}Power", powerup.effect)],
+                &self.assets.tileset.texture,
                 Rgba::WHITE,
                 mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
                     * (powerup.pos.angle - IntAngle::DOWN).to_matrix()

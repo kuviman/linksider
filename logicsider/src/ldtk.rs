@@ -107,7 +107,7 @@ impl GameState {
                         };
                         result.entities.insert(Entity {
                             id: result.id_gen.gen(),
-                            ldtk_identifier: entity.identifier.clone(),
+                            identifier: entity.identifier.clone(),
                             properties,
                             sides: std::array::from_fn(|_| Side { effect: None }),
                             pos,

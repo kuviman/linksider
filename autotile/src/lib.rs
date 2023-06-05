@@ -56,16 +56,19 @@ impl TilesetDef {
             })
     }
     pub fn uv(&self, tileset_pos: vec2<usize>, texture_size: vec2<usize>) -> Aabb2<f32> {
-        Aabb2::point(tileset_pos)
+        let mut result = Aabb2::point(tileset_pos)
             .extend_positive(vec2::splat(1))
             .map_bounds(|v| v * self.tile_size)
             .map_bounds(|v| v.map(|x| x as f32) / texture_size.map(|x| x as f32))
+            .map_bounds(|v| vec2(v.x, 1.0 - v.y));
+        mem::swap(&mut result.min.y, &mut result.max.y);
+        result
     }
 }
 
 #[test]
 fn test() {
-    let (config, def) = futures::executor::block_on(TilesetDef::load(
+    let (_config, def) = futures::executor::block_on(TilesetDef::load(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/tileset/config.ron"),
     ))
     .unwrap();
@@ -176,11 +179,7 @@ async fn load_rules_from_image(
     let image = image::load_from_memory(&bytes)?;
     let mut result = Vec::new();
     for (x_index, x) in (0..image.width()).step_by(config.tile_size.x).enumerate() {
-        for (y_index, y) in (0..image.height())
-            .step_by(config.tile_size.y)
-            .rev()
-            .enumerate()
-        {
+        for (y_index, y) in (0..image.height()).step_by(config.tile_size.y).enumerate() {
             let tile = image::GenericImageView::view(
                 &image,
                 x,

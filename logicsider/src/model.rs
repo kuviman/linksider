@@ -28,7 +28,7 @@ pub enum Tile {
 #[derive(Clone, HasId)]
 pub struct Entity {
     pub id: Id,
-    pub ldtk_identifier: String, // TODO remove
+    pub identifier: String, // TODO remove
     pub properties: Properties,
     pub pos: Position,
     pub prev_pos: Position,

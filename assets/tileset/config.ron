@@ -4,12 +4,21 @@
   tiles: {
     "block": AutoTile (
       color_coded_rules: "block.png",
-      default: Some((8, 4)),
+      default: Some((8, 1)),
     ),
     "disable": AutoTile (
       color_coded_rules: "disable.png",
     ),
-    "player": At(3, 5),
+    "Player": At(11, 5),
+    "Goal": At(3, 3),
+    "JumpPower": At(9, 5),
+    "SlidePower": At(10, 5),
+    "MagnetPower": At(11, 4),
+    "DisableTriggerPower": At(11, 2),
+    "Box": At(3, 4),
+    "Crate": At(4, 4),
+    "DisableBox": At(5, 3),
+    "cloud": At(5, 5),
   },
   error: At(5, 1),
 )
