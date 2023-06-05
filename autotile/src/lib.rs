@@ -8,6 +8,7 @@ pub struct Tileset {
 
 #[derive(Debug)]
 pub struct TilesetDef {
+    pub tile_size: vec2<usize>,
     pub tiles: HashMap<String, Tile>,
 }
 
@@ -22,7 +23,7 @@ pub trait TileMap {
 #[derive(Clone, Debug)]
 pub struct TexturedTile {
     pub pos: vec2<i32>,
-    pub uv: Aabb2<f32>,
+    pub tileset_pos: vec2<usize>,
 }
 
 impl TilesetDef {
@@ -38,7 +39,7 @@ impl TilesetDef {
                     .tiles
                     .get(value)
                     .expect(&format!("No def for tile type {value:?}"))
-                    .uv(|delta| match tile_map.get_at(pos + delta) {
+                    .tileset_pos(|delta| match tile_map.get_at(pos + delta) {
                         Some(other) => {
                             if other == value {
                                 Connection::Same
@@ -48,8 +49,17 @@ impl TilesetDef {
                         }
                         None => Connection::Empty,
                     });
-                uv.map(|uv| TexturedTile { pos, uv })
+                uv.map(|uv| TexturedTile {
+                    pos,
+                    tileset_pos: uv,
+                })
             })
+    }
+    pub fn uv(&self, tileset_pos: vec2<usize>, texture_size: vec2<usize>) -> Aabb2<f32> {
+        Aabb2::point(tileset_pos)
+            .extend_positive(vec2::splat(1))
+            .map_bounds(|v| v * self.tile_size)
+            .map_bounds(|v| v.map(|x| x as f32) / texture_size.map(|x| x as f32))
     }
 }
 
@@ -74,9 +84,9 @@ fn test() {
     let mut map = Map(HashMap::new());
     map.0.insert(vec2(0, 0), "block");
     map.0.insert(vec2(1, 0), "block");
-    let mesh: HashMap<vec2<i32>, Aabb2<f32>> = def
+    let mesh: HashMap<vec2<i32>, vec2<usize>> = def
         .generate_mesh(&map)
-        .map(|tile| (tile.pos, tile.uv))
+        .map(|tile| (tile.pos, tile.tileset_pos))
         .collect();
     assert_eq!(
         map.0.keys().collect::<HashSet<_>>(),
@@ -85,32 +95,30 @@ fn test() {
 }
 
 #[derive(Debug)]
-pub enum Tile {
-    AutoTiled { rules: Vec<Rule> },
-    Static { uv: Aabb2<f32> },
+pub struct Tile {
+    pub rules: Vec<Rule>,
+    pub default: Option<vec2<usize>>,
 }
 
 impl Tile {
-    pub fn uv(&self, f: impl Fn(vec2<i32>) -> Connection) -> Option<Aabb2<f32>> {
-        match self {
-            Self::Static { uv } => Some(*uv),
-            Self::AutoTiled { rules } => {
-                let matched_rules = rules.iter().filter(|rule| {
-                    rule.connections
-                        .iter()
-                        .all(|(delta, filter)| filter.matches(f(*delta)))
-                });
-                // let matched_rules = matched_rules.collect::<Vec<_>>();
-                matched_rules.choose(&mut thread_rng()).map(|rule| rule.uv)
-            }
-        }
+    pub fn tileset_pos(&self, f: impl Fn(vec2<i32>) -> Connection) -> Option<vec2<usize>> {
+        let matched_rules = self.rules.iter().filter(|rule| {
+            rule.connections
+                .iter()
+                .all(|(delta, filter)| filter.matches(f(*delta)))
+        });
+        // let matched_rules = matched_rules.collect::<Vec<_>>();
+        matched_rules
+            .choose(&mut thread_rng())
+            .map(|rule| rule.tileset_pos)
+            .or(self.default)
     }
 }
 
 #[derive(Debug)]
 pub struct Rule {
     connections: HashMap<vec2<i32>, ConnectionFilter>,
-    uv: Aabb2<f32>,
+    tileset_pos: vec2<usize>,
 }
 
 pub enum Connection {
@@ -167,8 +175,12 @@ async fn load_rules_from_image(
     let bytes = file::load_bytes(path).await?;
     let image = image::load_from_memory(&bytes)?;
     let mut result = Vec::new();
-    for x in (0..image.width()).step_by(config.tile_size.x) {
-        for y in (0..image.height()).step_by(config.tile_size.y) {
+    for (x_index, x) in (0..image.width()).step_by(config.tile_size.x).enumerate() {
+        for (y_index, y) in (0..image.height())
+            .step_by(config.tile_size.y)
+            .rev()
+            .enumerate()
+        {
             let tile = image::GenericImageView::view(
                 &image,
                 x,
@@ -200,10 +212,7 @@ async fn load_rules_from_image(
             if !connections.is_empty() {
                 result.push(Rule {
                     connections,
-                    uv: Aabb2::point(vec2(x, image.height() - y - config.tile_size.y as u32))
-                        .extend_positive(config.tile_size.map(|x| x as u32))
-                        .map(|x| x as f32)
-                        .map_bounds(|v| v / vec2(image.width() as f32, image.height() as f32)),
+                    tileset_pos: vec2(x_index, y_index),
                 });
             }
         }
@@ -220,7 +229,10 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub enum TileConfig {
-    AutoTile(std::path::PathBuf),
+    AutoTile {
+        color_coded_rules: std::path::PathBuf,
+        default: Option<vec2<usize>>,
+    },
     At(usize, usize),
 }
 
@@ -234,21 +246,28 @@ impl TilesetDef {
             tiles.insert(
                 name.clone(),
                 match tile {
-                    TileConfig::AutoTile(path) => {
+                    TileConfig::AutoTile {
+                        color_coded_rules: path,
+                        default,
+                    } => {
                         let rules = load_rules_from_image(base_path.join(path), &config).await?;
-                        Tile::AutoTiled { rules }
+                        Tile {
+                            rules,
+                            default: *default,
+                        }
                     }
-                    TileConfig::At(x, y) => {
-                        // TODO
-                        continue;
-                    }
+                    TileConfig::At(x, y) => Tile {
+                        rules: vec![],
+                        default: Some(vec2(*x, *y)),
+                    },
                 },
             );
         }
-        for (name, pos) in &config.tiles {
-            // TODO static
-        }
-        Ok((config, Self { tiles }))
+        let def = Self {
+            tile_size: config.tile_size,
+            tiles,
+        };
+        Ok((config, def))
     }
 }
 

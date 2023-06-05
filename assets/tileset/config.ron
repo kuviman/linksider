@@ -2,8 +2,13 @@
   texture: "softVibe20.png",
   tile_size: (16, 16),
   tiles: {
-    "block": AutoTile("block.png"),
-    "disable": AutoTile("disable.png"),
+    "block": AutoTile (
+      color_coded_rules: "block.png",
+      default: Some((8, 4)),
+    ),
+    "disable": AutoTile (
+      color_coded_rules: "disable.png",
+    ),
     "player": At(3, 5),
   },
   error: At(5, 1),

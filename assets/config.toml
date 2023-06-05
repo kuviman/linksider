@@ -1,4 +1,4 @@
-use_ldtk_render = true
+use_ldtk_render = false
 camera_speed = 2
 animation_time = 0.2
 cell_pixel_size = 16

@@ -71,16 +71,17 @@ impl Game {
                     &TileMap { state: &game_state }
                 })
                 .flat_map(|tile| {
+                    let uv = assets.tileset.def.uv(tile.tileset_pos, assets.tileset.texture.size());
                     let pos = Aabb2::point(tile.pos)
                         .extend_positive(vec2::splat(1))
                         .map(|x| x as f32);
-                    let corners: Vec<_> = pos.corners().into_iter().zip(tile.uv.corners()).collect();
+                    let corners = pos.zip(uv).corners();
                     [corners[0], corners[1], corners[2], corners[0], corners[2], corners[3]]
                 })
-                .map(|(pos, uv)| draw2d::TexturedVertex {
-                    a_pos: pos,
+                .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
+                    a_pos: vec2(pos_x, pos_y),
                     a_color: Rgba::WHITE,
-                    a_vt: uv,
+                    a_vt: vec2(uv_x, uv_y),
                 })
                 .collect(),
         );
