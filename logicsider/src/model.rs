@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameState {
     pub id_gen: id::Gen,
     pub tiles: HashMap<vec2<i32>, Tile>,
@@ -51,7 +51,7 @@ impl Tile {
 }
 
 /// Box entity
-#[derive(Clone, HasId, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Id,
     pub identifier: String, // TODO remove
@@ -84,7 +84,7 @@ impl Entity {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Properties {
     pub block: bool,
     pub trigger: bool,
@@ -92,7 +92,7 @@ pub struct Properties {
     pub pushable: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Side {
     pub effect: Option<Effect>,
 }
@@ -123,13 +123,13 @@ impl Effect {
     }
 }
 
-#[derive(Clone, HasId, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
 pub struct Goal {
     pub id: Id,
     pub pos: Position,
 }
 
-#[derive(Clone, HasId, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
 pub struct Powerup {
     pub id: Id,
     pub pos: Position,

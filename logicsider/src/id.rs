@@ -15,7 +15,7 @@ impl Debug for Id {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Gen {
     next_id: u64,
 }

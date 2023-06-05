@@ -113,6 +113,7 @@ pub struct State {
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
+    history: Vec<GameState>,
 }
 
 impl State {
@@ -143,7 +144,6 @@ impl State {
             sound: sound.clone(),
             renderer: renderer.clone(),
             level_mesh: renderer.level_mesh(&game_state),
-            game_state,
             finish_callback,
             camera_drag: None,
             brush: Brush {
@@ -151,6 +151,8 @@ impl State {
                 brush_type: BrushType::Entity("Player".to_owned()),
             },
             brush_wheel_pos: None,
+            history: vec![game_state.clone()],
+            game_state,
         }
     }
 
@@ -280,6 +282,23 @@ impl State {
         )
         .unwrap();
     }
+
+    fn undo(&mut self) {
+        if self.history.len() > 1 {
+            if self.game_state != self.history.pop().unwrap() {
+                log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
+            }
+            self.game_state = self.history.last().unwrap().clone();
+            self.level_mesh = self.renderer.level_mesh(&self.game_state);
+        }
+    }
+
+    fn push_history_if_needed(&mut self) {
+        if self.game_state != *self.history.last().unwrap() {
+            log::debug!("Pushed history");
+            self.history.push(self.game_state.clone());
+        }
+    }
 }
 
 impl Drop for State {
@@ -340,6 +359,11 @@ impl geng::State for State {
             geng::Event::MouseDown { position, button } if button == controls.delete => {
                 self.delete(position);
             }
+            geng::Event::MouseUp { button, .. }
+                if [controls.create, controls.delete].contains(&button) =>
+            {
+                self.push_history_if_needed();
+            }
             geng::Event::MouseDown { position, button } if button == controls.camera_drag => {
                 self.camera_drag = Some(position);
             }
@@ -373,6 +397,11 @@ impl geng::State for State {
                 if self.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
                 self.save();
+            }
+            geng::Event::KeyDown { key: geng::Key::Z }
+                if self.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            {
+                self.undo();
             }
             _ => {}
         }

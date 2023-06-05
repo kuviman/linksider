@@ -31,7 +31,7 @@ pub enum EntityMoveType {
     MagnetContinue,
 }
 
-#[derive(Debug, Clone, HasId, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, HasId, Serialize, Deserialize)]
 pub struct EntityMove {
     #[has_id(id)]
     pub entity_id: Id,
