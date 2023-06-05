@@ -24,15 +24,14 @@ pub struct Config {
     pub controls: Controls,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-enum Brush {
+enum BrushType {
     Entity(String),
     Tile(Tile),
     Powerup(Effect),
     Goal,
 }
 
-impl Brush {
+impl BrushType {
     fn tile_name(&self) -> String {
         match self {
             Self::Entity(name) => name.clone(),
@@ -41,23 +40,53 @@ impl Brush {
             Self::Goal => "Goal".to_owned(),
         }
     }
+}
 
+struct Brush {
+    angle: IntAngle,
+    brush_type: BrushType,
+}
+
+impl Brush {
+    fn rotation(&self) -> f32 {
+        // TODO normalize angles in the codebase
+        let angle = self.angle;
+        match self.brush_type {
+            BrushType::Entity(_) => angle,
+            BrushType::Tile(_) => angle,
+            BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
+            BrushType::Goal => angle,
+        }
+        .to_radians()
+    }
     fn pick(state: &GameState, cell: vec2<i32>) -> Option<Self> {
         if let Some(tile) = state.tiles.get(&cell) {
-            return Some(Self::Tile(*tile));
+            return Some(Self {
+                angle: IntAngle::DOWN,
+                brush_type: BrushType::Tile(*tile),
+            });
         }
         if let Some(entity) = state.entities.iter().find(|entity| entity.pos.cell == cell) {
-            return Some(Self::Entity(entity.identifier.clone()));
+            return Some(Self {
+                angle: entity.pos.angle,
+                brush_type: BrushType::Entity(entity.identifier.clone()),
+            });
         }
         if let Some(powerup) = state
             .powerups
             .iter()
             .find(|powerup| powerup.pos.cell == cell)
         {
-            return Some(Self::Powerup(powerup.effect.clone()));
+            return Some(Self {
+                angle: powerup.pos.angle,
+                brush_type: BrushType::Powerup(powerup.effect.clone()),
+            });
         }
-        if let Some(_goal) = state.goals.iter().find(|goal| goal.pos.cell == cell) {
-            return Some(Self::Goal);
+        if let Some(goal) = state.goals.iter().find(|goal| goal.pos.cell == cell) {
+            return Some(Self {
+                angle: goal.pos.angle,
+                brush_type: BrushType::Goal,
+            });
         }
         None
     }
@@ -117,7 +146,10 @@ impl State {
             game_state,
             finish_callback,
             camera_drag: None,
-            brush: Brush::Entity("Player".to_owned()),
+            brush: Brush {
+                angle: IntAngle::RIGHT,
+                brush_type: BrushType::Entity("Player".to_owned()),
+            },
             brush_wheel_pos: None,
         }
     }
@@ -132,34 +164,34 @@ impl State {
     fn create(&mut self, screen_pos: vec2<f64>) {
         self.delete(screen_pos);
         let cell = self.screen_to_tile(screen_pos);
-        match &self.brush {
-            Brush::Entity(name) => self.game_state.add_entity(
+        match &self.brush.brush_type {
+            BrushType::Entity(name) => self.game_state.add_entity(
                 name,
                 &self.assets.logic_config.entities[name],
                 Position {
                     cell,
-                    angle: IntAngle::RIGHT,
+                    angle: self.brush.angle,
                 },
             ),
-            Brush::Tile(tile) => {
+            BrushType::Tile(tile) => {
                 self.game_state.tiles.insert(cell, *tile);
                 self.level_mesh = self.renderer.level_mesh(&self.game_state);
             }
-            Brush::Powerup(effect) => {
+            BrushType::Powerup(effect) => {
                 self.game_state.powerups.insert(Powerup {
                     id: self.game_state.id_gen.gen(),
                     pos: Position {
                         cell,
-                        angle: IntAngle::DOWN,
+                        angle: self.brush.angle,
                     },
                     effect: effect.clone(),
                 });
             }
-            Brush::Goal => self.game_state.goals.insert(Goal {
+            BrushType::Goal => self.game_state.goals.insert(Goal {
                 id: self.game_state.id_gen.gen(),
                 pos: Position {
                     cell,
-                    angle: IntAngle::RIGHT,
+                    angle: self.brush.angle,
                 },
             }),
         }
@@ -188,18 +220,35 @@ impl State {
             .logic_config
             .entities
             .keys()
-            .map(|name| Brush::Entity(name.clone()));
-        let tiles = Tile::iter_variants().map(Brush::Tile);
-        let powerups = Effect::iter_variants().map(Brush::Powerup);
+            .map(|name| BrushType::Entity(name.clone()))
+            .map(|brush_type| Brush {
+                angle: IntAngle::RIGHT,
+                brush_type,
+            });
+        let tiles = Tile::iter_variants()
+            .map(BrushType::Tile)
+            .map(|brush_type| Brush {
+                angle: IntAngle::DOWN,
+                brush_type,
+            });
+        let powerups = Effect::iter_variants()
+            .map(BrushType::Powerup)
+            .map(|brush_type| Brush {
+                angle: IntAngle::DOWN,
+                brush_type,
+            });
+        let goal = Brush {
+            angle: IntAngle::RIGHT,
+            brush_type: BrushType::Goal,
+        };
 
-        let mut items: Vec<BrushWheelItem> =
-            itertools::chain![entities, tiles, powerups, [Brush::Goal]]
-                .map(|brush| BrushWheelItem {
-                    brush,
-                    pos: vec2::ZERO,
-                    hovered: false,
-                })
-                .collect();
+        let mut items: Vec<BrushWheelItem> = itertools::chain![entities, tiles, powerups, [goal]]
+            .map(|brush| BrushWheelItem {
+                brush,
+                pos: vec2::ZERO,
+                hovered: false,
+            })
+            .collect();
         let len = items.len();
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
@@ -313,6 +362,13 @@ impl geng::State for State {
                     *drag = position;
                 }
             }
+            geng::Event::Wheel { delta } => {
+                let mut delta = delta.signum() as i32;
+                if self.geng.window().is_key_pressed(geng::Key::LShift) {
+                    delta = -delta;
+                }
+                self.brush.angle = self.brush.angle.with_input(Input::from_sign(delta));
+            }
             geng::Event::KeyDown { key: geng::Key::S }
                 if self.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
@@ -336,7 +392,7 @@ impl geng::State for State {
         self.renderer.draw_tile(
             framebuffer,
             &self.camera,
-            &self.brush.tile_name(),
+            &self.brush.brush_type.tile_name(),
             Rgba::new(
                 1.0,
                 1.0,
@@ -346,7 +402,7 @@ impl geng::State for State {
             mat3::translate(
                 self.screen_to_tile(self.geng.window().cursor_position())
                     .map(|x| x as f32),
-            ),
+            ) * mat3::rotate_around(vec2::splat(0.5), self.brush.rotation()),
         );
         self.renderer.draw_tile(
             framebuffer,
@@ -376,10 +432,11 @@ impl geng::State for State {
                 self.renderer.draw_tile(
                     framebuffer,
                     &self.camera,
-                    &item.brush.tile_name(),
+                    &item.brush.brush_type.tile_name(),
                     Rgba::WHITE,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
+                        * mat3::rotate(item.brush.rotation())
                         * mat3::translate(vec2::splat(-0.5)),
                 );
             }
