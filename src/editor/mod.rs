@@ -83,6 +83,7 @@ pub struct State {
     camera_drag: Option<vec2<f64>>,
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
+    path: std::path::PathBuf,
 }
 
 impl State {
@@ -91,10 +92,16 @@ impl State {
         assets: &Rc<Assets>,
         renderer: &Rc<Renderer>,
         sound: &Rc<sound::State>,
-        game_state: GameState,
+        game_state: Option<GameState>,
+        path: impl AsRef<std::path::Path>,
         finish_callback: play::FinishCallback,
     ) -> Self {
+        let path = path.as_ref();
+        // TODO: block_on doesnt work on the web
+        let game_state: GameState = game_state
+            .unwrap_or_else(|| futures::executor::block_on(file::load_detect(path)).unwrap());
         Self {
+            path: path.to_owned(),
             geng: geng.clone(),
             assets: assets.clone(),
             framebuffer_size: vec2::splat(1.0),
@@ -214,6 +221,22 @@ impl State {
         }
         Some(items.into_iter())
     }
+
+    fn save(&mut self) {
+        // TODO saved flag & warning
+        ron::ser::to_writer_pretty(
+            std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
+            &self.game_state,
+            default(),
+        )
+        .unwrap();
+    }
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        self.save();
+    }
 }
 
 impl geng::State for State {
@@ -289,6 +312,11 @@ impl geng::State for State {
                     self.camera.center += before - now;
                     *drag = position;
                 }
+            }
+            geng::Event::KeyDown { key: geng::Key::S }
+                if self.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            {
+                self.save();
             }
             _ => {}
         }

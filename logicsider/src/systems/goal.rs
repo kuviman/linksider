@@ -1,6 +1,10 @@
 use super::*;
 
-pub fn system(state: &GameState, entity_id: Id, _input: Input) -> Option<EntityMove> {
+pub fn system(
+    EntityMoveParams {
+        state, entity_id, ..
+    }: EntityMoveParams,
+) -> Option<EntityMove> {
     let entity = state.entities.get(&entity_id).unwrap();
     // TODO not only players?
     if !entity.properties.player {

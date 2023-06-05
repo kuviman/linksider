@@ -1,6 +1,13 @@
 use super::*;
 
-pub fn system(state: &GameState, entity_id: Id, input: Input) -> Option<Collection<EntityMove>> {
+pub fn system(
+    EntityMoveParams {
+        state,
+        entity_id,
+        input,
+        ..
+    }: EntityMoveParams,
+) -> Option<Collection<EntityMove>> {
     if input == Input::Skip {
         return None;
     }

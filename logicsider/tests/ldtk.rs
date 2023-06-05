@@ -35,13 +35,13 @@ fn main() {
             for c in line.chars().chain(".".chars()) {
                 match c {
                     '<' => {
-                        game_state.process_turn(Input::Left);
+                        game_state.process_turn(&config, Input::Left);
                     }
                     '>' => {
-                        game_state.process_turn(Input::Right);
+                        game_state.process_turn(&config, Input::Right);
                     }
                     '.' => {
-                        game_state.process_turn(Input::Skip);
+                        game_state.process_turn(&config, Input::Skip);
                     }
                     '1'..='9' => {
                         let index = c.to_digit(10).unwrap() as usize;

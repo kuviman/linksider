@@ -20,8 +20,16 @@ pub fn entity_magneted_angles(
     })
 }
 
-pub fn continue_move(state: &GameState, entity_id: Id, input: Input) -> Option<EntityMove> {
-    if state.config.magnet_continue == ContinueConfig::Never {
+pub fn continue_move(
+    EntityMoveParams {
+        state,
+        config,
+        entity_id,
+        input,
+        ..
+    }: EntityMoveParams,
+) -> Option<EntityMove> {
+    if config.magnet_continue == ContinueConfig::Never {
         return None;
     }
     let entity = state.entities.get(&entity_id).unwrap();
@@ -39,7 +47,7 @@ pub fn continue_move(state: &GameState, entity_id: Id, input: Input) -> Option<E
         // Cant continue after locked in place rotation
         return None;
     }
-    if prev_input != input && state.config.magnet_continue == ContinueConfig::Input {
+    if prev_input != input && config.magnet_continue == ContinueConfig::Input {
         return None;
     }
     let new_pos = Position {

@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GameState {
     pub id_gen: id::Gen,
     pub tiles: HashMap<vec2<i32>, Tile>,
@@ -8,7 +8,6 @@ pub struct GameState {
     pub powerups: Collection<Powerup>,
     pub selected_player: Option<Id>,
     pub goals: Collection<Goal>,
-    pub config: Config,
     pub stable: bool,
 }
 
@@ -37,7 +36,7 @@ impl GameState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Tile {
     Nothing, // TODO remove?
     Block,
@@ -52,7 +51,7 @@ impl Tile {
 }
 
 /// Box entity
-#[derive(Clone, HasId)]
+#[derive(Clone, HasId, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Id,
     pub identifier: String, // TODO remove
@@ -85,7 +84,7 @@ impl Entity {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Properties {
     pub block: bool,
     pub trigger: bool,
@@ -93,12 +92,12 @@ pub struct Properties {
     pub pushable: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Side {
     pub effect: Option<Effect>,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub enum Effect {
     Jump,
     Slide,
@@ -124,13 +123,13 @@ impl Effect {
     }
 }
 
-#[derive(Clone, HasId)]
+#[derive(Clone, HasId, Serialize, Deserialize)]
 pub struct Goal {
     pub id: Id,
     pub pos: Position,
 }
 
-#[derive(Clone, HasId)]
+#[derive(Clone, HasId, Serialize, Deserialize)]
 pub struct Powerup {
     pub id: Id,
     pub pos: Position,

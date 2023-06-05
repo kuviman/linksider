@@ -2266,14 +2266,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
-name = "ldtk"
-version = "0.1.0"
-dependencies = [
- "geng",
- "ldtk-json",
-]
-
-[[package]]
 name = "ldtk-json"
 version = "0.1.0"
 dependencies = [
@@ -2330,7 +2322,6 @@ version = "0.1.0"
 dependencies = [
  "autotile",
  "geng",
- "ldtk",
  "logicsider",
  "serde",
 ]

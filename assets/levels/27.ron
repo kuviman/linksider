@@ -1,0 +1,158 @@
+(
+    id_gen: (
+        next_id: 4,
+    ),
+    tiles: {
+        (10, -5): Block,
+        (10, -8): Block,
+        (4, -10): Block,
+        (7, -10): Block,
+        (9, -6): Block,
+        (4, -6): Block,
+        (12, -6): Block,
+        (11, -11): Block,
+        (6, -10): Block,
+        (9, -10): Block,
+        (4, -9): Block,
+        (6, -7): Block,
+        (9, -8): Block,
+        (4, -11): Block,
+        (12, -5): Block,
+        (3, -5): Block,
+        (2, -9): Block,
+        (10, -7): Block,
+        (2, -5): Block,
+        (5, -5): Block,
+        (5, -6): Block,
+        (2, -7): Block,
+        (5, -7): Block,
+        (10, -6): Block,
+        (6, -5): Block,
+        (2, -8): Block,
+        (5, -10): Block,
+        (7, -7): Block,
+        (5, -9): Block,
+        (11, -5): Block,
+        (4, -7): Block,
+        (9, -11): Block,
+        (12, -8): Block,
+        (12, -11): Block,
+        (3, -6): Block,
+        (11, -10): Block,
+        (8, -5): Block,
+        (11, -6): Block,
+        (4, -8): Disable,
+        (9, -5): Block,
+        (11, -7): Block,
+        (3, -11): Block,
+        (5, -11): Block,
+        (6, -11): Block,
+        (7, -11): Block,
+        (10, -11): Block,
+        (12, -10): Block,
+        (3, -7): Block,
+        (3, -10): Block,
+        (6, -6): Block,
+        (3, -8): Block,
+        (8, -11): Block,
+        (12, -7): Block,
+        (11, -9): Block,
+        (3, -9): Block,
+        (7, -6): Block,
+        (2, -11): Block,
+        (11, -8): Block,
+        (2, -10): Block,
+        (4, -5): Block,
+        (2, -6): Block,
+        (8, -6): Block,
+        (12, -9): Block,
+        (8, -10): Block,
+        (10, -10): Block,
+        (7, -5): Block,
+    },
+    entities: (
+        by_id: {
+            (0): (
+                id: (0),
+                identifier: "Player",
+                properties: (
+                    block: true,
+                    trigger: true,
+                    player: true,
+                    pushable: false,
+                ),
+                pos: (
+                    cell: (10, -9),
+                    angle: (0),
+                ),
+                prev_pos: (
+                    cell: (10, -9),
+                    angle: (0),
+                ),
+                prev_move: None,
+                sides: ((
+                    effect: None,
+                ), (
+                    effect: None,
+                ), (
+                    effect: None,
+                ), (
+                    effect: None,
+                )),
+            ),
+            (2): (
+                id: (2),
+                identifier: "Player",
+                properties: (
+                    block: true,
+                    trigger: true,
+                    player: true,
+                    pushable: false,
+                ),
+                pos: (
+                    cell: (9, -7),
+                    angle: (0),
+                ),
+                prev_pos: (
+                    cell: (9, -7),
+                    angle: (0),
+                ),
+                prev_move: None,
+                sides: ((
+                    effect: None,
+                ), (
+                    effect: None,
+                ), (
+                    effect: None,
+                ), (
+                    effect: None,
+                )),
+            ),
+        },
+    ),
+    powerups: (
+        by_id: {
+            (1): (
+                id: (1),
+                pos: (
+                    cell: (9, -9),
+                    angle: (3),
+                ),
+                effect: Jump,
+            ),
+        },
+    ),
+    selected_player: Some((0)),
+    goals: (
+        by_id: {
+            (3): (
+                id: (3),
+                pos: (
+                    cell: (5, -8),
+                    angle: (0),
+                ),
+            ),
+        },
+    ),
+    stable: false,
+)

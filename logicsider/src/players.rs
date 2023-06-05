@@ -26,8 +26,8 @@ impl GameState {
         self.selected_player = self.player_ids().nth(index)
     }
 
-    pub fn change_player_selection(&mut self, delta: isize) {
-        if !self.config.allow_unstable_player_selection && !self.stable {
+    pub fn change_player_selection(&mut self, config: &Config, delta: isize) {
+        if !config.allow_unstable_player_selection && !self.stable {
             return;
         }
         let Some(current_index) =  self.selected_player_index() else {

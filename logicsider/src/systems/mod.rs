@@ -39,24 +39,28 @@ pub fn is_blocked(state: &GameState, pos: vec2<i32>) -> bool {
     state.tile(pos).is_blocking() || state.entities.iter().any(|entity| entity.pos.cell == pos)
 }
 
-fn check_entity_move(
-    state: &GameState,
+#[derive(Copy, Clone)]
+pub struct EntityMoveParams<'a> {
+    state: &'a GameState,
+    config: &'a Config,
     entity_id: Id,
     input: Input,
-) -> Option<Collection<EntityMove>> {
+}
+
+fn check_entity_move(params: EntityMoveParams) -> Option<Collection<EntityMove>> {
     macro_rules! system {
         ($f:expr) => {
-            if let Some(moves) = $f(state, entity_id, input) {
+            if let Some(moves) = $f(params) {
                 return Some(moves);
             }
         };
     }
 
     fn simple(
-        f: impl Fn(&GameState, Id, Input) -> Option<EntityMove>,
-    ) -> impl Fn(&GameState, Id, Input) -> Option<Collection<EntityMove>> {
-        move |state, entity_id, input| {
-            f(state, entity_id, input).map(|entity_move| {
+        f: impl Fn(EntityMoveParams) -> Option<EntityMove>,
+    ) -> impl Fn(EntityMoveParams) -> Option<Collection<EntityMove>> {
+        move |params| {
+            f(params).map(|entity_move| {
                 let mut result = Collection::new();
                 result.insert(entity_move);
                 result
@@ -73,18 +77,19 @@ fn check_entity_move(
     None
 }
 
-fn check_moves(state: &GameState, input: Input) -> Collection<EntityMove> {
+fn check_moves(state: &GameState, config: &Config, input: Input) -> Collection<EntityMove> {
     let mut result = Collection::new();
     for &id in state.entities.ids() {
-        if let Some(moves) = check_entity_move(
+        if let Some(moves) = check_entity_move(EntityMoveParams {
             state,
-            id,
-            if Some(id) == state.selected_player {
+            config,
+            entity_id: id,
+            input: if Some(id) == state.selected_player {
                 input
             } else {
                 Input::Skip
             },
-        ) {
+        }) {
             // TODO check for conflicts
             result.extend(moves);
         }
@@ -105,12 +110,12 @@ fn perform_moves(state: &mut GameState, moves: &Collection<EntityMove>) {
 }
 
 impl GameState {
-    pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
+    pub fn process_turn(&mut self, config: &Config, input: Input) -> Option<Moves> {
         let state = self;
         state.stable = false;
         let result = Moves {
             entity_moves: {
-                let moves = check_moves(state, input);
+                let moves = check_moves(state, config, input);
                 // TODO check for conflicts
                 for entity in state.entities.iter_mut() {
                     entity.prev_pos = entity.pos;

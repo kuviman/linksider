@@ -49,7 +49,6 @@ impl GameState {
             powerups: default(),
             goals: default(),
             selected_player: None,
-            config: config.clone(),
             stable: false,
         };
         for entity in level

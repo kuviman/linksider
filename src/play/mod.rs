@@ -10,7 +10,6 @@ pub struct State {
     renderer: Rc<Renderer>,
     level_mesh: renderer::LevelMesh,
     finish_callback: FinishCallback,
-    original_game_state: GameState,
     history_player: history::Player,
 }
 
@@ -19,6 +18,7 @@ pub type FinishCallback = Rc<dyn Fn(Finish) -> geng::state::Transition>;
 pub enum Finish {
     NextLevel,
     PrevLevel,
+    Editor,
 }
 
 impl State {
@@ -44,8 +44,11 @@ impl State {
             sound: sound.clone(),
             renderer: renderer.clone(),
             level_mesh: renderer.level_mesh(&game_state),
-            original_game_state: game_state.clone(),
-            history_player: history::Player::new(game_state, assets.config.animation_time),
+            history_player: history::Player::new(
+                game_state,
+                &assets.logic_config,
+                assets.config.animation_time,
+            ),
         }
     }
     pub fn finish(&mut self, finish: Finish) {
@@ -74,9 +77,12 @@ impl geng::State for State {
         } else {
             None
         };
-        let update = self
-            .history_player
-            .update(delta_time, input, timeline_input);
+        let update = self.history_player.update(
+            delta_time,
+            &self.assets.logic_config,
+            input,
+            timeline_input,
+        );
         if let Some(moves) = update.started {
             self.sound.play_turn_start_sounds(moves);
         }
@@ -101,16 +107,7 @@ impl geng::State for State {
         match event {
             geng::Event::KeyDown { key } => {
                 if key == self.assets.config.editor.controls.toggle {
-                    self.transition = Some(geng::state::Transition::Switch(Box::new(
-                        editor::State::new(
-                            &self.geng,
-                            &self.assets,
-                            &self.renderer,
-                            &self.sound,
-                            self.original_game_state.clone(),
-                            self.finish_callback.clone(),
-                        ),
-                    )));
+                    self.finish(Finish::Editor);
                 }
 
                 if let Some(cheats) = &self.assets.config.controls.cheats {
@@ -142,16 +139,21 @@ impl geng::State for State {
                 };
                 if let Some(input) = input {
                     if self.history_player.frame().animation.is_none() {
-                        if let Some(moves) = self.history_player.process_move(input) {
+                        if let Some(moves) = self
+                            .history_player
+                            .process_move(&self.assets.logic_config, input)
+                        {
                             self.sound.play_turn_start_sounds(moves);
                         }
                     }
                 }
                 if self.assets.config.controls.next_player.contains(&key) {
-                    self.history_player.change_player_selection(1);
+                    self.history_player
+                        .change_player_selection(&self.assets.logic_config, 1);
                 }
                 if self.assets.config.controls.prev_player.contains(&key) {
-                    self.history_player.change_player_selection(-1);
+                    self.history_player
+                        .change_player_selection(&self.assets.logic_config, -1);
                 }
             }
             _ => {}

@@ -1,7 +1,5 @@
 use geng::prelude::*;
 
-use ldtk::Ldtk;
-
 mod config;
 mod editor;
 mod history;
@@ -20,7 +18,6 @@ pub struct Assets {
     pub config: Config,
     #[load(serde, path = "logic.toml")]
     pub logic_config: logicsider::Config,
-    pub world: Ldtk,
     pub renderer: renderer::Assets,
     pub sound: sound::Assets,
 }
@@ -42,6 +39,7 @@ fn main() {
         let renderer = Rc::new(Renderer::new(geng, assets));
 
         struct LevelChanger {
+            level_count: usize,
             current_level: Cell<usize>,
             geng: Geng,
             assets: Rc<Assets>,
@@ -50,37 +48,78 @@ fn main() {
         }
 
         impl LevelChanger {
+            fn finisher(self: Rc<Self>) -> play::FinishCallback {
+                Rc::new({
+                    let state = self.clone();
+                    move |finish| state.clone().finish(finish)
+                })
+            }
+
+            fn load_game_state(&self) -> GameState {
+                ron::de::from_reader(std::io::BufReader::new(
+                    std::fs::File::open(self.level_path()).unwrap(),
+                ))
+                .unwrap()
+            }
+
+            fn level_path(&self) -> std::path::PathBuf {
+                run_dir()
+                    .join("assets")
+                    .join("levels")
+                    .join(format!("{}.ron", self.current_level.get()))
+            }
+
             fn play(self: Rc<Self>) -> impl geng::State {
                 play::State::new(
                     &self.geng,
                     &self.assets,
                     &self.renderer,
                     &self.sound,
-                    GameState::from_ldtk(
-                        &self.assets.world.json,
-                        &self.assets.logic_config,
-                        self.current_level.get(),
-                    ),
-                    Rc::new({
-                        let state = self.clone();
-                        move |finish| state.clone().finish(finish)
-                    }),
+                    self.load_game_state(),
+                    self.clone().finisher(),
                 )
             }
+
+            fn editor(self: Rc<Self>) -> impl geng::State {
+                editor::State::new(
+                    &self.geng,
+                    &self.assets,
+                    &self.renderer,
+                    &self.sound,
+                    Some(self.load_game_state()),
+                    self.level_path(),
+                    self.clone().finisher(),
+                )
+            }
+
             fn finish(self: Rc<Self>, finish: play::Finish) -> geng::state::Transition {
                 self.current_level.set({
                     let new_level = self.current_level.get() as isize
                         + match finish {
                             play::Finish::NextLevel => 1,
                             play::Finish::PrevLevel => -1,
+                            play::Finish::Editor => 0,
                         };
-                    new_level.clamp(0, self.assets.world.levels.len() as isize - 1) as usize
+                    new_level.clamp(0, self.level_count as isize - 1) as usize
                 });
-                geng::state::Transition::Switch(Box::new(self.play()))
+                geng::state::Transition::Switch(if let play::Finish::Editor = finish {
+                    Box::new(self.editor())
+                } else {
+                    Box::new(self.play())
+                })
             }
         }
 
+        let level_count =
+            file::load_string(run_dir().join("assets").join("levels").join("count.txt"))
+                .await
+                .unwrap()
+                .trim()
+                .parse()
+                .unwrap();
+
         Rc::new(LevelChanger {
+            level_count,
             current_level: Cell::new(0),
             geng: geng.clone(),
             assets: assets.clone(),

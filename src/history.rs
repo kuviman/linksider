@@ -16,7 +16,7 @@ pub struct Animation<'a> {
 }
 
 impl Player {
-    pub fn new(state: GameState, animation_time: f32) -> Self {
+    pub fn new(state: GameState, config: &logicsider::Config, animation_time: f32) -> Self {
         let mut result = Self {
             states: vec![state],
             moves: vec![],
@@ -25,15 +25,15 @@ impl Player {
             animation_time,
             auto_continue: false,
         };
-        result.process_move(Input::Skip);
+        result.process_move(config, Input::Skip);
         result
     }
 
-    pub fn process_move(&mut self, input: Input) -> Option<&Moves> {
+    pub fn process_move(&mut self, config: &logicsider::Config, input: Input) -> Option<&Moves> {
         assert!(self.playback_pos == self.target_pos as f32);
         let mut new_state = self.states[self.target_pos].clone();
         log::debug!("Processing move (input = {input:?})...");
-        let moves = new_state.process_turn(input);
+        let moves = new_state.process_turn(config, input);
         log::debug!("Moves = {moves:#?}");
         if let Some(moves) = moves {
             self.states.truncate(self.target_pos + 1);
@@ -84,6 +84,7 @@ impl Player {
     pub fn update(
         &mut self,
         delta_time: f32,
+        config: &logicsider::Config,
         input: Option<Input>,
         timeline_input: Option<isize>,
     ) -> Update {
@@ -102,7 +103,7 @@ impl Player {
                 }
                 if let Some(input) = input {
                     return Update {
-                        started: self.process_move(input),
+                        started: self.process_move(config, input),
                         finished: None,
                     };
                 }
@@ -154,8 +155,8 @@ impl Player {
         }
     }
 
-    pub fn change_player_selection(&mut self, delta: isize) {
+    pub fn change_player_selection(&mut self, config: &logicsider::Config, delta: isize) {
         // TODO player selection should not be part of the game state?
-        self.states[self.target_pos].change_player_selection(delta);
+        self.states[self.target_pos].change_player_selection(config, delta);
     }
 }

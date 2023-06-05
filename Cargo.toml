@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 geng.git = "https://github.com/geng-engine/geng"
 logicsider.path = "logicsider"
-ldtk.path = "ldtk"
+# ldtk.path = "ldtk"
 autotile.path = "autotile"
 serde = "1"

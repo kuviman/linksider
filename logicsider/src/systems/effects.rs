@@ -58,7 +58,14 @@ pub fn is_trigger(state: &GameState, pos: vec2<i32>, angle: IntAngle) -> bool {
         })
 }
 
-pub fn side_effects(state: &GameState, entity_id: Id, input: Input) -> Option<EntityMove> {
+pub fn side_effects(
+    EntityMoveParams {
+        state,
+        entity_id,
+        input,
+        ..
+    }: EntityMoveParams,
+) -> Option<EntityMove> {
     for (side, effect) in entity_active_effects(state, entity_id) {
         if let Some(pos) = effect.apply(state, entity_id, input, side) {
             return Some(pos);

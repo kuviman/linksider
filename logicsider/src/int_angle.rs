@@ -1,7 +1,7 @@
 use super::*;
 
-// TODO Make Angle from batbox work with integers and remove this SHIT
-#[derive(PartialEq, Eq, Hash, Copy, Clone)]
+// TODO move to batbox
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub struct IntAngle(i32);
 
 impl Add for IntAngle {

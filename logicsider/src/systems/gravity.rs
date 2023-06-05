@@ -1,6 +1,10 @@
 use super::*;
 
-pub fn system(state: &GameState, entity_id: Id, _input: Input) -> Option<EntityMove> {
+pub fn system(
+    EntityMoveParams {
+        state, entity_id, ..
+    }: EntityMoveParams,
+) -> Option<EntityMove> {
     if magnet::entity_magneted_angles(state, entity_id)
         .next()
         .is_some()
