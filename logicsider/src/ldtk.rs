@@ -1,7 +1,7 @@
 use super::*;
 
 impl GameState {
-    pub fn from_ldtk(ldtk: &ldtk_json::Ldtk, level: usize) -> Self {
+    pub fn from_ldtk(ldtk: &ldtk_json::Ldtk, config: &Config, level: usize) -> Self {
         let level = &ldtk.levels[level];
         let tile_by_int: HashMap<u32, Tile> = ldtk
             .defs
@@ -49,6 +49,7 @@ impl GameState {
             powerups: default(),
             goals: default(),
             selected_player: None,
+            config: config.clone(),
         };
         for entity in level
             .layer_instances

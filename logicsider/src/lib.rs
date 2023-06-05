@@ -2,6 +2,7 @@ use batbox::prelude::*;
 use std::borrow::Cow;
 
 pub mod id;
+pub mod config;
 mod input;
 mod int_angle;
 mod ldtk;
@@ -11,6 +12,7 @@ mod players;
 mod position;
 mod systems;
 
+pub use config::Config;
 pub use id::Id;
 pub use input::Input;
 pub use int_angle::IntAngle;

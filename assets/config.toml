@@ -3,6 +3,9 @@ animation_time = 0.2
 cell_pixel_size = 16
 border_radius_pixels = 4
 
+[experimental]
+magnet_logic = "Always90" # "Input", "Always90", "Always180"
+
 [sound]
 volume = 0.1
 

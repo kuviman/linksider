@@ -21,6 +21,8 @@ pub struct Shaders {
 #[derive(geng::asset::Load)]
 pub struct Assets {
     pub config: Config,
+    #[load(serde, path = "logic.toml")]
+    pub logic_config: logicsider::Config,
     pub world: Ldtk,
     pub shaders: Shaders,
     pub background: background::Assets,
@@ -44,7 +46,7 @@ struct Game {
 
 impl Game {
     pub fn new(geng: &Geng, assets: &Rc<Assets>, sound: &Rc<sound::State>, level: usize) -> Self {
-        let game_state = GameState::from_ldtk(&assets.world.json, level);
+        let game_state = GameState::from_ldtk(&assets.world.json, &assets.logic_config, level);
         let level_mesh = ugli::VertexBuffer::new_static(
             geng.ugli(),
             assets

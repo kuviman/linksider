@@ -4,13 +4,15 @@ use logicsider::*;
 #[test]
 fn main() {
     logger::init_for_tests();
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
-        .join("assets")
-        .join("world.ldtk");
-    let ldtk: ldtk_json::Ldtk =
-        serde_json::from_reader(std::io::BufReader::new(std::fs::File::open(path).unwrap()))
-            .unwrap();
+        .join("assets");
+    let config =
+        futures::executor::block_on(file::load_detect(assets_dir.join("logic.toml"))).unwrap();
+    let ldtk: ldtk_json::Ldtk = serde_json::from_reader(std::io::BufReader::new(
+        std::fs::File::open(assets_dir.join("world.ldtk")).unwrap(),
+    ))
+    .unwrap();
     for (index, level) in ldtk.levels.iter().enumerate() {
         let level_name = &level.identifier;
         let solutions = level.field_instances.iter().find_map(|field| {
@@ -29,7 +31,7 @@ fn main() {
             if line.is_empty() {
                 continue;
             }
-            let mut game_state = GameState::from_ldtk(&ldtk, index);
+            let mut game_state = GameState::from_ldtk(&ldtk, &config, index);
             for c in line.chars().chain(".".chars()) {
                 match c {
                     '<' => {

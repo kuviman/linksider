@@ -8,6 +8,7 @@ pub struct GameState {
     pub powerups: Collection<Powerup>,
     pub selected_player: Option<Id>,
     pub goals: Collection<Goal>,
+    pub config: Config,
 }
 
 impl GameState {

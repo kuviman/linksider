@@ -1,5 +1,12 @@
 use super::*;
 
+#[derive(Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum ContinueConfig {
+    Input,
+    Always,
+    Never,
+}
+
 pub fn entity_magneted_angles(
     state: &GameState,
     entity_id: Id,
@@ -14,6 +21,9 @@ pub fn entity_magneted_angles(
 }
 
 pub fn continue_move(state: &GameState, entity_id: Id, input: Input) -> Option<EntityMove> {
+    if state.config.magnet_continue == ContinueConfig::Never {
+        return None;
+    }
     let entity = state.entities.get(&entity_id).unwrap();
     let Some(EntityMove {
             used_input: prev_input,
@@ -29,19 +39,19 @@ pub fn continue_move(state: &GameState, entity_id: Id, input: Input) -> Option<E
         // Cant continue after locked in place rotation
         return None;
     }
-    if prev_input != input {
+    if prev_input != input && state.config.magnet_continue == ContinueConfig::Input {
         return None;
     }
     let new_pos = Position {
         cell: entity.pos.cell + magnet_angle.to_vec(),
-        angle: entity.pos.angle.with_input(input),
+        angle: entity.pos.angle.with_input(prev_input),
     };
     if is_blocked(state, new_pos.cell) {
         return None;
     }
     Some(EntityMove {
         entity_id: entity.id,
-        used_input: input,
+        used_input: prev_input,
         prev_pos: entity.pos,
         new_pos,
         move_type: EntityMoveType::MagnetContinue, // Can not continue magnet move more than 180 degrees
