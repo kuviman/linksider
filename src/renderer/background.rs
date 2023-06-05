@@ -37,11 +37,11 @@ impl State {
         }
     }
 
-    pub fn draw(&mut self, framebuffer: &mut ugli::Framebuffer, camera: &Camera2d) {
+    pub fn draw(&self, framebuffer: &mut ugli::Framebuffer, camera: &impl geng::AbstractCamera2d) {
         let mut draw_layer = |texture: &ugli::Texture, k: f32| {
             ugli::draw(
                 framebuffer,
-                &self.assets.shaders.fullscreen_texture,
+                &self.assets.renderer.shaders.fullscreen_texture,
                 ugli::DrawMode::TriangleFan,
                 &self.quad,
                 (
@@ -58,7 +58,7 @@ impl State {
                 },
             );
         };
-        draw_layer(&self.assets.background.bottom, 0.75);
-        draw_layer(&self.assets.background.top, 0.5);
+        draw_layer(&self.assets.renderer.background.bottom, 0.75);
+        draw_layer(&self.assets.renderer.background.top, 0.5);
     }
 }
