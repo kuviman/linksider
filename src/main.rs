@@ -3,6 +3,7 @@ use geng::prelude::*;
 use ldtk::Ldtk;
 
 mod config;
+mod editor;
 mod history;
 mod play;
 mod renderer;
@@ -39,6 +40,53 @@ fn main() {
         let assets = &assets;
         let sound = Rc::new(sound::State::new(geng, assets));
         let renderer = Rc::new(Renderer::new(geng, assets));
-        play::State::new(geng, assets, &renderer, &sound, 0)
+
+        struct LevelChanger {
+            current_level: Cell<usize>,
+            geng: Geng,
+            assets: Rc<Assets>,
+            sound: Rc<sound::State>,
+            renderer: Rc<Renderer>,
+        }
+
+        impl LevelChanger {
+            fn play(self: Rc<Self>) -> impl geng::State {
+                play::State::new(
+                    &self.geng,
+                    &self.assets,
+                    &self.renderer,
+                    &self.sound,
+                    GameState::from_ldtk(
+                        &self.assets.world.json,
+                        &self.assets.logic_config,
+                        self.current_level.get(),
+                    ),
+                    Rc::new({
+                        let state = self.clone();
+                        move |finish| state.clone().finish(finish)
+                    }),
+                )
+            }
+            fn finish(self: Rc<Self>, finish: play::Finish) -> geng::state::Transition {
+                self.current_level.set({
+                    let new_level = self.current_level.get() as isize
+                        + match finish {
+                            play::Finish::NextLevel => 1,
+                            play::Finish::PrevLevel => -1,
+                        };
+                    new_level.clamp(0, self.assets.world.levels.len() as isize - 1) as usize
+                });
+                geng::state::Transition::Switch(Box::new(self.play()))
+            }
+        }
+
+        Rc::new(LevelChanger {
+            current_level: Cell::new(0),
+            geng: geng.clone(),
+            assets: assets.clone(),
+            sound,
+            renderer,
+        })
+        .play()
     });
 }

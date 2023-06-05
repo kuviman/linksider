@@ -4,13 +4,21 @@ pub struct State {
     framebuffer_size: vec2<f32>,
     geng: Geng,
     assets: Rc<Assets>,
-    level: usize,
-    history_player: history::Player,
     camera: Camera2d,
     transition: Option<geng::state::Transition>,
     sound: Rc<sound::State>,
     renderer: Rc<Renderer>,
     level_mesh: renderer::LevelMesh,
+    finish_callback: FinishCallback,
+    original_game_state: GameState,
+    history_player: history::Player,
+}
+
+pub type FinishCallback = Rc<dyn Fn(Finish) -> geng::state::Transition>;
+
+pub enum Finish {
+    NextLevel,
+    PrevLevel,
 }
 
 impl State {
@@ -19,13 +27,13 @@ impl State {
         assets: &Rc<Assets>,
         renderer: &Rc<Renderer>,
         sound: &Rc<sound::State>,
-        level: usize,
+        game_state: GameState,
+        finish_callback: FinishCallback,
     ) -> Self {
-        let game_state = GameState::from_ldtk(&assets.world.json, &assets.logic_config, level);
         Self {
+            finish_callback,
             geng: geng.clone(),
             assets: assets.clone(),
-            level,
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
                 center: vec2::ZERO,
@@ -36,20 +44,12 @@ impl State {
             sound: sound.clone(),
             renderer: renderer.clone(),
             level_mesh: renderer.level_mesh(&game_state),
+            original_game_state: game_state.clone(),
             history_player: history::Player::new(game_state, assets.config.animation_time),
         }
     }
-    pub fn change_level(&mut self, change: isize) {
-        let new_level = self.level as isize + change;
-        if (0..self.assets.world.levels.len() as isize).contains(&new_level) {
-            self.transition = Some(geng::state::Transition::Switch(Box::new(Self::new(
-                &self.geng,
-                &self.assets,
-                &self.renderer,
-                &self.sound,
-                new_level as usize,
-            ))));
-        }
+    pub fn finish(&mut self, finish: Finish) {
+        self.transition = Some((self.finish_callback)(finish));
     }
 }
 
@@ -91,7 +91,7 @@ impl geng::State for State {
             );
         }
         if self.history_player.frame().current_state.finished() {
-            self.change_level(1);
+            self.finish(Finish::NextLevel);
         }
     }
     fn transition(&mut self) -> Option<geng::state::Transition> {
@@ -100,11 +100,26 @@ impl geng::State for State {
     fn handle_event(&mut self, event: geng::Event) {
         match event {
             geng::Event::KeyDown { key } => {
+                if let Some(editor) = &self.assets.config.controls.editor {
+                    if key == editor.toggle {
+                        self.transition = Some(geng::state::Transition::Switch(Box::new(
+                            editor::State::new(
+                                &self.geng,
+                                &self.assets,
+                                &self.renderer,
+                                &self.sound,
+                                self.original_game_state.clone(),
+                                self.finish_callback.clone(),
+                            ),
+                        )));
+                    }
+                }
+
                 if let Some(cheats) = &self.assets.config.controls.cheats {
                     if key == cheats.prev_level {
-                        self.change_level(-1);
+                        self.finish(Finish::PrevLevel);
                     } else if key == cheats.next_level {
-                        self.change_level(1);
+                        self.finish(Finish::NextLevel);
                     }
                 }
 

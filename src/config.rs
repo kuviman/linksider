@@ -24,6 +24,7 @@ pub struct Controls {
     pub next_player: Vec<geng::Key>,
     pub prev_player: Vec<geng::Key>,
     pub cheats: Option<CheatsControls>,
+    pub editor: Option<editor::Controls>,
 }
 
 #[derive(geng::asset::Load, Deserialize)]

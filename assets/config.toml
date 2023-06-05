@@ -20,3 +20,6 @@ prev_player = ["Down"]
 next_level = "PageUp"
 prev_level = "PageDown"
 effect = { jump = "J", delete = "Delete" }
+
+[controls.editor]
+toggle = "E"
