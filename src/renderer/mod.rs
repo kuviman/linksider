@@ -3,6 +3,12 @@ use super::*;
 mod background;
 
 #[derive(geng::asset::Load)]
+struct Shaders {
+    texture: ugli::Program,
+    fullscreen_texture: ugli::Program,
+}
+
+#[derive(geng::asset::Load)]
 pub struct Assets {
     shaders: Shaders,
     background: background::Assets,
