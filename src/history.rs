@@ -46,6 +46,7 @@ impl Player {
             self.auto_continue = true;
             self.moves.last()
         } else {
+            self.states[self.target_pos] = new_state;
             self.auto_continue = false;
             None
         }
@@ -148,7 +149,7 @@ impl Player {
     }
 
     pub fn change_player_selection(&mut self, delta: isize) {
-        // TODO figure out a better way
+        // TODO player selection should not be part of the game state?
         self.states[self.target_pos].change_player_selection(delta);
     }
 }

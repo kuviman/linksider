@@ -50,6 +50,7 @@ impl GameState {
             goals: default(),
             selected_player: None,
             config: config.clone(),
+            stable: false,
         };
         for entity in level
             .layer_instances

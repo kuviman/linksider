@@ -27,6 +27,9 @@ impl GameState {
     }
 
     pub fn change_player_selection(&mut self, delta: isize) {
+        if !self.config.allow_unstable_player_selection && !self.stable {
+            return;
+        }
         let Some(current_index) =  self.selected_player_index() else {
             self.select_player(0);
             return;

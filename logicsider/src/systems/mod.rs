@@ -107,6 +107,7 @@ fn perform_moves(state: &mut GameState, moves: &Collection<EntityMove>) {
 impl GameState {
     pub fn process_turn(&mut self, input: Input) -> Option<Moves> {
         let state = self;
+        state.stable = false;
         let result = Moves {
             entity_moves: {
                 let moves = check_moves(state, input);
@@ -121,6 +122,7 @@ impl GameState {
             collected_powerups: powerups::process(state),
         };
         if result.collected_powerups.is_empty() && result.entity_moves.is_empty() {
+            state.stable = true;
             return None;
         }
         Some(result)
