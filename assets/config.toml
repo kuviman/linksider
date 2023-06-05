@@ -35,4 +35,5 @@ camera_drag = "Middle"
 create = "Left"
 delete = "Right"
 choose = "Tab"
+pick = "Q"
 

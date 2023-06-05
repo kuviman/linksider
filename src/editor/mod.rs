@@ -7,6 +7,7 @@ pub struct Controls {
     create: geng::MouseButton,
     delete: geng::MouseButton,
     choose: geng::Key,
+    pick: geng::Key,
 }
 
 #[derive(Deserialize)]
@@ -28,15 +29,37 @@ enum Brush {
     Entity(String),
     Tile(Tile),
     Powerup(Effect),
+    Goal,
 }
 
 impl Brush {
     fn tile_name(&self) -> String {
         match self {
-            Brush::Entity(name) => name.clone(),
-            Brush::Tile(tile) => format!("{tile:?}").to_lowercase(),
-            Brush::Powerup(effect) => format!("{effect:?}Power"),
+            Self::Entity(name) => name.clone(),
+            Self::Tile(tile) => format!("{tile:?}").to_lowercase(),
+            Self::Powerup(effect) => format!("{effect:?}Power"),
+            Self::Goal => "Goal".to_owned(),
         }
+    }
+
+    fn pick(state: &GameState, cell: vec2<i32>) -> Option<Self> {
+        if let Some(tile) = state.tiles.get(&cell) {
+            return Some(Self::Tile(*tile));
+        }
+        if let Some(entity) = state.entities.iter().find(|entity| entity.pos.cell == cell) {
+            return Some(Self::Entity(entity.identifier.clone()));
+        }
+        if let Some(powerup) = state
+            .powerups
+            .iter()
+            .find(|powerup| powerup.pos.cell == cell)
+        {
+            return Some(Self::Powerup(powerup.effect.clone()));
+        }
+        if let Some(_goal) = state.goals.iter().find(|goal| goal.pos.cell == cell) {
+            return Some(Self::Goal);
+        }
+        None
     }
 }
 
@@ -125,6 +148,13 @@ impl State {
                     effect: effect.clone(),
                 });
             }
+            Brush::Goal => self.game_state.goals.insert(Goal {
+                id: self.game_state.id_gen.gen(),
+                pos: Position {
+                    cell,
+                    angle: IntAngle::RIGHT,
+                },
+            }),
         }
     }
 
@@ -155,13 +185,14 @@ impl State {
         let tiles = Tile::iter_variants().map(Brush::Tile);
         let powerups = Effect::iter_variants().map(Brush::Powerup);
 
-        let mut items: Vec<BrushWheelItem> = itertools::chain![entities, tiles, powerups]
-            .map(|brush| BrushWheelItem {
-                brush,
-                pos: vec2::ZERO,
-                hovered: false,
-            })
-            .collect();
+        let mut items: Vec<BrushWheelItem> =
+            itertools::chain![entities, tiles, powerups, [Brush::Goal]]
+                .map(|brush| BrushWheelItem {
+                    brush,
+                    pos: vec2::ZERO,
+                    hovered: false,
+                })
+                .collect();
         let len = items.len();
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
@@ -222,6 +253,14 @@ impl geng::State for State {
                     self.brush = item.brush;
                 }
                 self.brush_wheel_pos = None;
+            }
+            geng::Event::KeyDown { key } if key == controls.pick => {
+                if let Some(brush) = Brush::pick(
+                    &self.game_state,
+                    self.screen_to_tile(self.geng.window().cursor_position()),
+                ) {
+                    self.brush = brush;
+                }
             }
             geng::Event::MouseDown { position, button } if button == controls.create => {
                 self.create(position);
