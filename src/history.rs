@@ -137,14 +137,20 @@ impl Player {
     }
 
     pub fn undo(&mut self) {
-        if self.target_pos != 0 {
+        while self.target_pos != 0 {
             self.target_pos -= 1;
+            if self.states[self.target_pos].stable {
+                break;
+            }
         }
     }
 
     pub fn redo(&mut self) {
-        if self.target_pos + 1 < self.states.len() {
+        while self.target_pos + 1 < self.states.len() {
             self.target_pos += 1;
+            if self.states[self.target_pos].stable {
+                break;
+            }
         }
     }
 
