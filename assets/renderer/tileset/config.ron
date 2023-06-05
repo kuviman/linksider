@@ -6,9 +6,7 @@
       color_coded_rules: "block.png",
       default: Some((8, 1)),
     ),
-    "disable": AutoTile (
-      color_coded_rules: "disable.png",
-    ),
+    "disable": At(10, 2),
     "Player": At(11, 5),
     "Goal": At(3, 3),
     "JumpPower": At(9, 5),

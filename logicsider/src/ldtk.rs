@@ -80,42 +80,14 @@ impl GameState {
                         });
                     }
                     entity_name => {
-                        let properties = match entity_name {
-                            "Player" => Properties {
-                                block: true,
-                                trigger: true,
-                                player: true,
-                                pushable: false,
-                            },
-                            "Crate" => Properties {
-                                block: true,
-                                trigger: true,
-                                player: false,
-                                pushable: false,
-                            },
-                            "Box" => Properties {
-                                block: true,
-                                trigger: true,
-                                player: false,
-                                pushable: true,
-                            },
-                            "DisableBox" => Properties {
-                                block: true,
-                                trigger: false,
-                                player: false,
-                                pushable: true,
-                            },
-                            _ => unimplemented!("Entity {entity_name:?} unimplemented"),
-                        };
-                        result.entities.insert(Entity {
-                            id: result.id_gen.gen(),
-                            identifier: entity.identifier.clone(),
-                            properties,
-                            sides: std::array::from_fn(|_| Side { effect: None }),
+                        result.add_entity(
+                            entity_name,
+                            config
+                                .entities
+                                .get(entity_name)
+                                .expect(&format!("Entity {entity_name:?} unimplemented")),
                             pos,
-                            prev_pos: pos,
-                            prev_move: None,
-                        });
+                        );
                     }
                 }
             }

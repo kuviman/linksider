@@ -1,2 +1,26 @@
 allow_unstable_player_selection = false
 magnet_continue = "Input" # "Input", "Always", "Never"
+
+[entities.Player]
+block = true
+trigger = true
+player = true
+pushable = false
+
+[entities.Crate]
+block = true
+trigger = true
+player = false
+pushable = false
+
+[entities.Box]
+block = true
+trigger = true
+player = false
+pushable = true
+
+[entities.DisableBox]
+block = true
+trigger = false
+player = false
+pushable = true

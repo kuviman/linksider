@@ -100,19 +100,17 @@ impl geng::State for State {
     fn handle_event(&mut self, event: geng::Event) {
         match event {
             geng::Event::KeyDown { key } => {
-                if let Some(editor) = &self.assets.config.controls.editor {
-                    if key == editor.toggle {
-                        self.transition = Some(geng::state::Transition::Switch(Box::new(
-                            editor::State::new(
-                                &self.geng,
-                                &self.assets,
-                                &self.renderer,
-                                &self.sound,
-                                self.original_game_state.clone(),
-                                self.finish_callback.clone(),
-                            ),
-                        )));
-                    }
+                if key == self.assets.config.editor.controls.toggle {
+                    self.transition = Some(geng::state::Transition::Switch(Box::new(
+                        editor::State::new(
+                            &self.geng,
+                            &self.assets,
+                            &self.renderer,
+                            &self.sound,
+                            self.original_game_state.clone(),
+                            self.finish_callback.clone(),
+                        ),
+                    )));
                 }
 
                 if let Some(cheats) = &self.assets.config.controls.cheats {

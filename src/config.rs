@@ -24,7 +24,6 @@ pub struct Controls {
     pub next_player: Vec<geng::Key>,
     pub prev_player: Vec<geng::Key>,
     pub cheats: Option<CheatsControls>,
-    pub editor: Option<editor::Controls>,
 }
 
 #[derive(geng::asset::Load, Deserialize)]
@@ -36,4 +35,5 @@ pub struct Config {
     pub cell_pixel_size: usize,
     pub border_radius_pixels: usize,
     pub sound: sound::Config,
+    pub editor: editor::Config,
 }

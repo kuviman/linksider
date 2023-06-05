@@ -4,4 +4,5 @@ use super::*;
 pub struct Config {
     pub allow_unstable_player_selection: bool,
     pub magnet_continue: systems::magnet::ContinueConfig,
+    pub entities: HashMap<String, Properties>,
 }

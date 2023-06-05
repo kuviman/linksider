@@ -21,9 +21,18 @@ next_level = "PageUp"
 prev_level = "PageDown"
 effect = { jump = "J", delete = "Delete" }
 
-[controls.editor]
+[editor]
+brush_preview_opacity = 0.5
+
+[editor.brush_wheel]
+radius = 3
+inner_radius = 2
+color = "#777"
+
+[editor.controls]
 toggle = "E"
 camera_drag = "Middle"
 create = "Left"
 delete = "Right"
 choose = "Tab"
+

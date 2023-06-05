@@ -23,14 +23,32 @@ impl GameState {
             .map(|x| x as f32)
             .center()
     }
+
+    pub fn add_entity(&mut self, identifier: &str, properties: &Properties, pos: Position) {
+        self.entities.insert(Entity {
+            id: self.id_gen.gen(),
+            identifier: identifier.to_owned(),
+            properties: properties.clone(),
+            sides: std::array::from_fn(|_| Side { effect: None }),
+            pos,
+            prev_pos: pos,
+            prev_move: None,
+        });
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tile {
-    Nothing,
+    Nothing, // TODO remove?
     Block,
     Disable,
     Cloud,
+}
+
+impl Tile {
+    pub fn iter_variants() -> impl Iterator<Item = Self> {
+        [Self::Block, Self::Disable, Self::Cloud].into_iter()
+    }
 }
 
 /// Box entity
@@ -67,7 +85,7 @@ impl Entity {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Properties {
     pub block: bool,
     pub trigger: bool,
@@ -80,17 +98,17 @@ pub struct Side {
     pub effect: Option<Effect>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Effect {
     Jump,
     Slide,
     Magnet,
-    DisableGravity,
+    DisableGravity, // Fake effect (other side of magnet)
     DisableTrigger,
 }
 
+// TODO derive
 impl Effect {
-    // TODO derive
     pub fn from_str(name: &str) -> Self {
         match name {
             "Jump" => Self::Jump,
@@ -100,6 +118,9 @@ impl Effect {
             "DisableTrigger" => Self::DisableTrigger,
             _ => unimplemented!("{name:?} effect is unimplemented"),
         }
+    }
+    pub fn iter_variants() -> impl Iterator<Item = Self> {
+        [Self::Jump, Self::Magnet, Self::Slide, Self::DisableTrigger].into_iter()
     }
 }
 
