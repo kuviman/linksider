@@ -9,16 +9,34 @@ pub struct Config {
 }
 
 struct Level {
+    name: String,
     preview: ugli::Texture,
 }
 
-fn level_path(group_name: &str, level_index: usize) -> std::path::PathBuf {
-    group_dir(group_name).join(format!("{level_index}.ron"))
+fn level_path(group_name: &str, level_name: &str) -> std::path::PathBuf {
+    group_dir(group_name).join(format!("{level_name}.ron"))
 }
 
 struct Group {
     name: String,
     levels: Vec<Level>,
+}
+
+impl Group {
+    fn save_level_list(&self) {
+        let path = group_dir(&self.name).join("list.ron");
+        let writer = std::io::BufWriter::new(std::fs::File::create(path).unwrap());
+        ron::ser::to_writer_pretty(
+            writer,
+            &self
+                .levels
+                .iter()
+                .map(|level| &level.name)
+                .collect::<Vec<_>>(),
+            default(),
+        )
+        .unwrap();
+    }
 }
 
 fn group_dir(group_name: &str) -> std::path::PathBuf {
@@ -149,30 +167,40 @@ impl geng::State for State {
                         )
                         .unwrap();
                     }
-                    let group = &self.groups[selection.group];
-                    let level_path = level_path(&group.name, selection.level);
-                    if group.levels.get(selection.level).is_none() {
+                    let group = &mut self.groups[selection.group];
+                    if let Some(level) = group.levels.get(selection.level) {
+                        let level_path = level_path(&group.name, &level.name);
+                        self.transition = Some(geng::state::Transition::Switch(Box::new(
+                            editor::level::State::load(
+                                &self.geng,
+                                &self.assets,
+                                &self.sound,
+                                &self.renderer,
+                                level_path,
+                            ),
+                        )));
+                    } else {
+                        let name = format!("Level{}", selection.level);
+                        let game_state = GameState::empty();
                         ron::ser::to_writer_pretty(
-                            std::io::BufWriter::new(std::fs::File::create(&level_path).unwrap()),
-                            &GameState::empty(),
+                            std::io::BufWriter::new(
+                                std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
+                            ),
+                            &game_state,
                             default(),
                         )
                         .unwrap();
-                        std::fs::write(
-                            group_dir(&group.name).join("count.txt"),
-                            (group.levels.len() + 1).to_string(),
-                        )
-                        .unwrap();
+                        group.levels.push(Level {
+                            name,
+                            preview: generate_preview(
+                                &self.geng,
+                                &self.assets,
+                                &self.renderer,
+                                &game_state,
+                            ),
+                        });
+                        group.save_level_list();
                     }
-                    self.transition = Some(geng::state::Transition::Switch(Box::new(
-                        editor::level::State::load(
-                            &self.geng,
-                            &self.assets,
-                            &self.sound,
-                            &self.renderer,
-                            level_path,
-                        ),
-                    )));
                 }
             }
             _ => {}
@@ -241,6 +269,37 @@ impl geng::State for State {
     }
 }
 
+fn generate_preview(
+    geng: &Geng,
+    assets: &Assets,
+    renderer: &Renderer,
+    game_state: &GameState,
+) -> ugli::Texture {
+    let mut texture = ugli::Texture::new_uninitialized(
+        geng.ugli(),
+        vec2::splat(assets.config.editor.world.preview_texture_size),
+    );
+    texture.set_filter(ugli::Filter::Nearest);
+    let bb = game_state.bounding_box().map(|x| x as f32);
+    renderer.draw(
+        &mut ugli::Framebuffer::new_color(
+            geng.ugli(),
+            ugli::ColorAttachment::Texture(&mut texture),
+        ),
+        &geng::Camera2d {
+            fov: bb.height(),
+            center: bb.center(),
+            rotation: 0.0,
+        },
+        history::Frame {
+            current_state: &game_state,
+            animation: None,
+        },
+        &renderer.level_mesh(&game_state),
+    );
+    texture
+}
+
 impl State {
     // TODO: group these args into one Context struct
     pub fn load(
@@ -257,55 +316,32 @@ impl State {
             async move {
                 let group_names: Vec<String> = file::load_detect(groups_list_file()).await.unwrap();
                 let groups = future::join_all(group_names.into_iter().map(|group_name| async {
-                    let level_count: usize =
-                        file::load_string(group_dir(&group_name).join("count.txt"))
-                            .await
-                            .unwrap()
-                            .trim()
-                            .parse()
-                            .unwrap();
-                    let levels = future::join_all((0..level_count).map(|level_index| {
-                        let geng = &geng;
-                        let assets = &assets;
-                        let renderer = &renderer;
-                        let group_name = &group_name;
-                        async move {
+                    let list_path = group_dir(&group_name).join("list.ron");
+                    let level_names: Vec<String> = if list_path.is_file() {
+                        file::load_detect(list_path).await.unwrap()
+                    } else {
+                        // TODO remove
+                        let level_count: usize =
+                            file::load_string(group_dir(&group_name).join("count.txt"))
+                                .await
+                                .unwrap()
+                                .trim()
+                                .parse()
+                                .unwrap();
+                        (0..level_count).map(|x| x.to_string()).collect()
+                    };
+                    let levels =
+                        future::join_all(level_names.into_iter().map(|level_name| async {
+                            let game_state: GameState =
+                                file::load_detect(level_path(&group_name, &level_name))
+                                    .await
+                                    .unwrap();
                             Level {
-                                preview: {
-                                    let game_state: GameState =
-                                        file::load_detect(level_path(&group_name, level_index))
-                                            .await
-                                            .unwrap();
-                                    let mut texture = ugli::Texture::new_uninitialized(
-                                        geng.ugli(),
-                                        vec2::splat(
-                                            assets.config.editor.world.preview_texture_size,
-                                        ),
-                                    );
-                                    texture.set_filter(ugli::Filter::Nearest);
-                                    let bb = game_state.bounding_box().map(|x| x as f32);
-                                    renderer.draw(
-                                        &mut ugli::Framebuffer::new_color(
-                                            geng.ugli(),
-                                            ugli::ColorAttachment::Texture(&mut texture),
-                                        ),
-                                        &geng::Camera2d {
-                                            fov: bb.height(),
-                                            center: bb.center(),
-                                            rotation: 0.0,
-                                        },
-                                        history::Frame {
-                                            current_state: &game_state,
-                                            animation: None,
-                                        },
-                                        &renderer.level_mesh(&game_state),
-                                    );
-                                    texture
-                                },
+                                name: level_name,
+                                preview: generate_preview(&geng, &assets, &renderer, &game_state),
                             }
-                        }
-                    }))
-                    .await;
+                        }))
+                        .await;
                     Group {
                         name: group_name,
                         levels,
