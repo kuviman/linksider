@@ -19,8 +19,8 @@ prev_player = ["Down"]
 escape = ["Escape"]
 
 [controls.cheats]
-next_level = "PageUp"
-prev_level = "PageDown"
+next_level = "P"
+prev_level = "O"
 effect = { jump = "J", delete = "Delete" }
 
 [camera_controls]
@@ -34,7 +34,7 @@ default_fov = 15
 index_size = 0.3
 index_color = "white"
 brush_preview_opacity = 0.5
-grid_color = "white"
+grid_color = "#7775"
 
 [editor.level.brush_wheel]
 radius = 3

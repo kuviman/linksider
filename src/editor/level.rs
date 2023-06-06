@@ -198,7 +198,7 @@ impl State {
             brush_wheel_pos: None,
             history: vec![game_state.clone()],
             game_state,
-            show_grid: false,
+            show_grid: true,
         }
     }
 

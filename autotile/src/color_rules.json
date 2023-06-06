@@ -1,8 +1,8 @@
 {
-  "blue": "Same",
-  "red": "Different",
+  "#46425e": "Same",
+  "#15788c": "Different",
   "white": "Empty",
   "black": null,
-  "green": "Anything",
+  "#00b9be": "Anything",
   "magenta": "NotEmpty"
 }
