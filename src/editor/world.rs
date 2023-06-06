@@ -47,6 +47,18 @@ impl Group {
         )
         .unwrap();
     }
+
+    fn generate_new_level_name(&self) -> String {
+        // TODO better
+        use geng::prelude::rand::distributions::DistString;
+        rand::distributions::Alphanumeric.sample_string(&mut thread_rng(), 10)
+    }
+}
+
+fn generate_new_group_name() -> String {
+    // TODO better
+    use geng::prelude::rand::distributions::DistString;
+    rand::distributions::Alphanumeric.sample_string(&mut thread_rng(), 10)
 }
 
 fn group_dir(group_name: &str) -> std::path::PathBuf {
@@ -142,7 +154,7 @@ impl State {
 
     fn insert_level(&mut self, group_index: usize, level_index: usize, game_state: GameState) {
         let group = &mut self.groups[group_index];
-        let name = format!("Level{level_index}"); // TODO must be unique
+        let name = group.generate_new_level_name();
         ron::ser::to_writer_pretty(
             std::io::BufWriter::new(
                 std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
@@ -230,7 +242,7 @@ impl geng::State for State {
                         }
                     } else {
                         let group = Group {
-                            name: format!("Group{}", selection.group),
+                            name: generate_new_group_name(),
                             levels: Vec::new(),
                         };
                         std::fs::create_dir(group_dir(&group.name)).unwrap();
@@ -295,7 +307,7 @@ impl geng::State for State {
             );
             let text = match self.groups.get(selection.group) {
                 Some(group) => match group.levels.get(selection.level) {
-                    Some(_level) => format!("{}/{}", group.name, selection.level),
+                    Some(level) => format!("{}::{}", group.name, level.name),
                     None => "New level".to_owned(),
                 },
                 None => "New group".to_owned(),
