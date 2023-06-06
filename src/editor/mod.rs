@@ -8,6 +8,7 @@ pub struct Controls {
     delete: geng::MouseButton,
     choose: geng::Key,
     pick: geng::Key,
+    grid: geng::Key,
 }
 
 #[derive(Deserialize)]
@@ -19,6 +20,7 @@ struct BrushWheelConfig {
 
 #[derive(Deserialize)]
 pub struct Config {
+    grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
     pub controls: Controls,
@@ -114,6 +116,7 @@ pub struct State {
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<GameState>,
+    show_grid: bool,
 }
 
 impl State {
@@ -153,6 +156,7 @@ impl State {
             brush_wheel_pos: None,
             history: vec![game_state.clone()],
             game_state,
+            show_grid: false,
         }
     }
 
@@ -317,6 +321,9 @@ impl geng::State for State {
     fn handle_event(&mut self, event: geng::Event) {
         let controls = &self.assets.config.editor.controls;
         match event {
+            geng::Event::KeyDown { key } if key == controls.grid => {
+                self.show_grid = !self.show_grid;
+            }
             geng::Event::KeyDown { key } if key == controls.toggle => {
                 self.transition =
                     Some(geng::state::Transition::Switch(Box::new(play::State::new(
@@ -417,6 +424,14 @@ impl geng::State for State {
             },
             &self.level_mesh,
         );
+
+        if self.show_grid {
+            self.renderer.draw_grid(
+                framebuffer,
+                &self.camera,
+                self.assets.config.editor.grid_color,
+            );
+        }
 
         self.renderer.draw_tile(
             framebuffer,

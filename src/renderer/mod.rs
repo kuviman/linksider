@@ -20,6 +20,8 @@ pub struct Renderer {
     assets: Rc<crate::Assets>,
     background: background::State,
     entity_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
+    grid_mesh: ugli::VertexBuffer<draw2d::TexturedVertex>,
+    white_texture: ugli::Texture,
 }
 
 impl Renderer {
@@ -58,7 +60,61 @@ impl Renderer {
                     })
                 })
                 .collect(),
+            white_texture: ugli::Texture::new_with(geng.ugli(), vec2(1, 1), |_| Rgba::WHITE),
+            grid_mesh: Self::create_grid_mesh(geng.ugli(), 100, 100),
         }
+    }
+
+    fn create_grid_mesh(
+        ugli: &Ugli,
+        width: usize,
+        height: usize,
+    ) -> ugli::VertexBuffer<draw2d::TexturedVertex> {
+        let mut data = Vec::with_capacity(((width + 1) + (height + 1)) * 2);
+        for x in 0..=width {
+            data.push(draw2d::TexturedVertex {
+                a_pos: vec2(x as f32, 0.0),
+                a_color: Rgba::WHITE,
+                a_vt: vec2::ZERO,
+            });
+            data.push(draw2d::TexturedVertex {
+                a_pos: vec2(x as f32, height as f32),
+                a_color: Rgba::WHITE,
+                a_vt: vec2::ZERO,
+            });
+        }
+        for y in 0..=height {
+            data.push(draw2d::TexturedVertex {
+                a_pos: vec2(0.0, y as f32),
+                a_color: Rgba::WHITE,
+                a_vt: vec2::ZERO,
+            });
+            data.push(draw2d::TexturedVertex {
+                a_pos: vec2(width as f32, y as f32),
+                a_color: Rgba::WHITE,
+                a_vt: vec2::ZERO,
+            });
+        }
+        ugli::VertexBuffer::new_static(ugli, data)
+    }
+
+    pub fn draw_grid(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        color: Rgba<f32>,
+    ) {
+        let bottom_left_world =
+            camera.screen_to_world(framebuffer.size().map(|x| x as f32), vec2::ZERO);
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            &self.grid_mesh,
+            ugli::DrawMode::Lines { line_width: 1.0 },
+            &self.white_texture,
+            color,
+            mat3::translate(bottom_left_world.map(f32::floor)),
+        );
     }
 
     pub fn draw(
@@ -90,6 +146,7 @@ impl Renderer {
             framebuffer,
             camera,
             &level_mesh.0,
+            ugli::DrawMode::Triangles,
             &self.assets.renderer.tileset.texture,
             Rgba::WHITE,
             mat3::identity(),
@@ -224,6 +281,7 @@ impl Renderer {
             framebuffer,
             camera,
             vertex_data,
+            ugli::DrawMode::Triangles,
             &self.assets.renderer.tileset.texture,
             color,
             matrix,
@@ -235,6 +293,7 @@ impl Renderer {
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
         vertex_data: impl ugli::VertexDataSource,
+        mode: ugli::DrawMode,
         texture: &ugli::Texture,
         color: Rgba<f32>,
         matrix: mat3<f32>,
@@ -242,7 +301,7 @@ impl Renderer {
         ugli::draw(
             framebuffer,
             &self.assets.renderer.shaders.texture,
-            ugli::DrawMode::Triangles,
+            mode,
             vertex_data,
             (
                 ugli::uniforms! {

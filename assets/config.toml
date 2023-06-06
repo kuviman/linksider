@@ -23,6 +23,7 @@ effect = { jump = "J", delete = "Delete" }
 
 [editor]
 brush_preview_opacity = 0.5
+grid_color = "white"
 
 [editor.brush_wheel]
 radius = 3
@@ -36,4 +37,4 @@ create = "Left"
 delete = "Right"
 choose = "Tab"
 pick = "Q"
-
+grid = "G"
