@@ -62,7 +62,7 @@ fn generate_new_group_name() -> String {
 }
 
 fn group_dir(group_name: &str) -> std::path::PathBuf {
-    run_dir().join("assets").join(group_name)
+    run_dir().join("levels").join(group_name)
 }
 
 fn groups_list_file() -> std::path::PathBuf {
