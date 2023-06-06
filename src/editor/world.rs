@@ -1,15 +1,25 @@
 use super::*;
 
 #[derive(Deserialize)]
+pub struct Controls {
+    insert: geng::Key,
+    delete: geng::Key,
+    copy: geng::Key,
+    paste: geng::Key,
+}
+
+#[derive(Deserialize)]
 pub struct Config {
     fov: f32,
     level_icon_size: f32,
     margin: f32,
     preview_texture_size: usize,
+    controls: Controls,
 }
 
 struct Level {
     name: String,
+    state: GameState,
     preview: ugli::Texture,
 }
 
@@ -63,6 +73,7 @@ pub struct State {
     camera_controls: CameraControls,
     config: Rc<Config>,
     transition: Option<geng::state::Transition>,
+    register: Option<GameState>,
 }
 
 impl State {
@@ -128,6 +139,28 @@ impl State {
         }
         None
     }
+
+    fn insert_level(&mut self, group_index: usize, level_index: usize, game_state: GameState) {
+        let group = &mut self.groups[group_index];
+        let name = format!("Level{level_index}"); // TODO must be unique
+        ron::ser::to_writer_pretty(
+            std::io::BufWriter::new(
+                std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
+            ),
+            &game_state,
+            default(),
+        )
+        .unwrap();
+        group.levels.insert(
+            level_index,
+            Level {
+                name,
+                preview: generate_preview(&self.geng, &self.assets, &self.renderer, &game_state),
+                state: game_state,
+            },
+        );
+        group.save_level_list();
+    }
 }
 
 impl geng::State for State {
@@ -142,6 +175,39 @@ impl geng::State for State {
             return;
         }
         match event {
+            geng::Event::KeyDown { key } => {
+                if let Some(selection) = self.hovered(self.geng.window().cursor_position()) {
+                    if self.config.controls.insert == key {
+                        if self.groups.get(selection.group).is_some() {
+                            self.insert_level(selection.group, selection.level, GameState::empty());
+                        }
+                    }
+                    if self.config.controls.delete == key {
+                        if let Some(group) = self.groups.get_mut(selection.group) {
+                            if selection.level < group.levels.len() {
+                                self.register = Some(group.levels.remove(selection.level).state);
+                                group.save_level_list();
+                            }
+                        }
+                    }
+                    if self.config.controls.copy == key {
+                        if let Some(level) = self
+                            .groups
+                            .get(selection.group)
+                            .and_then(|group| group.levels.get(selection.level))
+                        {
+                            self.register = Some(level.state.clone());
+                        }
+                    }
+                    if self.config.controls.paste == key {
+                        if self.groups.get(selection.group).is_some() {
+                            if let Some(state) = self.register.clone() {
+                                self.insert_level(selection.group, selection.level, state);
+                            }
+                        }
+                    }
+                }
+            }
             geng::Event::MouseDown {
                 position,
                 button: _,
@@ -180,26 +246,7 @@ impl geng::State for State {
                             ),
                         )));
                     } else {
-                        let name = format!("Level{}", selection.level);
-                        let game_state = GameState::empty();
-                        ron::ser::to_writer_pretty(
-                            std::io::BufWriter::new(
-                                std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
-                            ),
-                            &game_state,
-                            default(),
-                        )
-                        .unwrap();
-                        group.levels.push(Level {
-                            name,
-                            preview: generate_preview(
-                                &self.geng,
-                                &self.assets,
-                                &self.renderer,
-                                &game_state,
-                            ),
-                        });
-                        group.save_level_list();
+                        self.insert_level(selection.group, selection.level, GameState::empty());
                     }
                 }
             }
@@ -339,6 +386,7 @@ impl State {
                             Level {
                                 name: level_name,
                                 preview: generate_preview(&geng, &assets, &renderer, &game_state),
+                                state: game_state,
                             }
                         }))
                         .await;
@@ -364,6 +412,7 @@ impl State {
                     camera_controls: CameraControls::new(&geng, &assets.config.camera_controls),
                     config,
                     transition: None,
+                    register: None,
                 }
             }
         })

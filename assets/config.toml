@@ -55,3 +55,9 @@ fov = 15
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128
+
+[editor.world.controls]
+insert = "I"
+delete = "X"
+copy = "C"
+paste = "P"
