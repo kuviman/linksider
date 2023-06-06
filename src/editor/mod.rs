@@ -62,7 +62,7 @@ impl Brush {
     fn pick(state: &GameState, cell: vec2<i32>) -> Option<Self> {
         if let Some(tile) = state.tiles.get(&cell) {
             return Some(Self {
-                angle: IntAngle::DOWN,
+                angle: IntAngle::RIGHT,
                 brush_type: BrushType::Tile(*tile),
             });
         }
@@ -230,7 +230,7 @@ impl State {
         let tiles = Tile::iter_variants()
             .map(BrushType::Tile)
             .map(|brush_type| Brush {
-                angle: IntAngle::DOWN,
+                angle: IntAngle::RIGHT,
                 brush_type,
             });
         let powerups = Effect::iter_variants()
