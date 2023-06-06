@@ -1,20 +1,14 @@
 use super::*;
 
 impl GameState {
-    pub fn player_ids(&self) -> impl Iterator<Item = Id> {
-        let mut player_ids: Vec<Id> = self
+    pub fn player_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        let mut players: Vec<&Entity> = self
             .entities
             .iter()
-            .filter_map(|entity| {
-                if entity.properties.player {
-                    Some(entity.id)
-                } else {
-                    None
-                }
-            })
+            .filter(|entity| entity.properties.player)
             .collect();
-        player_ids.sort_by_key(|id| id.raw());
-        player_ids.into_iter()
+        players.sort_by_key(|player| player.index);
+        players.into_iter().map(|player| player.id)
     }
 
     pub fn selected_player_index(&self) -> Option<usize> {
@@ -23,7 +17,8 @@ impl GameState {
     }
 
     pub fn select_player(&mut self, index: usize) {
-        self.selected_player = self.player_ids().nth(index)
+        let new = self.player_ids().nth(index);
+        self.selected_player = new;
     }
 
     pub fn change_player_selection(&mut self, config: &Config, delta: isize) {

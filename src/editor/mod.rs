@@ -25,6 +25,8 @@ pub struct Config {
     min_fov: f32,
     max_fov: f32,
     zoom_speed: f32,
+    index_size: f32,
+    index_color: Rgba<f32>,
     grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
@@ -308,6 +310,19 @@ impl State {
             self.history.push(self.game_state.clone());
         }
     }
+
+    fn assign_index(&mut self, index: i32) {
+        let cell = self.screen_to_tile(self.geng.window().cursor_position());
+        if let Some(entity) = self
+            .game_state
+            .entities
+            .iter_mut()
+            .find(|entity| entity.pos.cell == cell)
+        {
+            entity.index = Some(index);
+        }
+        self.push_history_if_needed();
+    }
 }
 
 impl Drop for State {
@@ -431,6 +446,54 @@ impl geng::State for State {
             {
                 self.undo();
             }
+
+            // TODO: macro?
+            geng::Event::KeyDown {
+                key: geng::Key::Num1,
+            } => {
+                self.assign_index(1);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num2,
+            } => {
+                self.assign_index(2);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num3,
+            } => {
+                self.assign_index(3);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num4,
+            } => {
+                self.assign_index(4);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num5,
+            } => {
+                self.assign_index(5);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num6,
+            } => {
+                self.assign_index(6);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num7,
+            } => {
+                self.assign_index(7);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num8,
+            } => {
+                self.assign_index(8);
+            }
+            geng::Event::KeyDown {
+                key: geng::Key::Num9,
+            } => {
+                self.assign_index(9);
+            }
+
             _ => {}
         }
     }
@@ -445,6 +508,20 @@ impl geng::State for State {
             },
             &self.level_mesh,
         );
+
+        for entity in &self.game_state.entities {
+            if let Some(index) = entity.index {
+                self.geng.default_font().draw(
+                    framebuffer,
+                    &self.camera,
+                    &index.to_string(),
+                    vec2::splat(geng::TextAlign::CENTER),
+                    mat3::translate(entity.pos.cell.map(|x| x as f32 + 0.5))
+                        * mat3::scale_uniform(self.assets.config.editor.index_size),
+                    self.assets.config.editor.index_color,
+                );
+            }
+        }
 
         if self.show_grid {
             self.renderer.draw_grid(

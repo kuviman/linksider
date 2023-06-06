@@ -27,6 +27,8 @@ default_fov = 15
 min_fov = 5
 max_fov = 50
 zoom_speed = 0.1
+index_size = 0.3
+index_color = "white"
 brush_preview_opacity = 0.5
 grid_color = "white"
 

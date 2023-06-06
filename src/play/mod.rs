@@ -27,9 +27,10 @@ impl State {
         assets: &Rc<Assets>,
         renderer: &Rc<Renderer>,
         sound: &Rc<sound::State>,
-        game_state: GameState,
+        mut game_state: GameState,
         finish_callback: FinishCallback,
     ) -> Self {
+        game_state.init_after_load();
         Self {
             finish_callback,
             geng: geng.clone(),

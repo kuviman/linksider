@@ -12,6 +12,12 @@ pub struct GameState {
 }
 
 impl GameState {
+    // TODO remove this, create separate level file format
+    pub fn init_after_load(&mut self) {
+        let first_player = self.player_ids().next();
+        self.selected_player = first_player;
+    }
+
     pub fn tile(&self, pos: vec2<i32>) -> Tile {
         self.tiles.get(&pos).copied().unwrap_or(Tile::Nothing)
     }
@@ -26,6 +32,7 @@ impl GameState {
     pub fn add_entity(&mut self, identifier: &str, properties: &Properties, pos: Position) {
         self.entities.insert(Entity {
             id: self.id_gen.gen(),
+            index: None,
             identifier: identifier.to_owned(),
             properties: properties.clone(),
             sides: std::array::from_fn(|_| Side { effect: None }),
@@ -54,6 +61,7 @@ impl Tile {
 #[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Id,
+    pub index: Option<i32>, // for sorting
     pub identifier: String, // TODO remove
     pub properties: Properties,
     pub pos: Position,
