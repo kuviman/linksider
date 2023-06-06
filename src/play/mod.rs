@@ -107,8 +107,20 @@ impl geng::State for State {
     fn handle_event(&mut self, event: geng::Event) {
         match event {
             geng::Event::KeyDown { key } => {
-                if key == self.assets.config.editor.controls.toggle {
+                if key == self.assets.config.editor.level.controls.toggle {
                     self.finish(Finish::Editor);
+                }
+
+                if self.assets.config.controls.escape.contains(&key) {
+                    // TODO: instead go to regular world view
+                    self.transition = Some(geng::state::Transition::Switch(Box::new(
+                        editor::world::State::load(
+                            &self.geng,
+                            &self.assets,
+                            &self.sound,
+                            &self.renderer,
+                        ),
+                    )));
                 }
 
                 if let Some(cheats) = &self.assets.config.controls.cheats {

@@ -117,6 +117,14 @@ impl Renderer {
         );
     }
 
+    pub fn draw_background(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+    ) {
+        self.background.draw(framebuffer, camera);
+    }
+
     pub fn draw(
         &self,
         framebuffer: &mut ugli::Framebuffer,
@@ -129,7 +137,7 @@ impl Renderer {
             animation,
         } = frame;
 
-        self.background.draw(framebuffer, camera);
+        self.draw_background(framebuffer, camera);
 
         let no_moves = Moves::default();
         let history::Animation {

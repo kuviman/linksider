@@ -1,5 +1,6 @@
 use geng::prelude::*;
 
+mod camera_controls;
 mod config;
 mod editor;
 mod history;
@@ -8,6 +9,7 @@ mod renderer;
 mod sound;
 mod util;
 
+use camera_controls::CameraControls;
 use config::Config;
 use logicsider::*;
 use renderer::Renderer;
@@ -22,10 +24,22 @@ pub struct Assets {
     pub sound: sound::Assets,
 }
 
+#[derive(clap::Parser)]
+struct Opt {
+    #[clap(long)]
+    editor: bool,
+    #[clap(flatten)]
+    geng: geng::CliArgs,
+}
+
 fn main() {
     logger::init();
     geng::setup_panic_handler();
-    let geng = Geng::new("linksider");
+    let cli_args: Opt = cli::parse();
+    let geng = Geng::new_with(geng::ContextOptions {
+        title: "LinkSider".to_owned(),
+        ..geng::ContextOptions::from_args(&cli_args.geng)
+    });
     geng.clone().run_loading(async move {
         let geng = &geng;
         let assets: Assets = geng
@@ -81,12 +95,12 @@ fn main() {
             }
 
             fn editor(self: Rc<Self>) -> impl geng::State {
-                editor::State::new(
+                editor::level::State::new(
                     &self.geng,
                     &self.assets,
                     &self.renderer,
                     &self.sound,
-                    Some(self.load_game_state()),
+                    self.load_game_state(),
                     self.level_path(),
                     self.clone().finisher(),
                 )
@@ -118,14 +132,21 @@ fn main() {
                 .parse()
                 .unwrap();
 
-        Rc::new(LevelChanger {
-            level_count,
-            current_level: Cell::new(0),
-            geng: geng.clone(),
-            assets: assets.clone(),
-            sound,
-            renderer,
-        })
-        .play()
+        if cli_args.editor {
+            Box::new(editor::world::State::load(geng, assets, &sound, &renderer))
+                as Box<dyn geng::State>
+        } else {
+            Box::new(
+                Rc::new(LevelChanger {
+                    level_count,
+                    current_level: Cell::new(0),
+                    geng: geng.clone(),
+                    assets: assets.clone(),
+                    sound,
+                    renderer,
+                })
+                .play(),
+            )
+        }
     });
 }

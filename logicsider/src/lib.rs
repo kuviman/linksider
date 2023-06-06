@@ -1,8 +1,8 @@
 use batbox::prelude::*;
 use std::borrow::Cow;
 
-pub mod id;
 pub mod config;
+pub mod id;
 mod input;
 mod int_angle;
 mod ldtk;

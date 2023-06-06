@@ -23,6 +23,7 @@ pub struct Controls {
     pub redo: Vec<geng::Key>,
     pub next_player: Vec<geng::Key>,
     pub prev_player: Vec<geng::Key>,
+    pub escape: Vec<geng::Key>,
     pub cheats: Option<CheatsControls>,
 }
 
@@ -37,4 +38,5 @@ pub struct Config {
     pub border_radius_pixels: usize,
     pub sound: sound::Config,
     pub editor: editor::Config,
+    pub camera_controls: Rc<camera_controls::Config>,
 }
