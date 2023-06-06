@@ -140,39 +140,34 @@ impl State {
             async move {
                 log::debug!("Loading level from {path:?}");
                 let game_state = file::load_detect(&path).await.unwrap();
-                Self::new(
-                    &geng,
-                    &assets,
-                    &renderer,
-                    &sound,
-                    game_state,
-                    &path,
-                    Rc::new({
-                        let geng = geng.clone();
-                        let assets = assets.clone();
-                        let sound = sound.clone();
-                        let renderer = renderer.clone();
-                        let path = path.clone();
-                        move |_| {
-                            geng::state::Transition::Switch(Box::new(Self::load(
-                                &geng, &assets, &sound, &renderer, &path,
-                            )))
-                        }
-                    }),
-                )
+                Self::new(&geng, &assets, &sound, &renderer, game_state, &path, None)
             }
         })
     }
     pub fn new(
         geng: &Geng,
         assets: &Rc<Assets>,
-        renderer: &Rc<Renderer>,
         sound: &Rc<sound::State>,
+        renderer: &Rc<Renderer>,
         game_state: GameState,
         path: impl AsRef<std::path::Path>,
-        finish_callback: play::FinishCallback,
+        finish_callback: Option<play::FinishCallback>,
     ) -> Self {
         let path = path.as_ref();
+        let finish_callback = finish_callback.unwrap_or_else(|| {
+            Rc::new({
+                let geng = geng.clone();
+                let assets = assets.clone();
+                let sound = sound.clone();
+                let renderer = renderer.clone();
+                let path = path.to_owned();
+                move |_| {
+                    geng::state::Transition::Switch(Box::new(Self::load(
+                        &geng, &assets, &sound, &renderer, &path,
+                    )))
+                }
+            })
+        });
         let config = assets.config.editor.level.clone();
         Self {
             path: path.to_owned(),

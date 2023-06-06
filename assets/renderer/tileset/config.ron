@@ -18,6 +18,7 @@
     "DisableBox": At(5, 3),
     "cloud": At(5, 5),
     "EditorSelect": At(2, 2),
+    "Plus": At(4, 2),
   },
   error: At(5, 1),
 )

@@ -12,6 +12,18 @@ pub struct GameState {
 }
 
 impl GameState {
+    pub fn empty() -> Self {
+        Self {
+            id_gen: id::Gen::new(),
+            tiles: default(),
+            entities: default(),
+            powerups: default(),
+            selected_player: None,
+            goals: default(),
+            stable: false,
+        }
+    }
+
     // TODO remove this, create separate level file format
     pub fn init_after_load(&mut self) {
         let first_player = self.player_ids().next();
@@ -22,11 +34,14 @@ impl GameState {
         self.tiles.get(&pos).copied().unwrap_or(Tile::Nothing)
     }
 
-    pub fn center(&self) -> vec2<f32> {
+    pub fn bounding_box(&self) -> Aabb2<i32> {
         Aabb2::points_bounding_box(self.tiles.keys().copied())
+            .unwrap_or(Aabb2::ZERO)
             .extend_positive(vec2::splat(1))
-            .map(|x| x as f32)
-            .center()
+    }
+
+    pub fn center(&self) -> vec2<f32> {
+        self.bounding_box().map(|x| x as f32).center()
     }
 
     pub fn add_entity(&mut self, identifier: &str, properties: &Properties, pos: Position) {

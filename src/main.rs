@@ -98,11 +98,11 @@ fn main() {
                 editor::level::State::new(
                     &self.geng,
                     &self.assets,
-                    &self.renderer,
                     &self.sound,
+                    &self.renderer,
                     self.load_game_state(),
                     self.level_path(),
-                    self.clone().finisher(),
+                    Some(self.clone().finisher()),
                 )
             }
 

@@ -5,11 +5,11 @@ pub struct Config {
     fov: f32,
     level_icon_size: f32,
     margin: f32,
+    preview_texture_size: usize,
 }
 
 struct Level {
-    path: std::path::PathBuf,
-    // TODO preview
+    preview: ugli::Texture,
 }
 
 fn level_path(group_name: &str, level_index: usize) -> std::path::PathBuf {
@@ -23,6 +23,10 @@ struct Group {
 
 fn group_dir(group_name: &str) -> std::path::PathBuf {
     run_dir().join("assets").join(group_name)
+}
+
+fn groups_list_file() -> std::path::PathBuf {
+    run_dir().join("levels").join("groups.ron")
 }
 
 struct Selection {
@@ -74,23 +78,34 @@ impl State {
         });
     }
 
-    fn hovered_level(&self, screen_pos: vec2<f64>) -> Option<Selection> {
+    fn hovered(&self, screen_pos: vec2<f64>) -> Option<Selection> {
         let world_pos = self.camera.screen_to_world(
             self.geng.window().size().map(|x| x as f32),
             screen_pos.map(|x| x as f32),
         );
-        for (group_index, group) in self.groups.iter().enumerate() {
-            for level_index in 0..group.levels.len() {
-                if Aabb2::point(vec2(level_index, group_index))
-                    .extend_positive(vec2::splat(1))
-                    .map(|x| x as f32)
-                    .contains(world_pos)
-                {
-                    return Some(Selection {
-                        group: group_index,
-                        level: level_index,
-                    });
-                }
+        let places = self
+            .groups
+            .iter()
+            .enumerate()
+            .flat_map(|(group_index, group)| {
+                group
+                    .levels
+                    .iter()
+                    .enumerate()
+                    .map(move |(level_index, _level)| (group_index, level_index))
+                    .chain([(group_index, group.levels.len())])
+            })
+            .chain([(self.groups.len(), 0)]);
+        for (group_index, level_index) in places {
+            if Aabb2::point(vec2(level_index, group_index))
+                .extend_positive(vec2::splat(1))
+                .map(|x| x as f32)
+                .contains(world_pos)
+            {
+                return Some(Selection {
+                    group: group_index,
+                    level: level_index,
+                });
             }
         }
         None
@@ -109,17 +124,55 @@ impl geng::State for State {
             return;
         }
         match event {
-            geng::Event::MouseDown { position, button } => {
-                if let Some(selection) = self.hovered_level(position) {
+            geng::Event::MouseDown {
+                position,
+                button: _,
+            } => {
+                if let Some(selection) = self.hovered(position) {
+                    if self.groups.get(selection.group).is_none() {
+                        let group = Group {
+                            name: format!("Group{}", selection.group),
+                            levels: Vec::new(),
+                        };
+                        std::fs::create_dir(group_dir(&group.name)).unwrap();
+                        self.groups.push(group);
+                        ron::ser::to_writer_pretty(
+                            std::io::BufWriter::new(
+                                std::fs::File::create(groups_list_file()).unwrap(),
+                            ),
+                            &self
+                                .groups
+                                .iter()
+                                .map(|group| &group.name)
+                                .collect::<Vec<_>>(),
+                            default(),
+                        )
+                        .unwrap();
+                    }
+                    let group = &self.groups[selection.group];
+                    let level_path = level_path(&group.name, selection.level);
+                    if group.levels.get(selection.level).is_none() {
+                        ron::ser::to_writer_pretty(
+                            std::io::BufWriter::new(std::fs::File::create(&level_path).unwrap()),
+                            &GameState::empty(),
+                            default(),
+                        )
+                        .unwrap();
+                        std::fs::write(
+                            group_dir(&group.name).join("count.txt"),
+                            (group.levels.len() + 1).to_string(),
+                        )
+                        .unwrap();
+                    }
                     self.transition = Some(geng::state::Transition::Switch(Box::new(
                         editor::level::State::load(
                             &self.geng,
                             &self.assets,
                             &self.sound,
                             &self.renderer,
-                            level_path(&self.groups[selection.group].name, selection.level),
+                            level_path,
                         ),
-                    )))
+                    )));
                 }
             }
             _ => {}
@@ -130,19 +183,33 @@ impl geng::State for State {
         self.clamp_camera();
         self.renderer.draw_background(framebuffer, &self.camera);
         for (group_index, group) in self.groups.iter().enumerate() {
-            for (level_index, _level) in group.levels.iter().enumerate() {
+            for (level_index, level) in group.levels.iter().enumerate() {
                 self.geng.draw2d().draw2d(
                     framebuffer,
                     &self.camera,
-                    &draw2d::Quad::new(
+                    &draw2d::TexturedQuad::new(
                         Aabb2::point(vec2(level_index, group_index).map(|x| x as f32 + 0.5))
                             .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
-                        Rgba::GRAY,
+                        &level.preview,
                     ),
                 )
             }
+            self.renderer.draw_tile(
+                framebuffer,
+                &self.camera,
+                "Plus",
+                Rgba::WHITE,
+                mat3::translate(vec2(group.levels.len(), group_index).map(|x| x as f32)),
+            );
         }
-        if let Some(selection) = self.hovered_level(self.geng.window().cursor_position()) {
+        self.renderer.draw_tile(
+            framebuffer,
+            &self.camera,
+            "Plus",
+            Rgba::WHITE,
+            mat3::translate(vec2(0, self.groups.len()).map(|x| x as f32)),
+        );
+        if let Some(selection) = self.hovered(self.geng.window().cursor_position()) {
             self.renderer.draw_tile(
                 framebuffer,
                 &self.camera,
@@ -150,12 +217,22 @@ impl geng::State for State {
                 Rgba::WHITE,
                 mat3::translate(vec2(selection.level as f32, selection.group as f32)),
             );
+            let text = match self.groups.get(selection.group) {
+                Some(group) => match group.levels.get(selection.level) {
+                    Some(_level) => format!("{}/{}", group.name, selection.level),
+                    None => "New level".to_owned(),
+                },
+                None => "New group".to_owned(),
+            };
             self.geng.default_font().draw_with_outline(
                 framebuffer,
                 &self.camera,
-                &format!("{}/{}", self.groups[selection.group].name, selection.level),
+                &text,
                 vec2::splat(geng::TextAlign::CENTER),
-                mat3::translate(vec2(selection.level as f32 + 0.5, selection.group as f32 + 1.5)),
+                mat3::translate(vec2(
+                    selection.level as f32 + 0.5,
+                    selection.group as f32 + 1.5,
+                )),
                 Rgba::WHITE,
                 0.05,
                 Rgba::BLACK,
@@ -178,22 +255,57 @@ impl State {
             let sound = sound.clone();
             let renderer = renderer.clone();
             async move {
-                let group_names: Vec<String> =
-                    file::load_detect(run_dir().join("levels").join("groups.ron"))
-                        .await
-                        .unwrap();
+                let group_names: Vec<String> = file::load_detect(groups_list_file()).await.unwrap();
                 let groups = future::join_all(group_names.into_iter().map(|group_name| async {
                     let level_count: usize =
                         file::load_string(group_dir(&group_name).join("count.txt"))
                             .await
                             .unwrap()
+                            .trim()
                             .parse()
                             .unwrap();
-                    let levels = (0..level_count)
-                        .map(|index| Level {
-                            path: level_path(&group_name, index),
-                        })
-                        .collect();
+                    let levels = future::join_all((0..level_count).map(|level_index| {
+                        let geng = &geng;
+                        let assets = &assets;
+                        let renderer = &renderer;
+                        let group_name = &group_name;
+                        async move {
+                            Level {
+                                preview: {
+                                    let game_state: GameState =
+                                        file::load_detect(level_path(&group_name, level_index))
+                                            .await
+                                            .unwrap();
+                                    let mut texture = ugli::Texture::new_uninitialized(
+                                        geng.ugli(),
+                                        vec2::splat(
+                                            assets.config.editor.world.preview_texture_size,
+                                        ),
+                                    );
+                                    texture.set_filter(ugli::Filter::Nearest);
+                                    let bb = game_state.bounding_box().map(|x| x as f32);
+                                    renderer.draw(
+                                        &mut ugli::Framebuffer::new_color(
+                                            geng.ugli(),
+                                            ugli::ColorAttachment::Texture(&mut texture),
+                                        ),
+                                        &geng::Camera2d {
+                                            fov: bb.height(),
+                                            center: bb.center(),
+                                            rotation: 0.0,
+                                        },
+                                        history::Frame {
+                                            current_state: &game_state,
+                                            animation: None,
+                                        },
+                                        &renderer.level_mesh(&game_state),
+                                    );
+                                    texture
+                                },
+                            }
+                        }
+                    }))
+                    .await;
                     Group {
                         name: group_name,
                         levels,
