@@ -213,7 +213,22 @@ impl geng::State for State {
                 button: _,
             } => {
                 if let Some(selection) = self.hovered(position) {
-                    if self.groups.get(selection.group).is_none() {
+                    if let Some(group) = self.groups.get_mut(selection.group) {
+                        if let Some(level) = group.levels.get(selection.level) {
+                            let level_path = level_path(&group.name, &level.name);
+                            self.transition = Some(geng::state::Transition::Switch(Box::new(
+                                editor::level::State::load(
+                                    &self.geng,
+                                    &self.assets,
+                                    &self.sound,
+                                    &self.renderer,
+                                    level_path,
+                                ),
+                            )));
+                        } else {
+                            self.insert_level(selection.group, selection.level, GameState::empty());
+                        }
+                    } else {
                         let group = Group {
                             name: format!("Group{}", selection.group),
                             levels: Vec::new(),
@@ -232,21 +247,7 @@ impl geng::State for State {
                             default(),
                         )
                         .unwrap();
-                    }
-                    let group = &mut self.groups[selection.group];
-                    if let Some(level) = group.levels.get(selection.level) {
-                        let level_path = level_path(&group.name, &level.name);
-                        self.transition = Some(geng::state::Transition::Switch(Box::new(
-                            editor::level::State::load(
-                                &self.geng,
-                                &self.assets,
-                                &self.sound,
-                                &self.renderer,
-                                level_path,
-                            ),
-                        )));
-                    } else {
-                        self.insert_level(selection.group, selection.level, GameState::empty());
+                        return;
                     }
                 }
             }
