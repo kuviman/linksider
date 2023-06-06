@@ -38,7 +38,7 @@ impl State {
             camera: Camera2d {
                 center: game_state.center(),
                 rotation: 0.0,
-                fov: 200.0 / 16.0,
+                fov: assets.config.fov,
             },
             transition: None,
             sound: sound.clone(),

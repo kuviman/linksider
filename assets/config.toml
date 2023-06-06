@@ -1,3 +1,4 @@
+fov = 12
 camera_speed = 2
 animation_time = 0.2
 cell_pixel_size = 16
@@ -22,6 +23,10 @@ prev_level = "PageDown"
 effect = { jump = "J", delete = "Delete" }
 
 [editor]
+default_fov = 15
+min_fov = 5
+max_fov = 50
+zoom_speed = 0.1
 brush_preview_opacity = 0.5
 grid_color = "white"
 
@@ -38,3 +43,4 @@ delete = "Right"
 choose = "Tab"
 pick = "Q"
 grid = "G"
+rotate = "R"

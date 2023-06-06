@@ -9,6 +9,7 @@ pub struct Controls {
     choose: geng::Key,
     pick: geng::Key,
     grid: geng::Key,
+    rotate: geng::Key,
 }
 
 #[derive(Deserialize)]
@@ -20,6 +21,10 @@ struct BrushWheelConfig {
 
 #[derive(Deserialize)]
 pub struct Config {
+    default_fov: f32,
+    min_fov: f32,
+    max_fov: f32,
+    zoom_speed: f32,
     grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
@@ -141,7 +146,7 @@ impl State {
             camera: Camera2d {
                 center: game_state.center(),
                 rotation: 0.0,
-                fov: 250.0 / 16.0,
+                fov: assets.config.editor.default_fov,
             },
             transition: None,
             sound: sound.clone(),
@@ -394,7 +399,23 @@ impl geng::State for State {
                 }
             }
             geng::Event::Wheel { delta } => {
-                let mut delta = delta.signum() as i32;
+                let before = self.camera.screen_to_world(
+                    self.framebuffer_size,
+                    self.geng.window().cursor_position().map(|x| x as f32),
+                );
+                self.camera.fov =
+                    (self.camera.fov - delta as f32 * self.assets.config.editor.zoom_speed).clamp(
+                        self.assets.config.editor.min_fov,
+                        self.assets.config.editor.max_fov,
+                    );
+                let now = self.camera.screen_to_world(
+                    self.framebuffer_size,
+                    self.geng.window().cursor_position().map(|x| x as f32),
+                );
+                self.camera.center += before - now;
+            }
+            geng::Event::KeyDown { key } if key == controls.rotate => {
+                let mut delta = 1;
                 if self.geng.window().is_key_pressed(geng::Key::LShift) {
                     delta = -delta;
                 }
