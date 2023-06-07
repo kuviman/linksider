@@ -50,7 +50,7 @@ pub async fn prompt(
                     &camera,
                     &value,
                     vec2::splat(geng::TextAlign::CENTER),
-                    mat3::identity(), 
+                    mat3::identity(),
                     Rgba::WHITE,
                 );
             }

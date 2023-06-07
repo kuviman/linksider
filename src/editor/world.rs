@@ -15,6 +15,8 @@ pub struct Config {
     level_icon_size: f32,
     margin: f32,
     preview_texture_size: usize,
+    min_drag_distance: f64,
+    max_click_time: f64,
     controls: Controls,
 }
 
@@ -71,6 +73,8 @@ pub struct State {
     camera_controls: CameraControls,
     config: Rc<Config>,
     register: Option<GameState>,
+    click_start: Option<(vec2<f64>, Timer)>,
+    drag: Option<Selection>,
 }
 
 impl State {
@@ -179,6 +183,75 @@ impl State {
         )
         .unwrap();
     }
+
+    fn reorder(&mut self, from: Selection, to: Selection) -> Option<()> {
+        if self.groups.get(to.group).is_none() {
+            return None;
+        }
+        let level = self
+            .groups
+            .get_mut(from.group)?
+            .levels
+            .try_remove(from.level)?;
+        self.groups
+            .get_mut(to.group)
+            .unwrap()
+            .levels
+            .insert(to.level, level);
+        self.groups[from.group].save_level_list();
+        self.groups[to.group].save_level_list();
+        Some(())
+    }
+
+    async fn click_selection(&mut self, actx: &mut async_states::Context, selection: Selection) {
+        if let Some(group) = self.groups.get_mut(selection.group) {
+            if let Some(level) = group.levels.get_mut(selection.level) {
+                let level_path = level_path(&group.name, &level.name);
+                editor::level::State::new(&self.ctx, &mut level.state, level_path)
+                    .run(actx)
+                    .await;
+                level.preview = generate_preview(&self.ctx, &level.state);
+            } else {
+                self.insert_level(actx, selection.group, selection.level, GameState::empty())
+                    .await;
+            }
+        } else if let Some(name) = popup::prompt(&self.ctx, actx, "New group name", "").await {
+            let group = Group {
+                name,
+                levels: Vec::new(),
+            };
+            std::fs::create_dir(group_dir(&group.name)).unwrap();
+            self.groups.push(group);
+            self.save_group_list();
+        }
+    }
+
+    fn start_drag(&mut self, position: vec2<f64>) {
+        if let Some(selection) = self.hovered(position) {
+            if self
+                .groups
+                .get(selection.group)
+                .and_then(|group| group.levels.get(selection.level))
+                .is_some()
+            {
+                self.drag = Some(selection);
+            }
+        }
+    }
+}
+
+trait VecExt<T> {
+    fn try_remove(&mut self, index: usize) -> Option<T>;
+}
+
+impl<T> VecExt<T> for Vec<T> {
+    fn try_remove(&mut self, index: usize) -> Option<T> {
+        if index < self.len() {
+            Some(self.remove(index))
+        } else {
+            None
+        }
+    }
 }
 
 impl State {
@@ -191,7 +264,13 @@ impl State {
             }
         }
     }
-    fn update(&mut self, _delta_time: f64) {}
+    fn update(&mut self, _delta_time: f64) {
+        if let Some((start, timer)) = &self.click_start {
+            if timer.elapsed().as_secs_f64() > self.config.max_click_time {
+                self.start_drag(*start);
+            }
+        }
+    }
     async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
         if self
             .camera_controls
@@ -272,34 +351,28 @@ impl State {
                 position,
                 button: _,
             } => {
+                self.click_start = Some((position, Timer::new()));
+            }
+            geng::Event::MouseMove { position, .. } => {
+                if let Some((start, _)) = self.click_start {
+                    if (start - position).len() > self.config.min_drag_distance {
+                        self.start_drag(start);
+                    }
+                }
+            }
+            geng::Event::MouseUp {
+                position,
+                button: _,
+            } => {
+                let click_start = self.click_start.take();
+                let drag = self.drag.take();
                 if let Some(selection) = self.hovered(position) {
-                    if let Some(group) = self.groups.get_mut(selection.group) {
-                        if let Some(level) = group.levels.get_mut(selection.level) {
-                            let level_path = level_path(&group.name, &level.name);
-                            editor::level::State::new(&self.ctx, &mut level.state, level_path)
-                                .run(actx)
-                                .await;
-                            level.preview = generate_preview(&self.ctx, &level.state);
-                        } else {
-                            self.insert_level(
-                                actx,
-                                selection.group,
-                                selection.level,
-                                GameState::empty(),
-                            )
-                            .await;
+                    if let Some(drag) = drag {
+                        self.reorder(drag, selection);
+                    } else if let Some((_, timer)) = click_start {
+                        if timer.elapsed().as_secs_f64() < self.config.max_click_time {
+                            self.click_selection(actx, selection).await;
                         }
-                    } else if let Some(name) =
-                        popup::prompt(&self.ctx, actx, "New group name", "").await
-                    {
-                        let group = Group {
-                            name,
-                            levels: Vec::new(),
-                        };
-                        std::fs::create_dir(group_dir(&group.name)).unwrap();
-                        self.groups.push(group);
-                        self.save_group_list();
-                        return;
                     }
                 }
             }
@@ -312,6 +385,11 @@ impl State {
         self.ctx.renderer.draw_background(framebuffer, &self.camera);
         for (group_index, group) in self.groups.iter().enumerate() {
             for (level_index, level) in group.levels.iter().enumerate() {
+                if let Some(drag) = &self.drag {
+                    if drag.group == group_index && drag.level == level_index {
+                        continue;
+                    }
+                }
                 self.ctx.geng.draw2d().draw2d(
                     framebuffer,
                     &self.camera,
@@ -320,7 +398,7 @@ impl State {
                             .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
                         &level.preview,
                     ),
-                )
+                );
             }
             self.ctx.renderer.draw_tile(
                 framebuffer,
@@ -337,6 +415,19 @@ impl State {
             Rgba::WHITE,
             mat3::translate(vec2(0, self.groups.len()).map(|x| x as f32)),
         );
+        if let Some(drag) = &self.drag {
+            let level = &self.groups[drag.group].levels[drag.level];
+            self.ctx.geng.draw2d().draw2d(
+                framebuffer,
+                &self.camera,
+                &draw2d::TexturedQuad::unit(&level.preview)
+                    .scale_uniform(0.25)
+                    .translate(self.camera.screen_to_world(
+                        self.framebuffer_size,
+                        self.ctx.geng.window().cursor_position().map(|x| x as f32),
+                    )),
+            );
+        }
         if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
             self.ctx.renderer.draw_tile(
                 framebuffer,
@@ -433,7 +524,7 @@ impl State {
         let config = ctx.assets.config.editor.world.clone();
         let state = Self {
             framebuffer_size: vec2::splat(1.0),
-            groups: groups,
+            groups,
             camera: geng::Camera2d {
                 center: vec2::ZERO,
                 rotation: 0.0,
@@ -443,6 +534,8 @@ impl State {
             config,
             register: None,
             ctx: ctx.clone(),
+            drag: None,
+            click_start: None,
         };
         state.run(actx).await
     }

@@ -6,9 +6,9 @@ mod config;
 mod editor;
 mod history;
 mod play;
+mod popup;
 mod renderer;
 mod sound;
-mod popup;
 mod util;
 
 use camera_controls::CameraControls;

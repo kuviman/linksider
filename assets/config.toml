@@ -55,6 +55,8 @@ fov = 15
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128
+min_drag_distance = 10
+max_click_time = 0.5
 
 [editor.world.controls]
 insert = "I"
