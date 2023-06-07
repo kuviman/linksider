@@ -1,5 +1,6 @@
 use geng::prelude::*;
 
+mod async_states;
 mod camera_controls;
 mod config;
 mod editor;
@@ -32,6 +33,14 @@ struct Opt {
     geng: geng::CliArgs,
 }
 
+#[derive(Clone)]
+pub struct Context {
+    geng: Geng,
+    assets: Rc<Assets>,
+    sound: Rc<sound::State>,
+    renderer: Rc<Renderer>,
+}
+
 fn main() {
     logger::init();
     geng::setup_panic_handler();
@@ -51,9 +60,16 @@ fn main() {
         let assets = &assets;
         let sound = Rc::new(sound::State::new(geng, assets));
         let renderer = Rc::new(Renderer::new(geng, assets));
+        let ctx = Rc::new(Context {
+            geng: geng.clone(),
+            assets: assets.clone(),
+            sound,
+            renderer,
+        });
 
-        // TODO only run editor on --editor
-        Box::new(editor::world::State::load(geng, assets, &sound, &renderer))
-            as Box<dyn geng::State>
+        Box::new(async_states::as_state(geng, |mut actx| async move {
+            // TODO only run editor on --editor
+            editor::world::State::load(&ctx, &mut actx).await;
+        })) as Box<dyn geng::State>
     });
 }

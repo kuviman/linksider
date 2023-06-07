@@ -75,16 +75,12 @@ struct Selection {
 }
 
 pub struct State {
-    geng: Geng,
-    assets: Rc<Assets>,
-    sound: Rc<sound::State>,
-    renderer: Rc<Renderer>,
+    ctx: Rc<Context>,
     framebuffer_size: vec2<f32>,
     groups: Vec<Group>,
     camera: geng::Camera2d,
     camera_controls: CameraControls,
     config: Rc<Config>,
-    transition: Option<geng::state::Transition>,
     register: Option<GameState>,
 }
 
@@ -121,7 +117,7 @@ impl State {
 
     fn hovered(&self, screen_pos: vec2<f64>) -> Option<Selection> {
         let world_pos = self.camera.screen_to_world(
-            self.geng.window().size().map(|x| x as f32),
+            self.ctx.geng.window().size().map(|x| x as f32),
             screen_pos.map(|x| x as f32),
         );
         let places = self
@@ -167,7 +163,7 @@ impl State {
             level_index,
             Level {
                 name,
-                preview: generate_preview(&self.geng, &self.assets, &self.renderer, &game_state),
+                preview: generate_preview(&self.ctx, &game_state),
                 state: game_state,
             },
         );
@@ -175,11 +171,18 @@ impl State {
     }
 }
 
-impl geng::State for State {
-    fn transition(&mut self) -> Option<geng::state::Transition> {
-        self.transition.take()
+impl State {
+    async fn run(mut self, actx: &mut async_states::Context) {
+        loop {
+            match actx.wait().await {
+                async_states::Event::Event(event) => self.handle_event(actx, event).await,
+                async_states::Event::Update(delta_time) => self.update(delta_time),
+                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+            }
+        }
     }
-    fn handle_event(&mut self, event: geng::Event) {
+    fn update(&mut self, _delta_time: f64) {}
+    async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
         if self
             .camera_controls
             .handle_event(&mut self.camera, event.clone())
@@ -188,7 +191,7 @@ impl geng::State for State {
         }
         match event {
             geng::Event::KeyDown { key } => {
-                if let Some(selection) = self.hovered(self.geng.window().cursor_position()) {
+                if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
                     if self.config.controls.insert == key {
                         if self.groups.get(selection.group).is_some() {
                             self.insert_level(selection.group, selection.level, GameState::empty());
@@ -226,17 +229,12 @@ impl geng::State for State {
             } => {
                 if let Some(selection) = self.hovered(position) {
                     if let Some(group) = self.groups.get_mut(selection.group) {
-                        if let Some(level) = group.levels.get(selection.level) {
+                        if let Some(level) = group.levels.get_mut(selection.level) {
                             let level_path = level_path(&group.name, &level.name);
-                            self.transition = Some(geng::state::Transition::Switch(Box::new(
-                                editor::level::State::load(
-                                    &self.geng,
-                                    &self.assets,
-                                    &self.sound,
-                                    &self.renderer,
-                                    level_path,
-                                ),
-                            )));
+                            editor::level::State::new(&self.ctx, &mut level.state, level_path)
+                                .run(actx)
+                                .await;
+                            level.preview = generate_preview(&self.ctx, &level.state);
                         } else {
                             self.insert_level(selection.group, selection.level, GameState::empty());
                         }
@@ -269,10 +267,10 @@ impl geng::State for State {
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
         self.clamp_camera();
-        self.renderer.draw_background(framebuffer, &self.camera);
+        self.ctx.renderer.draw_background(framebuffer, &self.camera);
         for (group_index, group) in self.groups.iter().enumerate() {
             for (level_index, level) in group.levels.iter().enumerate() {
-                self.geng.draw2d().draw2d(
+                self.ctx.geng.draw2d().draw2d(
                     framebuffer,
                     &self.camera,
                     &draw2d::TexturedQuad::new(
@@ -282,7 +280,7 @@ impl geng::State for State {
                     ),
                 )
             }
-            self.renderer.draw_tile(
+            self.ctx.renderer.draw_tile(
                 framebuffer,
                 &self.camera,
                 "Plus",
@@ -290,15 +288,15 @@ impl geng::State for State {
                 mat3::translate(vec2(group.levels.len(), group_index).map(|x| x as f32)),
             );
         }
-        self.renderer.draw_tile(
+        self.ctx.renderer.draw_tile(
             framebuffer,
             &self.camera,
             "Plus",
             Rgba::WHITE,
             mat3::translate(vec2(0, self.groups.len()).map(|x| x as f32)),
         );
-        if let Some(selection) = self.hovered(self.geng.window().cursor_position()) {
-            self.renderer.draw_tile(
+        if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
+            self.ctx.renderer.draw_tile(
                 framebuffer,
                 &self.camera,
                 "EditorSelect",
@@ -312,7 +310,7 @@ impl geng::State for State {
                 },
                 None => "New group".to_owned(),
             };
-            self.geng.default_font().draw_with_outline(
+            self.ctx.geng.default_font().draw_with_outline(
                 framebuffer,
                 &self.camera,
                 &text,
@@ -329,21 +327,16 @@ impl geng::State for State {
     }
 }
 
-fn generate_preview(
-    geng: &Geng,
-    assets: &Assets,
-    renderer: &Renderer,
-    game_state: &GameState,
-) -> ugli::Texture {
+fn generate_preview(ctx: &Context, game_state: &GameState) -> ugli::Texture {
     let mut texture = ugli::Texture::new_uninitialized(
-        geng.ugli(),
-        vec2::splat(assets.config.editor.world.preview_texture_size),
+        ctx.geng.ugli(),
+        vec2::splat(ctx.assets.config.editor.world.preview_texture_size),
     );
     texture.set_filter(ugli::Filter::Nearest);
     let bb = game_state.bounding_box().map(|x| x as f32);
-    renderer.draw(
+    ctx.renderer.draw(
         &mut ugli::Framebuffer::new_color(
-            geng.ugli(),
+            ctx.geng.ugli(),
             ugli::ColorAttachment::Texture(&mut texture),
         ),
         &geng::Camera2d {
@@ -355,79 +348,60 @@ fn generate_preview(
             current_state: &game_state,
             animation: None,
         },
-        &renderer.level_mesh(&game_state),
+        &ctx.renderer.level_mesh(&game_state),
     );
     texture
 }
 
 impl State {
-    // TODO: group these args into one Context struct
-    pub fn load(
-        geng: &Geng,
-        assets: &Rc<Assets>,
-        sound: &Rc<sound::State>,
-        renderer: &Rc<Renderer>,
-    ) -> impl geng::State {
-        geng::LoadingScreen::new(geng, geng::EmptyLoadingScreen::new(geng), {
-            let geng = geng.clone();
-            let assets = assets.clone();
-            let sound = sound.clone();
-            let renderer = renderer.clone();
-            async move {
-                let group_names: Vec<String> = file::load_detect(groups_list_file()).await.unwrap();
-                let groups = future::join_all(group_names.into_iter().map(|group_name| async {
-                    let list_path = group_dir(&group_name).join("list.ron");
-                    let level_names: Vec<String> = if list_path.is_file() {
-                        file::load_detect(list_path).await.unwrap()
-                    } else {
-                        // TODO remove
-                        let level_count: usize =
-                            file::load_string(group_dir(&group_name).join("count.txt"))
-                                .await
-                                .unwrap()
-                                .trim()
-                                .parse()
-                                .unwrap();
-                        (0..level_count).map(|x| x.to_string()).collect()
-                    };
-                    let levels =
-                        future::join_all(level_names.into_iter().map(|level_name| async {
-                            let game_state: GameState =
-                                file::load_detect(level_path(&group_name, &level_name))
-                                    .await
-                                    .unwrap();
-                            Level {
-                                name: level_name,
-                                preview: generate_preview(&geng, &assets, &renderer, &game_state),
-                                state: game_state,
-                            }
-                        }))
-                        .await;
-                    Group {
-                        name: group_name,
-                        levels,
-                    }
-                }))
-                .await;
-                let config = assets.config.editor.world.clone();
-                Self {
-                    geng: geng.clone(),
-                    assets: assets.clone(),
-                    sound: sound.clone(),
-                    renderer: renderer.clone(),
-                    framebuffer_size: vec2::splat(1.0),
-                    groups: groups,
-                    camera: geng::Camera2d {
-                        center: vec2::ZERO,
-                        rotation: 0.0,
-                        fov: config.fov,
-                    },
-                    camera_controls: CameraControls::new(&geng, &assets.config.camera_controls),
-                    config,
-                    transition: None,
-                    register: None,
+    pub async fn load(ctx: &Rc<Context>, actx: &mut async_states::Context) {
+        let group_names: Vec<String> = file::load_detect(groups_list_file()).await.unwrap();
+        let groups = future::join_all(group_names.into_iter().map(|group_name| async {
+            let list_path = group_dir(&group_name).join("list.ron");
+            let level_names: Vec<String> = if list_path.is_file() {
+                file::load_detect(list_path).await.unwrap()
+            } else {
+                // TODO remove
+                let level_count: usize =
+                    file::load_string(group_dir(&group_name).join("count.txt"))
+                        .await
+                        .unwrap()
+                        .trim()
+                        .parse()
+                        .unwrap();
+                (0..level_count).map(|x| x.to_string()).collect()
+            };
+            let levels = future::join_all(level_names.into_iter().map(|level_name| async {
+                let game_state: GameState = file::load_detect(level_path(&group_name, &level_name))
+                    .await
+                    .unwrap();
+                Level {
+                    name: level_name,
+                    preview: generate_preview(ctx, &game_state),
+                    state: game_state,
                 }
+            }))
+            .await;
+            Group {
+                name: group_name,
+                levels,
             }
-        })
+        }))
+        .await;
+        let config = ctx.assets.config.editor.world.clone();
+        let state = Self {
+            framebuffer_size: vec2::splat(1.0),
+            groups: groups,
+            camera: geng::Camera2d {
+                center: vec2::ZERO,
+                rotation: 0.0,
+                fov: config.fov,
+            },
+            camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
+            config,
+            register: None,
+            ctx: ctx.clone(),
+        };
+        state.run(actx).await
     }
 }
