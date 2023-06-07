@@ -148,6 +148,9 @@ impl State {
         level_index: usize,
         game_state: GameState,
     ) {
+        if self.groups.get(group_index).is_none() {
+            return;
+        }
         let Some(name) = popup::prompt(&self.ctx, actx, "New level name", "").await else {
             return;
         };
@@ -373,7 +376,17 @@ impl State {
                 let drag = self.drag.take();
                 if let Some(selection) = self.hovered(position) {
                     if let Some(drag) = drag {
-                        self.reorder(drag, selection);
+                        if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) {
+                            self.insert_level(
+                                actx,
+                                selection.group,
+                                selection.level,
+                                self.groups[drag.group].levels[drag.level].state.clone(),
+                            )
+                            .await;
+                        } else {
+                            self.reorder(drag, selection);
+                        }
                     } else if let Some((_, timer)) = click_start {
                         if timer.elapsed().as_secs_f64() < self.config.max_click_time {
                             self.click_selection(actx, selection).await;
