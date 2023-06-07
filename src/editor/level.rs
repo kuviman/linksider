@@ -26,6 +26,7 @@ pub struct Config {
     grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
+    autosave_timer: f64,
     pub controls: Controls,
 }
 
@@ -115,6 +116,7 @@ pub struct State<'a> {
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<GameState>,
+    autosave_timer: Timer,
     show_grid: bool,
 }
 
@@ -127,6 +129,7 @@ impl<'a> State<'a> {
         let path = path.as_ref();
         let config = ctx.assets.config.editor.level.clone();
         Self {
+            autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
@@ -330,6 +333,10 @@ impl State<'_> {
     }
     fn update(&mut self, delta_time: f64) {
         let _delta_time = delta_time as f32;
+        if self.autosave_timer.elapsed().as_secs_f64() > self.config.autosave_timer {
+            self.save();
+            self.autosave_timer.reset();
+        }
     }
     async fn handle_event(
         &mut self,
