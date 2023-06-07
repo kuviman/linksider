@@ -207,9 +207,14 @@ impl State {
         if let Some(group) = self.groups.get_mut(selection.group) {
             if let Some(level) = group.levels.get_mut(selection.level) {
                 let level_path = level_path(&group.name, &level.name);
-                editor::level::State::new(&self.ctx, &mut level.state, level_path)
-                    .run(actx)
-                    .await;
+                editor::level::State::new(
+                    &self.ctx,
+                    format!("{}::{} (#{})", group.name, level.name, selection.level),
+                    &mut level.state,
+                    level_path,
+                )
+                .run(actx)
+                .await;
                 level.preview = generate_preview(&self.ctx, &level.state);
             } else {
                 self.insert_level(actx, selection.group, selection.level, GameState::empty())

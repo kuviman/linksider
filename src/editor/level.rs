@@ -106,6 +106,7 @@ struct BrushWheelItem {
 
 pub struct State<'a> {
     ctx: Context,
+    title: String,
     framebuffer_size: vec2<f32>,
     config: Rc<Config>,
     game_state: &'a mut GameState,
@@ -123,12 +124,14 @@ pub struct State<'a> {
 impl<'a> State<'a> {
     pub fn new(
         ctx: &Context,
+        title: String,
         game_state: &'a mut GameState,
         path: impl AsRef<std::path::Path>,
     ) -> Self {
         let path = path.as_ref();
         let config = ctx.assets.config.editor.level.clone();
         Self {
+            title,
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
@@ -523,6 +526,15 @@ impl State<'_> {
                 self.screen_to_tile(self.ctx.geng.window().cursor_position())
                     .map(|x| x as f32),
             ),
+        );
+
+        self.ctx.geng.default_font().draw(
+            framebuffer,
+            &self.camera,
+            &self.title,
+            vec2::splat(geng::TextAlign::LEFT),
+            mat3::translate(self.game_state.bounding_box().top_left().map(|x| x as f32)),
+            Rgba::WHITE,
         );
 
         if let Some(wheel) = self.brush_wheel() {
