@@ -349,12 +349,9 @@ impl State<'_> {
                 self.show_grid = !self.show_grid;
             }
             geng::Event::KeyDown { key } if key == controls.toggle => {
-                if let play::Transition::Exit = play::State::new(&self.ctx, self.game_state.clone())
+                play::State::new(&self.ctx, self.game_state.clone())
                     .run(actx)
-                    .await
-                {
-                    return std::ops::ControlFlow::Break(());
-                }
+                    .await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
                 self.brush_wheel_pos = Some(self.camera.screen_to_world(
