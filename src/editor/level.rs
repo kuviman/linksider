@@ -27,6 +27,8 @@ pub struct Config {
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
     autosave_timer: f64,
+    warning_size: f32,
+    warning_color: Rgba<f32>,
     pub controls: Controls,
 }
 
@@ -117,6 +119,7 @@ pub struct State<'a> {
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<GameState>,
+    saved: bool,
     autosave_timer: Timer,
     show_grid: bool,
 }
@@ -132,6 +135,7 @@ impl<'a> State<'a> {
         let config = ctx.assets.config.editor.level.clone();
         Self {
             title,
+            saved: true,
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
@@ -273,14 +277,17 @@ impl<'a> State<'a> {
         Some(items.into_iter())
     }
 
-    fn save(&mut self) {
-        // TODO saved flag & warning
-        ron::ser::to_writer_pretty(
-            std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
-            &self.game_state,
-            default(),
-        )
-        .unwrap();
+    fn save_if_needed(&mut self) {
+        if !self.saved {
+            log::debug!("Saving");
+            ron::ser::to_writer_pretty(
+                std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
+                &self.game_state,
+                default(),
+            )
+            .unwrap();
+            self.saved = true;
+        }
     }
 
     fn undo(&mut self) {
@@ -297,6 +304,7 @@ impl<'a> State<'a> {
         if *self.game_state != *self.history.last().unwrap() {
             log::debug!("Pushed history");
             self.history.push(self.game_state.clone());
+            self.saved = false;
         }
     }
 
@@ -316,7 +324,7 @@ impl<'a> State<'a> {
 
 impl Drop for State<'_> {
     fn drop(&mut self) {
-        self.save();
+        self.save_if_needed();
     }
 }
 
@@ -337,7 +345,7 @@ impl State<'_> {
     fn update(&mut self, delta_time: f64) {
         let _delta_time = delta_time as f32;
         if self.autosave_timer.elapsed().as_secs_f64() > self.config.autosave_timer {
-            self.save();
+            self.save_if_needed();
             self.autosave_timer.reset();
         }
     }
@@ -416,7 +424,7 @@ impl State<'_> {
             geng::Event::KeyDown { key: geng::Key::S }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
-                self.save();
+                self.save_if_needed();
             }
             geng::Event::KeyDown { key: geng::Key::Z }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
@@ -562,6 +570,17 @@ impl State<'_> {
                         * mat3::translate(vec2::splat(-0.5)),
                 );
             }
+        }
+
+        if !self.saved {
+            self.ctx.geng.default_font().draw(
+                framebuffer,
+                &geng::PixelPerfectCamera,
+                "You have unsaved changes",
+                vec2::splat(geng::TextAlign::LEFT),
+                mat3::scale_uniform(self.config.warning_size),
+                self.config.warning_color,
+            );
         }
     }
 }
