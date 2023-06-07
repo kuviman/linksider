@@ -8,6 +8,7 @@ mod history;
 mod play;
 mod renderer;
 mod sound;
+mod popup;
 mod util;
 
 use camera_controls::CameraControls;

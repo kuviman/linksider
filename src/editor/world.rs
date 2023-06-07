@@ -6,6 +6,7 @@ pub struct Controls {
     delete: geng::Key,
     copy: geng::Key,
     paste: geng::Key,
+    rename: geng::Key,
 }
 
 #[derive(Deserialize)]
@@ -47,18 +48,6 @@ impl Group {
         )
         .unwrap();
     }
-
-    fn generate_new_level_name(&self) -> String {
-        // TODO better
-        use geng::prelude::rand::distributions::DistString;
-        rand::distributions::Alphanumeric.sample_string(&mut thread_rng(), 10)
-    }
-}
-
-fn generate_new_group_name() -> String {
-    // TODO better
-    use geng::prelude::rand::distributions::DistString;
-    rand::distributions::Alphanumeric.sample_string(&mut thread_rng(), 10)
 }
 
 fn group_dir(group_name: &str) -> std::path::PathBuf {
@@ -148,9 +137,17 @@ impl State {
         None
     }
 
-    fn insert_level(&mut self, group_index: usize, level_index: usize, game_state: GameState) {
+    async fn insert_level(
+        &mut self,
+        actx: &mut async_states::Context,
+        group_index: usize,
+        level_index: usize,
+        game_state: GameState,
+    ) {
+        let Some(name) = popup::prompt(&self.ctx, actx, "New level name", "").await else {
+            return;
+        };
         let group = &mut self.groups[group_index];
-        let name = group.generate_new_level_name();
         ron::ser::to_writer_pretty(
             std::io::BufWriter::new(
                 std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
@@ -168,6 +165,19 @@ impl State {
             },
         );
         group.save_level_list();
+    }
+
+    fn save_group_list(&self) {
+        ron::ser::to_writer_pretty(
+            std::io::BufWriter::new(std::fs::File::create(groups_list_file()).unwrap()),
+            &self
+                .groups
+                .iter()
+                .map(|group| &group.name)
+                .collect::<Vec<_>>(),
+            default(),
+        )
+        .unwrap();
     }
 }
 
@@ -192,9 +202,43 @@ impl State {
         match event {
             geng::Event::KeyDown { key } => {
                 if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
+                    if self.config.controls.rename == key {
+                        if let Some(group) = self.groups.get_mut(selection.group) {
+                            if let Some(level) = group.levels.get_mut(selection.level) {
+                                if let Some(new_name) =
+                                    popup::prompt(&self.ctx, actx, "Rename level", &level.name)
+                                        .await
+                                {
+                                    std::fs::rename(
+                                        level_path(&group.name, &level.name),
+                                        level_path(&group.name, &new_name),
+                                    )
+                                    .unwrap();
+                                    level.name = new_name;
+                                    group.save_level_list();
+                                }
+                            } else {
+                                if let Some(new_name) =
+                                    popup::prompt(&self.ctx, actx, "Rename group", &group.name)
+                                        .await
+                                {
+                                    std::fs::rename(group_dir(&group.name), group_dir(&new_name))
+                                        .unwrap();
+                                    group.name = new_name;
+                                    self.save_group_list();
+                                }
+                            }
+                        }
+                    }
                     if self.config.controls.insert == key {
                         if self.groups.get(selection.group).is_some() {
-                            self.insert_level(selection.group, selection.level, GameState::empty());
+                            self.insert_level(
+                                actx,
+                                selection.group,
+                                selection.level,
+                                GameState::empty(),
+                            )
+                            .await;
                         }
                     }
                     if self.config.controls.delete == key {
@@ -217,7 +261,8 @@ impl State {
                     if self.config.controls.paste == key {
                         if self.groups.get(selection.group).is_some() {
                             if let Some(state) = self.register.clone() {
-                                self.insert_level(selection.group, selection.level, state);
+                                self.insert_level(actx, selection.group, selection.level, state)
+                                    .await;
                             }
                         }
                     }
@@ -236,27 +281,24 @@ impl State {
                                 .await;
                             level.preview = generate_preview(&self.ctx, &level.state);
                         } else {
-                            self.insert_level(selection.group, selection.level, GameState::empty());
+                            self.insert_level(
+                                actx,
+                                selection.group,
+                                selection.level,
+                                GameState::empty(),
+                            )
+                            .await;
                         }
-                    } else {
+                    } else if let Some(name) =
+                        popup::prompt(&self.ctx, actx, "New group name", "").await
+                    {
                         let group = Group {
-                            name: generate_new_group_name(),
+                            name,
                             levels: Vec::new(),
                         };
                         std::fs::create_dir(group_dir(&group.name)).unwrap();
                         self.groups.push(group);
-                        ron::ser::to_writer_pretty(
-                            std::io::BufWriter::new(
-                                std::fs::File::create(groups_list_file()).unwrap(),
-                            ),
-                            &self
-                                .groups
-                                .iter()
-                                .map(|group| &group.name)
-                                .collect::<Vec<_>>(),
-                            default(),
-                        )
-                        .unwrap();
+                        self.save_group_list();
                         return;
                     }
                 }
