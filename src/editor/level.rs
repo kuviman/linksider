@@ -295,6 +295,7 @@ impl<'a> State<'a> {
             if *self.game_state != self.history.pop().unwrap() {
                 log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
             }
+            self.saved = false;
             *self.game_state = self.history.last().unwrap().clone();
             self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
         }
