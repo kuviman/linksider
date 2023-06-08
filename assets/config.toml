@@ -35,6 +35,9 @@ index_size = 0.3
 index_color = "white"
 brush_preview_opacity = 0.5
 grid_color = "#7775"
+warning_size = 32
+warning_color = "#ff0"
+autosave_timer = 10
 
 [editor.level.brush_wheel]
 radius = 3
@@ -55,9 +58,12 @@ fov = 15
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128
+min_drag_distance = 10
+max_click_time = 0.5
 
 [editor.world.controls]
 insert = "I"
 delete = "X"
 copy = "C"
 paste = "P"
+rename = "R"

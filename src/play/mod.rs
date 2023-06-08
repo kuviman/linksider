@@ -1,151 +1,135 @@
 use super::*;
 
 pub struct State {
+    ctx: Context,
     framebuffer_size: vec2<f32>,
-    geng: Geng,
-    assets: Rc<Assets>,
     camera: Camera2d,
-    transition: Option<geng::state::Transition>,
-    sound: Rc<sound::State>,
-    renderer: Rc<Renderer>,
+    transition: Option<Transition>,
     level_mesh: renderer::LevelMesh,
-    finish_callback: FinishCallback,
     history_player: history::Player,
 }
 
-pub type FinishCallback = Rc<dyn Fn(Finish) -> geng::state::Transition>;
-
-pub enum Finish {
+pub enum Transition {
     NextLevel,
     PrevLevel,
     Editor,
+    Exit,
 }
 
 impl State {
-    pub fn new(
-        geng: &Geng,
-        assets: &Rc<Assets>,
-        renderer: &Rc<Renderer>,
-        sound: &Rc<sound::State>,
-        mut game_state: GameState,
-        finish_callback: FinishCallback,
-    ) -> Self {
+    pub fn new(ctx: &Context, mut game_state: GameState) -> Self {
         game_state.init_after_load();
         Self {
-            finish_callback,
-            geng: geng.clone(),
-            assets: assets.clone(),
+            ctx: ctx.clone(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
                 center: game_state.center(),
                 rotation: 0.0,
-                fov: assets.config.fov,
+                fov: ctx.assets.config.fov,
             },
             transition: None,
-            sound: sound.clone(),
-            renderer: renderer.clone(),
-            level_mesh: renderer.level_mesh(&game_state),
+            level_mesh: ctx.renderer.level_mesh(&game_state),
             history_player: history::Player::new(
                 game_state,
-                &assets.logic_config,
-                assets.config.animation_time,
+                &ctx.assets.logic_config,
+                ctx.assets.config.animation_time,
             ),
         }
     }
-    pub fn finish(&mut self, finish: Finish) {
-        self.transition = Some((self.finish_callback)(finish));
+    pub fn finish(&mut self, finish: Transition) {
+        self.transition = Some(finish);
     }
-}
 
-impl geng::State for State {
+    pub async fn run(mut self, actx: &mut async_states::Context) -> Transition {
+        loop {
+            match actx.wait().await {
+                async_states::Event::Event(event) => self.handle_event(event),
+                async_states::Event::Update(delta_time) => self.update(delta_time),
+                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+            }
+            if let Some(transition) = self.transition.take() {
+                return transition;
+            }
+        }
+    }
+
     fn update(&mut self, delta_time: f64) {
         let delta_time = delta_time as f32;
 
-        let is_pressed = |&key| self.geng.window().is_key_pressed(key);
-        let input = if self.assets.config.controls.left.iter().any(is_pressed) {
+        let is_pressed = |&key| self.ctx.geng.window().is_key_pressed(key);
+        let input = if self.ctx.assets.config.controls.left.iter().any(is_pressed) {
             Some(Input::Left)
-        } else if self.assets.config.controls.right.iter().any(is_pressed) {
+        } else if self.ctx.assets.config.controls.right.iter().any(is_pressed) {
             Some(Input::Right)
-        } else if self.assets.config.controls.skip.iter().any(is_pressed) {
+        } else if self.ctx.assets.config.controls.skip.iter().any(is_pressed) {
             Some(Input::Skip)
         } else {
             None
         };
-        let timeline_input = if self.assets.config.controls.undo.iter().any(is_pressed) {
+        let timeline_input = if self.ctx.assets.config.controls.undo.iter().any(is_pressed) {
             Some(-1)
-        } else if self.assets.config.controls.redo.iter().any(is_pressed) {
+        } else if self.ctx.assets.config.controls.redo.iter().any(is_pressed) {
             Some(1)
         } else {
             None
         };
         let update = self.history_player.update(
             delta_time,
-            &self.assets.logic_config,
+            &self.ctx.assets.logic_config,
             input,
             timeline_input,
         );
         if let Some(moves) = update.started {
-            self.sound.play_turn_start_sounds(moves);
+            self.ctx.sound.play_turn_start_sounds(moves);
         }
         if let Some(moves) = update.finished {
-            self.sound.play_turn_end_sounds(moves);
+            self.ctx.sound.play_turn_end_sounds(moves);
         }
         if let Some(entity) = self.history_player.frame().current_state.selected_entity() {
             self.camera.center = lerp(
                 self.camera.center,
                 entity.pos.cell.map(|x| x as f32 + 0.5),
-                (delta_time * self.assets.config.camera_speed).min(1.0),
+                (delta_time * self.ctx.assets.config.camera_speed).min(1.0),
             );
         }
         if self.history_player.frame().current_state.finished() {
-            self.finish(Finish::NextLevel);
+            self.finish(Transition::NextLevel);
         }
-    }
-    fn transition(&mut self) -> Option<geng::state::Transition> {
-        self.transition.take()
     }
     fn handle_event(&mut self, event: geng::Event) {
         match event {
             geng::Event::KeyDown { key } => {
-                if key == self.assets.config.editor.level.controls.toggle {
-                    self.finish(Finish::Editor);
+                if key == self.ctx.assets.config.editor.level.controls.toggle {
+                    self.finish(Transition::Editor);
                 }
 
-                if self.assets.config.controls.escape.contains(&key) {
-                    // TODO: instead go to regular world view
-                    self.transition = Some(geng::state::Transition::Switch(Box::new(
-                        editor::world::State::load(
-                            &self.geng,
-                            &self.assets,
-                            &self.sound,
-                            &self.renderer,
-                        ),
-                    )));
+                if self.ctx.assets.config.controls.escape.contains(&key) {
+                    self.finish(Transition::Exit);
                 }
 
-                if let Some(cheats) = &self.assets.config.controls.cheats {
+                if let Some(cheats) = &self.ctx.assets.config.controls.cheats {
                     if key == cheats.prev_level {
-                        self.finish(Finish::PrevLevel);
+                        self.finish(Transition::PrevLevel);
                     } else if key == cheats.next_level {
-                        self.finish(Finish::NextLevel);
+                        self.finish(Transition::NextLevel);
                     }
                 }
 
-                if self.assets.config.controls.restart.contains(&key) {
+                if self.ctx.assets.config.controls.restart.contains(&key) {
                     self.history_player.restart();
                 }
-                if self.assets.config.controls.undo.contains(&key) {
+                if self.ctx.assets.config.controls.undo.contains(&key) {
                     self.history_player.undo();
                 }
-                if self.assets.config.controls.redo.contains(&key) {
+                if self.ctx.assets.config.controls.redo.contains(&key) {
                     self.history_player.redo();
                 }
 
-                let input = if self.assets.config.controls.left.contains(&key) {
+                let input = if self.ctx.assets.config.controls.left.contains(&key) {
                     Some(Input::Left)
-                } else if self.assets.config.controls.right.contains(&key) {
+                } else if self.ctx.assets.config.controls.right.contains(&key) {
                     Some(Input::Right)
-                } else if self.assets.config.controls.skip.contains(&key) {
+                } else if self.ctx.assets.config.controls.skip.contains(&key) {
                     Some(Input::Skip)
                 } else {
                     None
@@ -154,19 +138,19 @@ impl geng::State for State {
                     if self.history_player.frame().animation.is_none() {
                         if let Some(moves) = self
                             .history_player
-                            .process_move(&self.assets.logic_config, input)
+                            .process_move(&self.ctx.assets.logic_config, input)
                         {
-                            self.sound.play_turn_start_sounds(moves);
+                            self.ctx.sound.play_turn_start_sounds(moves);
                         }
                     }
                 }
-                if self.assets.config.controls.next_player.contains(&key) {
+                if self.ctx.assets.config.controls.next_player.contains(&key) {
                     self.history_player
-                        .change_player_selection(&self.assets.logic_config, 1);
+                        .change_player_selection(&self.ctx.assets.logic_config, 1);
                 }
-                if self.assets.config.controls.prev_player.contains(&key) {
+                if self.ctx.assets.config.controls.prev_player.contains(&key) {
                     self.history_player
-                        .change_player_selection(&self.assets.logic_config, -1);
+                        .change_player_selection(&self.ctx.assets.logic_config, -1);
                 }
             }
             _ => {}
@@ -174,7 +158,7 @@ impl geng::State for State {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        self.renderer.draw(
+        self.ctx.renderer.draw(
             framebuffer,
             &self.camera,
             self.history_player.frame(),

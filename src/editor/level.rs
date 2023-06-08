@@ -26,6 +26,9 @@ pub struct Config {
     grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
+    autosave_timer: f64,
+    warning_size: f32,
+    warning_color: Rgba<f32>,
     pub controls: Controls,
 }
 
@@ -103,76 +106,38 @@ struct BrushWheelItem {
     hovered: bool,
 }
 
-pub struct State {
+pub struct State<'a> {
+    ctx: Context,
+    title: String,
     framebuffer_size: vec2<f32>,
-    geng: Geng,
-    assets: Rc<Assets>,
     config: Rc<Config>,
-    game_state: GameState,
+    game_state: &'a mut GameState,
     camera: Camera2d,
-    transition: Option<geng::state::Transition>,
-    sound: Rc<sound::State>,
-    renderer: Rc<Renderer>,
     level_mesh: renderer::LevelMesh,
-    finish_callback: play::FinishCallback,
     camera_controls: CameraControls,
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<GameState>,
+    saved: bool,
+    autosave_timer: Timer,
     show_grid: bool,
 }
 
-impl State {
-    pub fn load(
-        geng: &Geng,
-        assets: &Rc<Assets>,
-        sound: &Rc<sound::State>,
-        renderer: &Rc<Renderer>,
-        path: impl AsRef<std::path::Path>,
-    ) -> impl geng::State {
-        geng::LoadingScreen::new(geng, geng::EmptyLoadingScreen::new(geng), {
-            let geng = geng.clone();
-            let assets = assets.clone();
-            let sound = sound.clone();
-            let renderer = renderer.clone();
-            let path = path.as_ref().to_owned();
-            async move {
-                log::debug!("Loading level from {path:?}");
-                let game_state = file::load_detect(&path).await.unwrap();
-                Self::new(&geng, &assets, &sound, &renderer, game_state, &path, None)
-            }
-        })
-    }
+impl<'a> State<'a> {
     pub fn new(
-        geng: &Geng,
-        assets: &Rc<Assets>,
-        sound: &Rc<sound::State>,
-        renderer: &Rc<Renderer>,
-        game_state: GameState,
+        ctx: &Context,
+        title: String,
+        game_state: &'a mut GameState,
         path: impl AsRef<std::path::Path>,
-        finish_callback: Option<play::FinishCallback>,
     ) -> Self {
         let path = path.as_ref();
-        let finish_callback = finish_callback.unwrap_or_else(|| {
-            Rc::new({
-                let geng = geng.clone();
-                let assets = assets.clone();
-                let sound = sound.clone();
-                let renderer = renderer.clone();
-                let path = path.to_owned();
-                move |_| {
-                    geng::state::Transition::Switch(Box::new(Self::load(
-                        &geng, &assets, &sound, &renderer, &path,
-                    )))
-                }
-            })
-        });
-        let config = assets.config.editor.level.clone();
+        let config = ctx.assets.config.editor.level.clone();
         Self {
+            title,
+            saved: true,
+            autosave_timer: Timer::new(),
             path: path.to_owned(),
-            geng: geng.clone(),
-            assets: assets.clone(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
                 center: game_state.center(),
@@ -180,12 +145,8 @@ impl State {
                 fov: config.default_fov,
             },
             config,
-            transition: None,
-            sound: sound.clone(),
-            renderer: renderer.clone(),
-            level_mesh: renderer.level_mesh(&game_state),
-            finish_callback,
-            camera_controls: CameraControls::new(geng, &assets.config.camera_controls),
+            level_mesh: ctx.renderer.level_mesh(&game_state),
+            camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
             brush: Brush {
                 angle: IntAngle::RIGHT,
                 brush_type: BrushType::Entity("Player".to_owned()),
@@ -194,6 +155,7 @@ impl State {
             history: vec![game_state.clone()],
             game_state,
             show_grid: true,
+            ctx: ctx.clone(),
         }
     }
 
@@ -210,7 +172,7 @@ impl State {
         match &self.brush.brush_type {
             BrushType::Entity(name) => self.game_state.add_entity(
                 name,
-                &self.assets.logic_config.entities[name],
+                &self.ctx.assets.logic_config.entities[name],
                 Position {
                     cell,
                     angle: self.brush.angle,
@@ -218,7 +180,7 @@ impl State {
             ),
             BrushType::Tile(tile) => {
                 self.game_state.tiles.insert(cell, *tile);
-                self.level_mesh = self.renderer.level_mesh(&self.game_state);
+                self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
             }
             BrushType::Powerup(effect) => {
                 self.game_state.powerups.insert(Powerup {
@@ -243,7 +205,7 @@ impl State {
     fn delete(&mut self, screen_pos: vec2<f64>) {
         let tile = self.screen_to_tile(screen_pos);
         if self.game_state.tiles.remove(&tile).is_some() {
-            self.level_mesh = self.renderer.level_mesh(&self.game_state);
+            self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
         }
         self.game_state
             .entities
@@ -259,6 +221,7 @@ impl State {
     fn brush_wheel(&self) -> Option<impl Iterator<Item = BrushWheelItem> + '_> {
         let center = self.brush_wheel_pos?;
         let entities = self
+            .ctx
             .assets
             .logic_config
             .entities
@@ -300,7 +263,7 @@ impl State {
         }
         let cursor_delta = self.camera.screen_to_world(
             self.framebuffer_size,
-            self.geng.window().cursor_position().map(|x| x as f32),
+            self.ctx.geng.window().cursor_position().map(|x| x as f32),
         ) - center;
         if cursor_delta.len() > self.config.brush_wheel.inner_radius {
             if let Some(item) = items
@@ -314,35 +277,40 @@ impl State {
         Some(items.into_iter())
     }
 
-    fn save(&mut self) {
-        // TODO saved flag & warning
-        ron::ser::to_writer_pretty(
-            std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
-            &self.game_state,
-            default(),
-        )
-        .unwrap();
+    fn save_if_needed(&mut self) {
+        if !self.saved {
+            log::debug!("Saving");
+            ron::ser::to_writer_pretty(
+                std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
+                &self.game_state,
+                default(),
+            )
+            .unwrap();
+            self.saved = true;
+        }
     }
 
     fn undo(&mut self) {
         if self.history.len() > 1 {
-            if self.game_state != self.history.pop().unwrap() {
+            if *self.game_state != self.history.pop().unwrap() {
                 log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
             }
-            self.game_state = self.history.last().unwrap().clone();
-            self.level_mesh = self.renderer.level_mesh(&self.game_state);
+            self.saved = false;
+            *self.game_state = self.history.last().unwrap().clone();
+            self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
         }
     }
 
     fn push_history_if_needed(&mut self) {
-        if self.game_state != *self.history.last().unwrap() {
+        if *self.game_state != *self.history.last().unwrap() {
             log::debug!("Pushed history");
             self.history.push(self.game_state.clone());
+            self.saved = false;
         }
     }
 
     fn assign_index(&mut self, index: i32) {
-        let cell = self.screen_to_tile(self.geng.window().cursor_position());
+        let cell = self.screen_to_tile(self.ctx.geng.window().cursor_position());
         if let Some(entity) = self
             .game_state
             .entities
@@ -355,52 +323,59 @@ impl State {
     }
 }
 
-impl Drop for State {
+impl Drop for State<'_> {
     fn drop(&mut self) {
-        self.save();
+        self.save_if_needed();
     }
 }
 
-impl geng::State for State {
+impl State<'_> {
+    pub async fn run(mut self, actx: &mut async_states::Context) {
+        loop {
+            match actx.wait().await {
+                async_states::Event::Event(event) => {
+                    if let std::ops::ControlFlow::Break(()) = self.handle_event(actx, event).await {
+                        break;
+                    }
+                }
+                async_states::Event::Update(delta_time) => self.update(delta_time),
+                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+            }
+        }
+    }
     fn update(&mut self, delta_time: f64) {
         let _delta_time = delta_time as f32;
+        if self.autosave_timer.elapsed().as_secs_f64() > self.config.autosave_timer {
+            self.save_if_needed();
+            self.autosave_timer.reset();
+        }
     }
-    fn transition(&mut self) -> Option<geng::state::Transition> {
-        self.transition.take()
-    }
-    fn handle_event(&mut self, event: geng::Event) {
+    async fn handle_event(
+        &mut self,
+        actx: &mut async_states::Context,
+        event: geng::Event,
+    ) -> std::ops::ControlFlow<()> {
         let controls = &self.config.controls;
         self.camera_controls
             .handle_event(&mut self.camera, event.clone());
         match event {
-            geng::Event::KeyDown { key } if self.assets.config.controls.escape.contains(&key) => {
-                self.transition = Some(geng::state::Transition::Switch(Box::new(
-                    editor::world::State::load(
-                        &self.geng,
-                        &self.assets,
-                        &self.sound,
-                        &self.renderer,
-                    ),
-                )));
+            geng::Event::KeyDown { key }
+                if self.ctx.assets.config.controls.escape.contains(&key) =>
+            {
+                return std::ops::ControlFlow::Break(());
             }
             geng::Event::KeyDown { key } if key == controls.grid => {
                 self.show_grid = !self.show_grid;
             }
             geng::Event::KeyDown { key } if key == controls.toggle => {
-                self.transition =
-                    Some(geng::state::Transition::Switch(Box::new(play::State::new(
-                        &self.geng,
-                        &self.assets,
-                        &self.renderer,
-                        &self.sound,
-                        self.game_state.clone(),
-                        self.finish_callback.clone(),
-                    ))));
+                play::State::new(&self.ctx, self.game_state.clone())
+                    .run(actx)
+                    .await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
                 self.brush_wheel_pos = Some(self.camera.screen_to_world(
                     self.framebuffer_size,
-                    self.geng.window().cursor_position().map(|x| x as f32),
+                    self.ctx.geng.window().cursor_position().map(|x| x as f32),
                 ));
             }
             geng::Event::KeyUp { key } if key == controls.choose => {
@@ -417,7 +392,7 @@ impl geng::State for State {
             geng::Event::KeyDown { key } if key == controls.pick => {
                 if let Some(brush) = Brush::pick(
                     &self.game_state,
-                    self.screen_to_tile(self.geng.window().cursor_position()),
+                    self.screen_to_tile(self.ctx.geng.window().cursor_position()),
                 ) {
                     self.brush = brush;
                 }
@@ -434,26 +409,26 @@ impl geng::State for State {
                 self.push_history_if_needed();
             }
             geng::Event::MouseMove { position, .. } => {
-                if self.geng.window().is_button_pressed(controls.create) {
+                if self.ctx.geng.window().is_button_pressed(controls.create) {
                     self.create(position);
-                } else if self.geng.window().is_button_pressed(controls.delete) {
+                } else if self.ctx.geng.window().is_button_pressed(controls.delete) {
                     self.delete(position);
                 }
             }
             geng::Event::KeyDown { key } if key == controls.rotate => {
                 let mut delta = 1;
-                if self.geng.window().is_key_pressed(geng::Key::LShift) {
+                if self.ctx.geng.window().is_key_pressed(geng::Key::LShift) {
                     delta = -delta;
                 }
                 self.brush.angle = self.brush.angle.with_input(Input::from_sign(delta));
             }
             geng::Event::KeyDown { key: geng::Key::S }
-                if self.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
-                self.save();
+                self.save_if_needed();
             }
             geng::Event::KeyDown { key: geng::Key::Z }
-                if self.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
                 self.undo();
             }
@@ -507,10 +482,11 @@ impl geng::State for State {
 
             _ => {}
         }
+        std::ops::ControlFlow::Continue(())
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        self.renderer.draw(
+        self.ctx.renderer.draw(
             framebuffer,
             &self.camera,
             history::Frame {
@@ -522,7 +498,7 @@ impl geng::State for State {
 
         for entity in &self.game_state.entities {
             if let Some(index) = entity.index {
-                self.geng.default_font().draw(
+                self.ctx.geng.default_font().draw(
                     framebuffer,
                     &self.camera,
                     &index.to_string(),
@@ -535,35 +511,45 @@ impl geng::State for State {
         }
 
         if self.show_grid {
-            self.renderer
+            self.ctx
+                .renderer
                 .draw_grid(framebuffer, &self.camera, self.config.grid_color);
         }
 
-        self.renderer.draw_tile(
+        self.ctx.renderer.draw_tile(
             framebuffer,
             &self.camera,
             &self.brush.brush_type.tile_name(),
             Rgba::new(1.0, 1.0, 1.0, self.config.brush_preview_opacity),
             mat3::translate(
-                self.screen_to_tile(self.geng.window().cursor_position())
+                self.screen_to_tile(self.ctx.geng.window().cursor_position())
                     .map(|x| x as f32),
             ) * mat3::rotate_around(vec2::splat(0.5), self.brush.rotation()),
         );
-        self.renderer.draw_tile(
+        self.ctx.renderer.draw_tile(
             framebuffer,
             &self.camera,
             "EditorSelect",
             Rgba::WHITE,
             mat3::translate(
-                self.screen_to_tile(self.geng.window().cursor_position())
+                self.screen_to_tile(self.ctx.geng.window().cursor_position())
                     .map(|x| x as f32),
             ),
+        );
+
+        self.ctx.geng.default_font().draw(
+            framebuffer,
+            &self.camera,
+            &self.title,
+            vec2::splat(geng::TextAlign::LEFT),
+            mat3::translate(self.game_state.bounding_box().top_left().map(|x| x as f32)),
+            Rgba::WHITE,
         );
 
         if let Some(wheel) = self.brush_wheel() {
             let center = self.brush_wheel_pos.unwrap();
             let config = &self.config.brush_wheel;
-            self.geng.draw2d().draw2d(
+            self.ctx.geng.draw2d().draw2d(
                 framebuffer,
                 &self.camera,
                 &draw2d::Ellipse::circle_with_cut(
@@ -574,7 +560,7 @@ impl geng::State for State {
                 ),
             );
             for item in wheel {
-                self.renderer.draw_tile(
+                self.ctx.renderer.draw_tile(
                     framebuffer,
                     &self.camera,
                     &item.brush.brush_type.tile_name(),
@@ -585,6 +571,17 @@ impl geng::State for State {
                         * mat3::translate(vec2::splat(-0.5)),
                 );
             }
+        }
+
+        if !self.saved {
+            self.ctx.geng.default_font().draw(
+                framebuffer,
+                &geng::PixelPerfectCamera,
+                "You have unsaved changes",
+                vec2::splat(geng::TextAlign::LEFT),
+                mat3::scale_uniform(self.config.warning_size),
+                self.config.warning_color,
+            );
         }
     }
 }

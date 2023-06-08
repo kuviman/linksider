@@ -5,6 +5,9 @@ name = "linksider"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.geng]
+assets = ["assets", "levels"]
+
 [dependencies]
 geng.git = "https://github.com/geng-engine/geng"
 logicsider.path = "logicsider"
