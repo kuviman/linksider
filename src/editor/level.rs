@@ -35,17 +35,72 @@ pub struct Config {
 enum BrushType {
     Entity(String),
     Tile(Tile),
+    SideEffect(Effect),
     Powerup(Effect),
     Goal,
 }
 
 impl BrushType {
+    fn delete_underneath(&self) -> bool {
+        match self {
+            Self::SideEffect(_) => false,
+            _ => true,
+        }
+    }
     fn tile_name(&self) -> String {
         match self {
             Self::Entity(name) => name.clone(),
             Self::Tile(tile) => format!("{tile:?}").to_lowercase(),
+            Self::SideEffect(effect) => format!("{effect:?}Power"),
             Self::Powerup(effect) => format!("{effect:?}Power"),
             Self::Goal => "Goal".to_owned(),
+        }
+    }
+
+    fn draw(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        ctx: &Context,
+        camera: &impl geng::AbstractCamera2d,
+        matrix: mat3<f32>,
+    ) {
+        // TypeScript is better
+        match self {
+            Self::SideEffect(_) => {
+                let matrix = matrix * mat3::scale_uniform(0.8);
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    "Player",
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2::splat(-0.5)),
+                );
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    &self.tile_name(),
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2(-0.5, 0.5)),
+                );
+            }
+            Self::Powerup(_) => {
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    &self.tile_name(),
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2(-0.5, 0.0)),
+                );
+            }
+            _ => {
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    &self.tile_name(),
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2::splat(-0.5)),
+                );
+            }
         }
     }
 }
@@ -62,6 +117,7 @@ impl Brush {
         match self.brush_type {
             BrushType::Entity(_) => angle,
             BrushType::Tile(_) => angle,
+            BrushType::SideEffect(_) => angle.rotate_counter_clockwise(),
             BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
             BrushType::Goal => angle,
         }
@@ -167,7 +223,9 @@ impl<'a> State<'a> {
     }
 
     fn create(&mut self, screen_pos: vec2<f64>) {
-        self.delete(screen_pos);
+        if self.brush.brush_type.delete_underneath() {
+            self.delete(screen_pos);
+        }
         let cell = self.screen_to_tile(screen_pos);
         match &self.brush.brush_type {
             BrushType::Entity(name) => self.game_state.add_entity(
@@ -181,6 +239,16 @@ impl<'a> State<'a> {
             BrushType::Tile(tile) => {
                 self.game_state.tiles.insert(cell, *tile);
                 self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
+            }
+            BrushType::SideEffect(effect) => {
+                if let Some(entity) = self
+                    .game_state
+                    .entities
+                    .iter_mut()
+                    .find(|entity| entity.pos.cell == cell)
+                {
+                    entity.side_at_angle_mut(self.brush.angle).effect = Some(effect.clone());
+                }
             }
             BrushType::Powerup(effect) => {
                 self.game_state.powerups.insert(Powerup {
@@ -243,18 +311,25 @@ impl<'a> State<'a> {
                 angle: IntAngle::DOWN,
                 brush_type,
             });
+        let side_effects = Effect::iter_variants()
+            .map(BrushType::SideEffect)
+            .map(|brush_type| Brush {
+                angle: IntAngle::DOWN,
+                brush_type,
+            });
         let goal = Brush {
             angle: IntAngle::RIGHT,
             brush_type: BrushType::Goal,
         };
 
-        let mut items: Vec<BrushWheelItem> = itertools::chain![entities, tiles, powerups, [goal]]
-            .map(|brush| BrushWheelItem {
-                brush,
-                pos: vec2::ZERO,
-                hovered: false,
-            })
-            .collect();
+        let mut items: Vec<BrushWheelItem> =
+            itertools::chain![entities, tiles, powerups, side_effects, [goal]]
+                .map(|brush| BrushWheelItem {
+                    brush,
+                    pos: vec2::ZERO,
+                    hovered: false,
+                })
+                .collect();
         let len = items.len();
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
@@ -560,15 +635,13 @@ impl State<'_> {
                 ),
             );
             for item in wheel {
-                self.ctx.renderer.draw_tile(
+                item.brush.brush_type.draw(
                     framebuffer,
+                    &self.ctx,
                     &self.camera,
-                    &item.brush.brush_type.tile_name(),
-                    Rgba::WHITE,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
-                        * mat3::rotate(item.brush.rotation())
-                        * mat3::translate(vec2::splat(-0.5)),
+                        * mat3::rotate(item.brush.rotation()),
                 );
             }
         }

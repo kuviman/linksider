@@ -102,6 +102,10 @@ impl Entity {
         &self.sides[self.side_index(angle)]
     }
 
+    pub fn side_at_angle_mut(&mut self, angle: IntAngle) -> &mut Side {
+        &mut self.sides[self.side_index(angle)]
+    }
+
     pub fn relative_side_angle(side_index: usize) -> IntAngle {
         IntAngle::from_i32(side_index as i32)
     }
