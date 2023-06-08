@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-web:
-    name: Build
+    name: Build web
     runs-on: ubuntu-latest
     container: kuviman/geng
     steps:
@@ -20,7 +20,7 @@ jobs:
           path: target/geng
 
   build-native:
-    name: Build (Native)
+    name: Build native
     runs-on: ${{ matrix.platform.runs-on }}
     strategy:
       matrix:
@@ -85,10 +85,10 @@ jobs:
             play
 
   deploy-web:
-    name: Deploy (Dev)
+    name: Deploy web
     permissions:
       contents: write
-    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'kuviman'
+    if: github.ref == 'refs/heads/main' && github.repository_owner == 'kuviman'
     runs-on: ubuntu-latest
     needs:
       - build-web
@@ -102,10 +102,10 @@ jobs:
           target-folder: play/web
 
   deploy-native:
-    name: Deploy (Dev)
+    name: Deploy native
     permissions:
       contents: write
-    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'kuviman'
+    if: github.ref == 'refs/heads/main' && github.repository_owner == 'kuviman'
     runs-on: ubuntu-latest
     needs:
       - build-native
