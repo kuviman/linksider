@@ -1,5 +1,8 @@
 name: CI
-on: push
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build-web:
@@ -41,6 +44,11 @@ jobs:
           profile: minimal
       - name: Install cargo-geng
         run: cargo install cargo-geng --git https://github.com/kuviman/geng
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -51,3 +59,69 @@ jobs:
         with:
           name: ${{ matrix.platform.channel }}
           path: target/geng
+
+  deploy-website:
+    name: Deploy Website
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/main' && github.repository_owner == 'kuviman'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Build
+        uses: shalzz/zola-deploy-action@v0.17.1
+        env:
+          BUILD_DIR: website
+          BUILD_THEMES: false
+          BUILD_ONLY: true
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: website/public
+          clean-exclude: |
+            play
+
+  deploy-web:
+    name: Deploy (Dev)
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'kuviman'
+    runs-on: ubuntu-latest
+    needs:
+      - build-web
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: web
+          target-folder: play/web
+
+  deploy-native:
+    name: Deploy (Dev)
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'kuviman'
+    runs-on: ubuntu-latest
+    needs:
+      - build-native
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Create archives
+        run: |
+          mkdir native
+          for platform in linux windows mac; do
+            name=${{ github.event.repository.name }}-$platform
+            mv $platform $name
+            zip -r native/$name.zip $name
+          done
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: native
+          target-folder: play/native
