@@ -23,20 +23,11 @@ impl Entity {
     }
 }
 
-impl Tile {
-    pub fn is_blocking(&self) -> bool {
-        use Tile::*;
-        match self {
-            Nothing => false,
-            Block => true,
-            Disable => true,
-            Cloud => false,
-        }
-    }
-}
-
 pub fn is_blocked(state: &GameState, pos: vec2<i32>) -> bool {
-    state.tile(pos).is_blocking() || state.entities.iter().any(|entity| entity.pos.cell == pos)
+    state
+        .entities
+        .iter()
+        .any(|entity| entity.pos.cell == pos && entity.properties.block)
 }
 
 #[derive(Copy, Clone)]
@@ -79,12 +70,15 @@ fn check_entity_move(params: EntityMoveParams) -> Option<Collection<EntityMove>>
 
 fn check_moves(state: &GameState, config: &Config, input: Input) -> Collection<EntityMove> {
     let mut result = Collection::new();
-    for &id in state.entities.ids() {
+    for entity in &state.entities {
+        if entity.properties.r#static {
+            continue;
+        }
         if let Some(moves) = check_entity_move(EntityMoveParams {
             state,
             config,
-            entity_id: id,
-            input: if Some(id) == state.selected_player {
+            entity_id: entity.id,
+            input: if Some(entity.id) == state.selected_player {
                 input
             } else {
                 Input::Skip
@@ -100,6 +94,7 @@ fn check_moves(state: &GameState, config: &Config, input: Input) -> Collection<E
 fn perform_moves(state: &mut GameState, moves: &Collection<EntityMove>) {
     for entity_move in moves {
         let entity = state.entities.get_mut(&entity_move.entity_id).unwrap();
+        assert!(!entity.properties.r#static);
         assert_eq!(entity.pos, entity_move.prev_pos);
         entity.pos = entity_move.new_pos;
         if let EntityMoveType::EnterGoal { goal_id } = entity_move.move_type {

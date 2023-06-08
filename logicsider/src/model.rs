@@ -1,9 +1,8 @@
 use super::*;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct GameState {
     pub id_gen: id::Gen,
-    pub tiles: HashMap<vec2<i32>, Tile>,
     pub entities: Collection<Entity>,
     pub powerups: Collection<Powerup>,
     pub selected_player: Option<Id>,
@@ -15,7 +14,6 @@ impl GameState {
     pub fn empty() -> Self {
         Self {
             id_gen: id::Gen::new(),
-            tiles: default(),
             entities: default(),
             powerups: default(),
             selected_player: None,
@@ -24,18 +22,61 @@ impl GameState {
         }
     }
 
-    // TODO remove this, create separate level file format
-    pub fn init_after_load(&mut self) {
-        let first_player = self.player_ids().next();
-        self.selected_player = first_player;
-    }
-
-    pub fn tile(&self, pos: vec2<i32>) -> Tile {
-        self.tiles.get(&pos).copied().unwrap_or(Tile::Nothing)
+    pub fn init(config: &Config, level: &Level) -> Self {
+        let mut id_gen = id::Gen::new();
+        let entities = level
+            .entities
+            .iter()
+            .map(
+                |&level::Entity {
+                     index,
+                     ref identifier,
+                     pos,
+                     ref sides,
+                 }| Entity {
+                    id: id_gen.gen(),
+                    index,
+                    identifier: identifier.clone(),
+                    properties: config.entities.get(identifier).unwrap().clone(),
+                    pos,
+                    prev_pos: pos,
+                    prev_move: None,
+                    sides: sides.clone(),
+                },
+            )
+            .collect();
+        let powerups = level
+            .powerups
+            .iter()
+            .map(|&level::Powerup { pos, ref effect }| Powerup {
+                id: id_gen.gen(),
+                pos,
+                effect: effect.clone(),
+            })
+            .collect();
+        let goals = level
+            .goals
+            .iter()
+            .map(|&level::Goal { pos }| Goal {
+                id: id_gen.gen(),
+                pos,
+            })
+            .collect();
+        let mut result = Self {
+            id_gen,
+            entities,
+            powerups,
+            selected_player: None,
+            goals,
+            stable: false,
+        };
+        let first_player = result.player_ids().next();
+        result.selected_player = first_player;
+        result
     }
 
     pub fn bounding_box(&self) -> Aabb2<i32> {
-        Aabb2::points_bounding_box(self.tiles.keys().copied())
+        Aabb2::points_bounding_box(self.entities.iter().map(|entity| entity.pos.cell))
             .unwrap_or(Aabb2::ZERO)
             .extend_positive(vec2::splat(1))
     }
@@ -55,20 +96,6 @@ impl GameState {
             prev_pos: pos,
             prev_move: None,
         });
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Tile {
-    Nothing, // TODO remove?
-    Block,
-    Disable,
-    Cloud,
-}
-
-impl Tile {
-    pub fn iter_variants() -> impl Iterator<Item = Self> {
-        [Self::Block, Self::Disable, Self::Cloud].into_iter()
     }
 }
 
@@ -111,17 +138,19 @@ impl Entity {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Side {
+    pub effect: Option<Effect>,
+}
+
+#[derive(Default, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Properties {
     pub block: bool,
     pub trigger: bool,
     pub player: bool,
     pub pushable: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Side {
-    pub effect: Option<Effect>,
+    pub r#static: bool,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
@@ -151,14 +180,14 @@ impl Effect {
 }
 
 #[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
-pub struct Goal {
-    pub id: Id,
-    pub pos: Position,
-}
-
-#[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
 pub struct Powerup {
     pub id: Id,
     pub pos: Position,
     pub effect: Effect,
+}
+
+#[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
+pub struct Goal {
+    pub id: Id,
+    pub pos: Position,
 }

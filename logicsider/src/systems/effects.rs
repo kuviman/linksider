@@ -34,28 +34,16 @@ impl Effect {
     }
 }
 
-impl Tile {
-    pub fn is_trigger(&self) -> bool {
-        match self {
-            Self::Nothing => false,
-            Self::Block => true,
-            Self::Disable => false,
-            Self::Cloud => true,
-        }
-    }
-}
-
 pub fn is_trigger(state: &GameState, pos: vec2<i32>, angle: IntAngle) -> bool {
-    state.tile(pos).is_trigger()
-        || state.entities.iter().any(|entity| {
-            entity.pos.cell == pos
-                && entity.properties.trigger
-                && entity
-                    .side_at_angle(angle)
-                    .effect
-                    .as_ref()
-                    .map_or(true, Effect::allow_trigger)
-        })
+    state.entities.iter().any(|entity| {
+        entity.pos.cell == pos
+            && entity.properties.trigger
+            && entity
+                .side_at_angle(angle)
+                .effect
+                .as_ref()
+                .map_or(true, Effect::allow_trigger)
+    })
 }
 
 pub fn side_effects(

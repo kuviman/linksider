@@ -35,7 +35,6 @@ pub struct Config {
 
 enum BrushType {
     Entity(String),
-    Tile(Tile),
     SideEffect(Effect),
     Powerup(Effect),
     Goal,
@@ -51,7 +50,6 @@ impl BrushType {
     fn tile_name(&self) -> String {
         match self {
             Self::Entity(name) => name.clone(),
-            Self::Tile(tile) => format!("{tile:?}").to_lowercase(),
             Self::SideEffect(effect) => format!("{effect:?}Power"),
             Self::Powerup(effect) => format!("{effect:?}Power"),
             Self::Goal => "Goal".to_owned(),
@@ -117,27 +115,20 @@ impl Brush {
         let angle = self.angle;
         match self.brush_type {
             BrushType::Entity(_) => angle,
-            BrushType::Tile(_) => angle,
             BrushType::SideEffect(_) => angle.rotate_counter_clockwise(),
             BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
             BrushType::Goal => angle,
         }
         .to_radians()
     }
-    fn pick(state: &GameState, cell: vec2<i32>) -> Option<Self> {
-        if let Some(tile) = state.tiles.get(&cell) {
-            return Some(Self {
-                angle: IntAngle::RIGHT,
-                brush_type: BrushType::Tile(*tile),
-            });
-        }
-        if let Some(entity) = state.entities.iter().find(|entity| entity.pos.cell == cell) {
+    fn pick(level: &Level, cell: vec2<i32>) -> Option<Self> {
+        if let Some(entity) = level.entities.iter().find(|entity| entity.pos.cell == cell) {
             return Some(Self {
                 angle: entity.pos.angle,
                 brush_type: BrushType::Entity(entity.identifier.clone()),
             });
         }
-        if let Some(powerup) = state
+        if let Some(powerup) = level
             .powerups
             .iter()
             .find(|powerup| powerup.pos.cell == cell)
@@ -147,7 +138,7 @@ impl Brush {
                 brush_type: BrushType::Powerup(powerup.effect.clone()),
             });
         }
-        if let Some(goal) = state.goals.iter().find(|goal| goal.pos.cell == cell) {
+        if let Some(goal) = level.goals.iter().find(|goal| goal.pos.cell == cell) {
             return Some(Self {
                 angle: goal.pos.angle,
                 brush_type: BrushType::Goal,
@@ -168,16 +159,16 @@ pub struct State<'a> {
     title: String,
     framebuffer_size: vec2<f32>,
     config: Rc<Config>,
-    game_state: &'a mut GameState,
+    level: &'a mut Level,
     camera: Camera2d,
     level_mesh: renderer::LevelMesh,
     camera_controls: CameraControls,
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
-    history: Vec<Rc<GameState>>,
+    history: Vec<Rc<Level>>,
     history_pos: usize,
-    saved: Rc<GameState>,
+    saved: Rc<Level>,
     autosave_timer: Timer,
     show_grid: bool,
 }
@@ -186,24 +177,30 @@ impl<'a> State<'a> {
     pub fn new(
         ctx: &Context,
         title: String,
-        game_state: &'a mut GameState,
+        level: &'a mut Level,
         path: impl AsRef<std::path::Path>,
     ) -> Self {
         let path = path.as_ref();
         let config = ctx.assets.config.editor.level.clone();
-        let saved = Rc::new(game_state.clone());
+        let saved = Rc::new(level.clone());
         Self {
             title,
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
-                center: game_state.center(),
+                center: Aabb2::points_bounding_box(
+                    level.entities.iter().map(|entity| entity.pos.cell),
+                )
+                .unwrap_or(Aabb2::ZERO)
+                .extend_positive(vec2::splat(1))
+                .map(|x| x as f32)
+                .center(),
                 rotation: 0.0,
                 fov: config.default_fov,
             },
             config,
-            level_mesh: ctx.renderer.level_mesh(&game_state),
+            level_mesh: ctx.renderer.level_mesh(&level),
             camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
             brush: Brush {
                 angle: IntAngle::RIGHT,
@@ -213,7 +210,7 @@ impl<'a> State<'a> {
             history: vec![saved.clone()],
             history_pos: 0,
             saved,
-            game_state,
+            level,
             show_grid: true,
             ctx: ctx.clone(),
         }
@@ -232,21 +229,18 @@ impl<'a> State<'a> {
         }
         let cell = self.screen_to_tile(screen_pos);
         match &self.brush.brush_type {
-            BrushType::Entity(name) => self.game_state.add_entity(
-                name,
-                &self.ctx.assets.logic_config.entities[name],
-                Position {
+            BrushType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
+                identifier: name.to_owned(),
+                index: None,
+                pos: Position {
                     cell,
                     angle: self.brush.angle,
                 },
-            ),
-            BrushType::Tile(tile) => {
-                self.game_state.tiles.insert(cell, *tile);
-                self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
-            }
+                sides: default(),
+            }),
             BrushType::SideEffect(effect) => {
                 if let Some(entity) = self
-                    .game_state
+                    .level
                     .entities
                     .iter_mut()
                     .find(|entity| entity.pos.cell == cell)
@@ -255,8 +249,7 @@ impl<'a> State<'a> {
                 }
             }
             BrushType::Powerup(effect) => {
-                self.game_state.powerups.insert(Powerup {
-                    id: self.game_state.id_gen.gen(),
+                self.level.powerups.push(logicsider::level::Powerup {
                     pos: Position {
                         cell,
                         angle: self.brush.angle,
@@ -264,30 +257,22 @@ impl<'a> State<'a> {
                     effect: effect.clone(),
                 });
             }
-            BrushType::Goal => self.game_state.goals.insert(Goal {
-                id: self.game_state.id_gen.gen(),
+            BrushType::Goal => self.level.goals.push(logicsider::level::Goal {
                 pos: Position {
                     cell,
                     angle: self.brush.angle,
                 },
             }),
         }
+        self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
     fn delete(&mut self, screen_pos: vec2<f64>) {
         let tile = self.screen_to_tile(screen_pos);
-        if self.game_state.tiles.remove(&tile).is_some() {
-            self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
-        }
-        self.game_state
-            .entities
-            .retain(|entity| entity.pos.cell != tile);
-        self.game_state
-            .powerups
-            .retain(|entity| entity.pos.cell != tile);
-        self.game_state
-            .goals
-            .retain(|entity| entity.pos.cell != tile);
+        self.level.entities.retain(|entity| entity.pos.cell != tile);
+        self.level.powerups.retain(|entity| entity.pos.cell != tile);
+        self.level.goals.retain(|entity| entity.pos.cell != tile);
+        self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
     fn brush_wheel(&self) -> Option<impl Iterator<Item = BrushWheelItem> + '_> {
@@ -299,12 +284,6 @@ impl<'a> State<'a> {
             .entities
             .keys()
             .map(|name| BrushType::Entity(name.clone()))
-            .map(|brush_type| Brush {
-                angle: IntAngle::RIGHT,
-                brush_type,
-            });
-        let tiles = Tile::iter_variants()
-            .map(BrushType::Tile)
             .map(|brush_type| Brush {
                 angle: IntAngle::RIGHT,
                 brush_type,
@@ -327,7 +306,7 @@ impl<'a> State<'a> {
         };
 
         let mut items: Vec<BrushWheelItem> =
-            itertools::chain![entities, tiles, powerups, side_effects, [goal]]
+            itertools::chain![entities, powerups, side_effects, [goal]]
                 .map(|brush| BrushWheelItem {
                     brush,
                     pos: vec2::ZERO,
@@ -358,9 +337,9 @@ impl<'a> State<'a> {
 
     fn save(&mut self) {
         log::debug!("Saving");
-        if *self.history[self.history_pos] != *self.game_state {
+        if *self.history[self.history_pos] != *self.level {
             log::error!("History had incorrect data wtf");
-            self.history[self.history_pos] = Rc::new(self.game_state.clone());
+            self.history[self.history_pos] = Rc::new(self.level.clone());
         }
         self.saved = self.history[self.history_pos].clone();
         self.saved.save_to_file(&self.path).unwrap();
@@ -377,7 +356,7 @@ impl<'a> State<'a> {
     }
 
     fn reset_to_last_save(&mut self) {
-        *self.game_state = self.saved.deref().clone();
+        *self.level = self.saved.deref().clone();
     }
 
     fn change_history_pos(&mut self, delta: isize) {
@@ -387,8 +366,8 @@ impl<'a> State<'a> {
         }
         let new_pos = new_pos as usize;
         self.history_pos = new_pos;
-        *self.game_state = self.history[self.history_pos].deref().clone();
-        self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
+        *self.level = self.history[self.history_pos].deref().clone();
+        self.level_mesh = self.ctx.renderer.level_mesh(&self.level);
     }
 
     fn undo(&mut self) {
@@ -400,10 +379,10 @@ impl<'a> State<'a> {
     }
 
     fn push_history_if_needed(&mut self) {
-        if *self.game_state != *self.history[self.history_pos] {
+        if *self.level != *self.history[self.history_pos] {
             self.history_pos += 1;
             self.history.truncate(self.history_pos);
-            self.history.push(Rc::new(self.game_state.clone()));
+            self.history.push(Rc::new(self.level.clone()));
             log::debug!("Pushed history");
         }
     }
@@ -411,7 +390,7 @@ impl<'a> State<'a> {
     fn assign_index(&mut self, index: i32) {
         let cell = self.screen_to_tile(self.ctx.geng.window().cursor_position());
         if let Some(entity) = self
-            .game_state
+            .level
             .entities
             .iter_mut()
             .find(|entity| entity.pos.cell == cell)
@@ -479,9 +458,7 @@ impl State<'_> {
                 self.reset_to_last_save();
             }
             geng::Event::KeyDown { key } if key == controls.toggle => {
-                play::State::new(&self.ctx, self.game_state.clone())
-                    .run(actx)
-                    .await;
+                play::State::new(&self.ctx, &self.level).run(actx).await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
                 self.brush_wheel_pos = Some(self.camera.screen_to_world(
@@ -502,7 +479,7 @@ impl State<'_> {
             }
             geng::Event::KeyDown { key } if key == controls.pick => {
                 if let Some(brush) = Brush::pick(
-                    &self.game_state,
+                    &self.level,
                     self.screen_to_tile(self.ctx.geng.window().cursor_position()),
                 ) {
                     self.brush = brush;
@@ -602,17 +579,11 @@ impl State<'_> {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        self.ctx.renderer.draw(
-            framebuffer,
-            &self.camera,
-            history::Frame {
-                current_state: &self.game_state,
-                animation: None,
-            },
-            &self.level_mesh,
-        );
+        self.ctx
+            .renderer
+            .draw_level(framebuffer, &self.camera, &self.level, &self.level_mesh);
 
-        for entity in &self.game_state.entities {
+        for entity in &self.level.entities {
             if let Some(index) = entity.index {
                 self.ctx.geng.default_font().draw(
                     framebuffer,
@@ -658,7 +629,7 @@ impl State<'_> {
             &self.camera,
             &self.title,
             vec2::splat(geng::TextAlign::LEFT),
-            mat3::translate(self.game_state.bounding_box().top_left().map(|x| x as f32)),
+            mat3::translate(self.level.bounding_box().top_left().map(|x| x as f32)),
             Rgba::WHITE,
         );
 

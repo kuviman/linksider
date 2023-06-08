@@ -22,7 +22,7 @@ pub struct Config {
 
 struct Level {
     name: String,
-    state: GameState,
+    state: logicsider::Level,
     preview: ugli::Texture,
 }
 
@@ -72,7 +72,7 @@ pub struct State {
     camera: geng::Camera2d,
     camera_controls: CameraControls,
     config: Rc<Config>,
-    register: Option<GameState>,
+    register: Option<logicsider::Level>,
     click_start: Option<(vec2<f64>, Timer)>,
     drag: Option<Selection>,
 }
@@ -152,7 +152,7 @@ impl State {
         actx: &mut async_states::Context,
         group_index: usize,
         level_index: usize,
-        game_state: GameState,
+        level: logicsider::Level,
     ) {
         if self.groups.get(group_index).is_none() {
             return;
@@ -161,15 +161,13 @@ impl State {
             return;
         };
         let group = &mut self.groups[group_index];
-        game_state
-            .save_to_file(level_path(&group.name, &name))
-            .unwrap();
+        level.save_to_file(level_path(&group.name, &name)).unwrap();
         group.levels.insert(
             level_index,
             Level {
                 name,
-                preview: generate_preview(&self.ctx, &game_state),
-                state: game_state,
+                preview: generate_preview(&self.ctx, &level),
+                state: level,
             },
         );
         group.save_level_list();
@@ -221,8 +219,13 @@ impl State {
                 .await;
                 level.preview = generate_preview(&self.ctx, &level.state);
             } else {
-                self.insert_level(actx, selection.group, selection.level, GameState::empty())
-                    .await;
+                self.insert_level(
+                    actx,
+                    selection.group,
+                    selection.level,
+                    logicsider::Level::empty(),
+                )
+                .await;
             }
         } else if let Some(name) = popup::prompt(&self.ctx, actx, "New group name", "").await {
             let group = Group {
@@ -324,7 +327,7 @@ impl State {
                                 actx,
                                 selection.group,
                                 selection.level,
-                                GameState::empty(),
+                                logicsider::Level::empty(),
                             )
                             .await;
                         }
@@ -485,14 +488,14 @@ impl State {
     }
 }
 
-fn generate_preview(ctx: &Context, game_state: &GameState) -> ugli::Texture {
+fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
     let mut texture = ugli::Texture::new_uninitialized(
         ctx.geng.ugli(),
         vec2::splat(ctx.assets.config.editor.world.preview_texture_size),
     );
     texture.set_filter(ugli::Filter::Nearest);
-    let bb = game_state.bounding_box().map(|x| x as f32);
-    ctx.renderer.draw(
+    let bb = level.bounding_box().map(|x| x as f32);
+    ctx.renderer.draw_level(
         &mut ugli::Framebuffer::new_color(
             ctx.geng.ugli(),
             ugli::ColorAttachment::Texture(&mut texture),
@@ -502,11 +505,8 @@ fn generate_preview(ctx: &Context, game_state: &GameState) -> ugli::Texture {
             center: bb.center(),
             rotation: 0.0,
         },
-        history::Frame {
-            current_state: &game_state,
-            animation: None,
-        },
-        &ctx.renderer.level_mesh(&game_state),
+        level,
+        &ctx.renderer.level_mesh(level),
     );
     texture
 }
@@ -530,14 +530,13 @@ impl State {
                 (0..level_count).map(|x| x.to_string()).collect()
             };
             let levels = future::join_all(level_names.into_iter().map(|level_name| async {
-                let game_state: GameState =
-                    GameState::load_from_file(level_path(&group_name, &level_name))
-                        .await
-                        .unwrap();
+                let level = logicsider::Level::load_from_file(level_path(&group_name, &level_name))
+                    .await
+                    .unwrap();
                 Level {
                     name: level_name,
-                    preview: generate_preview(ctx, &game_state),
-                    state: game_state,
+                    preview: generate_preview(ctx, &level),
+                    state: level,
                 }
             }))
             .await;

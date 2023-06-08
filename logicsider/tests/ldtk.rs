@@ -31,7 +31,7 @@ fn main() {
             if line.is_empty() {
                 continue;
             }
-            let mut game_state = GameState::from_ldtk(&ldtk, &config, index);
+            let mut game_state: GameState = todo!(); // GameState::from_ldtk(&ldtk, &config, index);
             for c in line.chars().chain(".".chars()) {
                 match c {
                     '<' => {

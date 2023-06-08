@@ -125,6 +125,25 @@ impl Renderer {
         self.background.draw(framebuffer, camera);
     }
 
+    pub fn draw_level(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        level: &Level,
+        level_mesh: &LevelMesh,
+    ) {
+        // TODO not generate game state on every frame
+        self.draw(
+            framebuffer,
+            camera,
+            history::Frame {
+                current_state: &GameState::init(&self.assets.logic_config, level),
+                animation: None,
+            },
+            level_mesh,
+        );
+    }
+
     pub fn draw(
         &self,
         framebuffer: &mut ugli::Framebuffer,
@@ -234,13 +253,16 @@ impl Renderer {
                 t,
             );
 
-            self.draw_tile(
-                framebuffer,
-                camera,
-                &entity.identifier,
-                Rgba::WHITE,
-                transform,
-            );
+            // Static entities are cached in level mesh
+            if !entity.properties.r#static {
+                self.draw_tile(
+                    framebuffer,
+                    camera,
+                    &entity.identifier,
+                    Rgba::WHITE,
+                    transform,
+                );
+            }
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
@@ -330,23 +352,29 @@ impl Renderer {
 pub struct LevelMesh(ugli::VertexBuffer<draw2d::TexturedVertex>);
 
 impl Renderer {
-    pub fn level_mesh(&self, state: &GameState) -> LevelMesh {
+    pub fn level_mesh(&self, level: &Level) -> LevelMesh {
         struct TileMap<'a> {
-            state: &'a GameState,
+            config: &'a logicsider::Config,
+            level: &'a Level,
         }
         impl autotile::TileMap for TileMap<'_> {
             type NonEmptyIter<'a> = Box<dyn Iterator<Item = vec2<i32>> + 'a> where Self:'a ;
             fn non_empty_tiles(&self) -> Self::NonEmptyIter<'_> {
-                Box::new(self.state.tiles.keys().copied())
+                Box::new(
+                    self.level
+                        .entities
+                        .iter()
+                        .filter(|entity| self.config.entities[&entity.identifier].r#static)
+                        .map(|entity| entity.pos.cell),
+                )
             }
 
             fn get_at(&self, pos: vec2<i32>) -> Option<&str> {
-                Some(match self.state.tiles.get(&pos)? {
-                    Tile::Nothing => return None,
-                    Tile::Block => "block",
-                    Tile::Disable => "disable",
-                    Tile::Cloud => "cloud",
-                })
+                self.level
+                    .entities
+                    .iter()
+                    .find(|entity| entity.pos.cell == pos)
+                    .map(|entity| entity.identifier.as_str())
             }
         }
         LevelMesh(ugli::VertexBuffer::new_static(
@@ -355,7 +383,10 @@ impl Renderer {
                 .renderer
                 .tileset
                 .def
-                .generate_mesh(&TileMap { state })
+                .generate_mesh(&TileMap {
+                    config: &self.assets.logic_config,
+                    level,
+                })
                 .flat_map(|tile| {
                     let uv = self.assets.renderer.tileset.def.uv(
                         tile.tileset_pos,

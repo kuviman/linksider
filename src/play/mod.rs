@@ -17,8 +17,8 @@ pub enum Transition {
 }
 
 impl State {
-    pub fn new(ctx: &Context, mut game_state: GameState) -> Self {
-        game_state.init_after_load();
+    pub fn new(ctx: &Context, level: &Level) -> Self {
+        let game_state = GameState::init(&ctx.assets.logic_config, level);
         Self {
             ctx: ctx.clone(),
             framebuffer_size: vec2::splat(1.0),
@@ -28,7 +28,7 @@ impl State {
                 fov: ctx.assets.config.fov,
             },
             transition: None,
-            level_mesh: ctx.renderer.level_mesh(&game_state),
+            level_mesh: ctx.renderer.level_mesh(level),
             history_player: history::Player::new(
                 game_state,
                 &ctx.assets.logic_config,
