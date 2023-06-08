@@ -175,6 +175,7 @@ pub struct State<'a> {
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<GameState>,
+    history_pos: usize,
     saved: bool,
     autosave_timer: Timer,
     show_grid: bool,
@@ -209,6 +210,7 @@ impl<'a> State<'a> {
             },
             brush_wheel_pos: None,
             history: vec![game_state.clone()],
+            history_pos: 0,
             game_state,
             show_grid: true,
             ctx: ctx.clone(),
@@ -365,22 +367,36 @@ impl<'a> State<'a> {
         }
     }
 
-    fn undo(&mut self) {
-        if self.history.len() > 1 {
-            if *self.game_state != self.history.pop().unwrap() {
-                log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
-            }
-            self.saved = false;
-            *self.game_state = self.history.last().unwrap().clone();
-            self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
+    fn change_history_pos(&mut self, delta: isize) {
+        let new_pos = self.history_pos as isize + delta;
+        if new_pos < 0 || new_pos >= self.history.len() as isize {
+            return;
         }
+        let new_pos = new_pos as usize;
+        if *self.game_state != self.history[self.history_pos] {
+            log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
+        }
+        self.saved = false;
+        self.history_pos = new_pos;
+        *self.game_state = self.history[self.history_pos].clone();
+        self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
+    }
+
+    fn undo(&mut self) {
+        self.change_history_pos(-1);
+    }
+
+    fn redo(&mut self) {
+        self.change_history_pos(1);
     }
 
     fn push_history_if_needed(&mut self) {
-        if *self.game_state != *self.history.last().unwrap() {
-            log::debug!("Pushed history");
+        if *self.game_state != self.history[self.history_pos] {
+            self.history_pos += 1;
+            self.history.truncate(self.history_pos);
             self.history.push(self.game_state.clone());
             self.saved = false;
+            log::debug!("Pushed history");
         }
     }
 
@@ -506,6 +522,11 @@ impl State<'_> {
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
                 self.undo();
+            }
+            geng::Event::KeyDown { key: geng::Key::Y }
+                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            {
+                self.redo();
             }
 
             // TODO: macro?
