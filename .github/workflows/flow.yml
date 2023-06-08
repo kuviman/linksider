@@ -11,7 +11,7 @@ jobs:
     container: kuviman/geng
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - run: cargo geng build --release --target wasm32-unknown-unknown
       - name: Upload artifacts (web)
         uses: actions/upload-artifact@v2
@@ -33,7 +33,7 @@ jobs:
             channel: windows
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install things
         if: matrix.platform.channel == 'linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Build
@@ -93,6 +93,8 @@ jobs:
     needs:
       - build-web
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Download artifacts
         uses: actions/download-artifact@v2
       - name: Deploy
@@ -110,6 +112,8 @@ jobs:
     needs:
       - build-native
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Download artifacts
         uses: actions/download-artifact@v2
       - name: Create archives
