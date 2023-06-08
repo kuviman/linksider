@@ -77,19 +77,25 @@ pub struct State {
     drag: Option<Selection>,
 }
 
+fn level_screen_pos(group_index: usize, level_index: usize) -> vec2<i32> {
+    vec2(level_index as i32, -(group_index as i32))
+}
+
 impl State {
     fn clamp_camera(&mut self) {
-        let aabb = Aabb2::ZERO
-            .extend_positive(vec2(
-                self.groups
+        let aabb = Aabb2::points_bounding_box(self.groups.iter().enumerate().flat_map(
+            |(group_index, group)| {
+                group
+                    .levels
                     .iter()
-                    .map(|group| group.levels.len())
-                    .max()
-                    .unwrap_or(0),
-                self.groups.len(),
-            ))
-            .map(|x| x as f32)
-            .extend_uniform(self.config.margin);
+                    .enumerate()
+                    .map(move |(level_index, _level)| level_screen_pos(group_index, level_index))
+            },
+        ))
+        .unwrap()
+        .extend_positive(vec2::splat(1))
+        .map(|x| x as f32)
+        .extend_uniform(self.config.margin);
         self.camera.center = self.camera.center.clamp_aabb({
             let mut aabb = aabb.extend_symmetric(
                 -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
@@ -127,7 +133,7 @@ impl State {
             })
             .chain([(self.groups.len(), 0)]);
         for (group_index, level_index) in places {
-            if Aabb2::point(vec2(level_index, group_index))
+            if Aabb2::point(level_screen_pos(group_index, level_index))
                 .extend_positive(vec2::splat(1))
                 .map(|x| x as f32)
                 .contains(world_pos)
@@ -412,8 +418,10 @@ impl State {
                     framebuffer,
                     &self.camera,
                     &draw2d::TexturedQuad::new(
-                        Aabb2::point(vec2(level_index, group_index).map(|x| x as f32 + 0.5))
-                            .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
+                        Aabb2::point(
+                            level_screen_pos(group_index, level_index).map(|x| x as f32 + 0.5),
+                        )
+                        .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
                         &level.preview,
                     ),
                 );
@@ -423,7 +431,9 @@ impl State {
                 &self.camera,
                 "Plus",
                 Rgba::WHITE,
-                mat3::translate(vec2(group.levels.len(), group_index).map(|x| x as f32)),
+                mat3::translate(
+                    level_screen_pos(group_index, group.levels.len()).map(|x| x as f32),
+                ),
             );
         }
         self.ctx.renderer.draw_tile(
@@ -431,7 +441,7 @@ impl State {
             &self.camera,
             "Plus",
             Rgba::WHITE,
-            mat3::translate(vec2(0, self.groups.len()).map(|x| x as f32)),
+            mat3::translate(level_screen_pos(self.groups.len(), 0).map(|x| x as f32)),
         );
         if let Some(drag) = &self.drag {
             let level = &self.groups[drag.group].levels[drag.level];
@@ -452,7 +462,9 @@ impl State {
                 &self.camera,
                 "EditorSelect",
                 Rgba::WHITE,
-                mat3::translate(vec2(selection.level as f32, selection.group as f32)),
+                mat3::translate(
+                    level_screen_pos(selection.group, selection.level).map(|x| x as f32),
+                ),
             );
             let text = match self.groups.get(selection.group) {
                 Some(group) => match group.levels.get(selection.level) {
@@ -466,10 +478,10 @@ impl State {
                 &self.camera,
                 &text,
                 vec2::splat(geng::TextAlign::CENTER),
-                mat3::translate(vec2(
-                    selection.level as f32 + 0.5,
-                    selection.group as f32 + 1.5,
-                )),
+                mat3::translate(
+                    level_screen_pos(selection.group, selection.level).map(|x| x as f32 + 0.5)
+                        + vec2(0.0, 1.0),
+                ),
                 Rgba::WHITE,
                 0.05,
                 Rgba::BLACK,
