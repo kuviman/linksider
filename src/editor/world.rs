@@ -161,14 +161,9 @@ impl State {
             return;
         };
         let group = &mut self.groups[group_index];
-        ron::ser::to_writer_pretty(
-            std::io::BufWriter::new(
-                std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
-            ),
-            &game_state,
-            default(),
-        )
-        .unwrap();
+        game_state
+            .save_to_file(level_path(&group.name, &name))
+            .unwrap();
         group.levels.insert(
             level_index,
             Level {
@@ -535,9 +530,10 @@ impl State {
                 (0..level_count).map(|x| x.to_string()).collect()
             };
             let levels = future::join_all(level_names.into_iter().map(|level_name| async {
-                let game_state: GameState = file::load_detect(level_path(&group_name, &level_name))
-                    .await
-                    .unwrap();
+                let game_state: GameState =
+                    GameState::load_from_file(level_path(&group_name, &level_name))
+                        .await
+                        .unwrap();
                 Level {
                     name: level_name,
                     preview: generate_preview(ctx, &game_state),

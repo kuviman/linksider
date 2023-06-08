@@ -363,12 +363,7 @@ impl<'a> State<'a> {
             self.history[self.history_pos] = Rc::new(self.game_state.clone());
         }
         self.saved = self.history[self.history_pos].clone();
-        ron::ser::to_writer_pretty(
-            std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
-            &self.saved,
-            default(),
-        )
-        .unwrap();
+        self.saved.save_to_file(&self.path).unwrap();
     }
 
     fn saved(&self) -> bool {

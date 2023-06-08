@@ -10,6 +10,7 @@ mod model;
 mod moves;
 mod players;
 mod position;
+mod save;
 mod systems;
 
 pub use config::Config;
