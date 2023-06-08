@@ -9,6 +9,7 @@ pub struct Controls {
     pick: geng::Key,
     grid: geng::Key,
     rotate: geng::Key,
+    reset_to_last_save: geng::Key,
 }
 
 #[derive(Deserialize)]
@@ -26,7 +27,7 @@ pub struct Config {
     grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
-    autosave_timer: f64,
+    autosave_timer: Option<f64>,
     warning_size: f32,
     warning_color: Rgba<f32>,
     pub controls: Controls,
@@ -174,9 +175,9 @@ pub struct State<'a> {
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
-    history: Vec<GameState>,
+    history: Vec<Rc<GameState>>,
     history_pos: usize,
-    saved: bool,
+    saved: Rc<GameState>,
     autosave_timer: Timer,
     show_grid: bool,
 }
@@ -190,9 +191,9 @@ impl<'a> State<'a> {
     ) -> Self {
         let path = path.as_ref();
         let config = ctx.assets.config.editor.level.clone();
+        let saved = Rc::new(game_state.clone());
         Self {
             title,
-            saved: true,
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
@@ -209,8 +210,9 @@ impl<'a> State<'a> {
                 brush_type: BrushType::Entity("Player".to_owned()),
             },
             brush_wheel_pos: None,
-            history: vec![game_state.clone()],
+            history: vec![saved.clone()],
             history_pos: 0,
+            saved,
             game_state,
             show_grid: true,
             ctx: ctx.clone(),
@@ -354,17 +356,33 @@ impl<'a> State<'a> {
         Some(items.into_iter())
     }
 
-    fn save_if_needed(&mut self) {
-        if !self.saved {
-            log::debug!("Saving");
-            ron::ser::to_writer_pretty(
-                std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
-                &self.game_state,
-                default(),
-            )
-            .unwrap();
-            self.saved = true;
+    fn save(&mut self) {
+        log::debug!("Saving");
+        if *self.history[self.history_pos] != *self.game_state {
+            log::error!("History had incorrect data wtf");
+            self.history[self.history_pos] = Rc::new(self.game_state.clone());
         }
+        self.saved = self.history[self.history_pos].clone();
+        ron::ser::to_writer_pretty(
+            std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
+            &self.saved,
+            default(),
+        )
+        .unwrap();
+    }
+
+    fn saved(&self) -> bool {
+        Rc::ptr_eq(&self.saved, &self.history[self.history_pos])
+    }
+
+    fn autosave_if_enabled(&mut self) {
+        if self.config.autosave_timer.is_some() && !self.saved() {
+            self.save();
+        }
+    }
+
+    fn reset_to_last_save(&mut self) {
+        *self.game_state = self.saved.deref().clone();
     }
 
     fn change_history_pos(&mut self, delta: isize) {
@@ -373,12 +391,8 @@ impl<'a> State<'a> {
             return;
         }
         let new_pos = new_pos as usize;
-        if *self.game_state != self.history[self.history_pos] {
-            log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
-        }
-        self.saved = false;
         self.history_pos = new_pos;
-        *self.game_state = self.history[self.history_pos].clone();
+        *self.game_state = self.history[self.history_pos].deref().clone();
         self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
     }
 
@@ -391,11 +405,10 @@ impl<'a> State<'a> {
     }
 
     fn push_history_if_needed(&mut self) {
-        if *self.game_state != self.history[self.history_pos] {
+        if *self.game_state != *self.history[self.history_pos] {
             self.history_pos += 1;
             self.history.truncate(self.history_pos);
-            self.history.push(self.game_state.clone());
-            self.saved = false;
+            self.history.push(Rc::new(self.game_state.clone()));
             log::debug!("Pushed history");
         }
     }
@@ -414,19 +427,26 @@ impl<'a> State<'a> {
     }
 }
 
-impl Drop for State<'_> {
-    fn drop(&mut self) {
-        self.save_if_needed();
-    }
-}
-
 impl State<'_> {
     pub async fn run(mut self, actx: &mut async_states::Context) {
         loop {
             match actx.wait().await {
                 async_states::Event::Event(event) => {
                     if let std::ops::ControlFlow::Break(()) = self.handle_event(actx, event).await {
-                        break;
+                        self.autosave_if_enabled();
+                        if self.saved() {
+                            break;
+                        }
+                        if popup::confirm(
+                            &self.ctx,
+                            actx,
+                            "You have unsaved changes\nAre you sure you want yo exit?",
+                        )
+                        .await
+                        {
+                            self.reset_to_last_save();
+                            break;
+                        }
                     }
                 }
                 async_states::Event::Update(delta_time) => self.update(delta_time),
@@ -436,9 +456,11 @@ impl State<'_> {
     }
     fn update(&mut self, delta_time: f64) {
         let _delta_time = delta_time as f32;
-        if self.autosave_timer.elapsed().as_secs_f64() > self.config.autosave_timer {
-            self.save_if_needed();
-            self.autosave_timer.reset();
+        if let Some(autosave_timer) = self.config.autosave_timer {
+            if self.autosave_timer.elapsed().as_secs_f64() > autosave_timer {
+                self.autosave_if_enabled();
+                self.autosave_timer.reset();
+            }
         }
     }
     async fn handle_event(
@@ -457,6 +479,9 @@ impl State<'_> {
             }
             geng::Event::KeyDown { key } if key == controls.grid => {
                 self.show_grid = !self.show_grid;
+            }
+            geng::Event::KeyDown { key } if key == controls.reset_to_last_save => {
+                self.reset_to_last_save();
             }
             geng::Event::KeyDown { key } if key == controls.toggle => {
                 play::State::new(&self.ctx, self.game_state.clone())
@@ -516,7 +541,7 @@ impl State<'_> {
             geng::Event::KeyDown { key: geng::Key::S }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
-                self.save_if_needed();
+                self.save();
             }
             geng::Event::KeyDown { key: geng::Key::Z }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
@@ -667,7 +692,7 @@ impl State<'_> {
             }
         }
 
-        if !self.saved {
+        if !self.saved() {
             self.ctx.geng.default_font().draw(
                 framebuffer,
                 &geng::PixelPerfectCamera,
