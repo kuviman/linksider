@@ -24,7 +24,7 @@ impl State {
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
                 center: game_state.center(),
-                rotation: 0.0,
+                rotation: Angle::ZERO,
                 fov: ctx.assets.config.fov,
             },
             transition: None,

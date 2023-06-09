@@ -110,7 +110,7 @@ struct Brush {
 }
 
 impl Brush {
-    fn rotation(&self) -> f32 {
+    fn rotation(&self) -> Angle<f32> {
         // TODO normalize angles in the codebase
         let angle = self.angle;
         match self.brush_type {
@@ -119,7 +119,7 @@ impl Brush {
             BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
             BrushType::Goal => angle,
         }
-        .to_radians()
+        .to_angle()
     }
     fn pick(level: &Level, cell: vec2<i32>) -> Option<Self> {
         if let Some(entity) = level.entities.iter().find(|entity| entity.pos.cell == cell) {
@@ -196,7 +196,7 @@ impl<'a> State<'a> {
                 .extend_positive(vec2::splat(1))
                 .map(|x| x as f32)
                 .center(),
-                rotation: 0.0,
+                rotation: Angle::ZERO,
                 fov: config.default_fov,
             },
             config,
@@ -317,7 +317,7 @@ impl<'a> State<'a> {
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
                 + vec2(self.config.brush_wheel.radius, 0.0)
-                    .rotate(2.0 * f32::PI * index as f32 / len as f32);
+                    .rotate(Angle::from_degrees(360.0 * index as f32 / len as f32));
         }
         let cursor_delta = self.camera.screen_to_world(
             self.framebuffer_size,

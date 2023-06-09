@@ -3,7 +3,7 @@ use super::*;
 pub async fn confirm(ctx: &Context, actx: &mut async_states::Context, title: &str) -> bool {
     let camera = geng::Camera2d {
         center: vec2::ZERO,
-        rotation: 0.0,
+        rotation: Angle::ZERO,
         fov: 10.0,
     };
     loop {
@@ -55,7 +55,7 @@ pub async fn prompt(
     let mut value = default_value.to_owned();
     let camera = geng::Camera2d {
         center: vec2::ZERO,
-        rotation: 0.0,
+        rotation: Angle::ZERO,
         fov: 10.0,
     };
     ctx.geng.window().start_text_edit(&value);

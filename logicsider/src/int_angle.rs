@@ -70,12 +70,12 @@ impl IntAngle {
         self.normalize().0 == 3
     }
 
-    pub fn to_radians(&self) -> f32 {
-        self.0 as f32 * f32::PI / 2.0
+    pub fn to_angle(&self) -> Angle<f32> {
+        Angle::from_degrees(self.0 as f32 * 90.0)
     }
 
     pub fn to_matrix(&self) -> mat3<f32> {
-        mat3::rotate(self.to_radians())
+        mat3::rotate(self.to_angle())
     }
 
     pub fn with_input(self, input: Input) -> Self {

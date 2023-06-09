@@ -2,20 +2,17 @@ use super::*;
 
 pub fn system(
     EntityMoveParams {
-        state, entity_id, ..
+        state,
+        entity_id,
+        config,
+        ..
     }: EntityMoveParams,
 ) -> Option<EntityMove> {
-    if magnet::entity_magneted_angles(state, entity_id)
+    if magnet::entity_maybe_weak_magneted_angles(state, config, entity_id)
         .next()
         .is_some()
     {
-        // No gravity when we have an active magnet
-        return None;
-    }
-    if effects::entity_active_effects(state, entity_id)
-        .any(|(_, effect)| matches!(effect.deref(), Effect::DisableGravity))
-    {
-        // Or any DisableGravity effect is active
+        // No gravity when we are magneted
         return None;
     }
     let entity = state.entities.get(&entity_id).unwrap();

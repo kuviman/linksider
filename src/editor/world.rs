@@ -195,6 +195,7 @@ impl State {
             .get_mut(from.group)?
             .levels
             .try_remove(from.level)?;
+        let level_name = level.name.clone();
         self.groups
             .get_mut(to.group)
             .unwrap()
@@ -202,6 +203,13 @@ impl State {
             .insert(to.level, level);
         self.groups[from.group].save_level_list();
         self.groups[to.group].save_level_list();
+        if from.group != to.group {
+            std::fs::rename(
+                level_path(&self.groups[from.group].name, &level_name),
+                level_path(&self.groups[to.group].name, &level_name),
+            )
+            .unwrap();
+        }
         Some(())
     }
 
@@ -335,8 +343,22 @@ impl State {
                     if self.config.controls.delete == key {
                         if let Some(group) = self.groups.get_mut(selection.group) {
                             if selection.level < group.levels.len() {
-                                self.register = Some(group.levels.remove(selection.level).state);
-                                group.save_level_list();
+                                if popup::confirm(
+                                    &self.ctx,
+                                    actx,
+                                    &format!(
+                                        "Are you sure you want to delete level\n{}::{}",
+                                        group.name, group.levels[selection.level].name,
+                                    ),
+                                )
+                                .await
+                                {
+                                    let level = group.levels.remove(selection.level);
+                                    std::fs::remove_file(level_path(&group.name, &level.name))
+                                        .unwrap();
+                                    self.register = Some(level.state);
+                                    group.save_level_list();
+                                }
                             }
                         }
                     }
@@ -503,7 +525,7 @@ fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
         &geng::Camera2d {
             fov: bb.height(),
             center: bb.center(),
-            rotation: 0.0,
+            rotation: Angle::ZERO,
         },
         level,
         &ctx.renderer.level_mesh(level),
@@ -552,7 +574,7 @@ impl State {
             groups,
             camera: geng::Camera2d {
                 center: vec2::ZERO,
-                rotation: 0.0,
+                rotation: Angle::ZERO,
                 fov: config.fov,
             },
             camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),

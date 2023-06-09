@@ -158,7 +158,7 @@ pub enum Effect {
     Jump,
     Slide,
     Magnet,
-    DisableGravity, // Fake effect (other side of magnet)
+    WeakMagnet,
     DisableTrigger,
 }
 
@@ -169,7 +169,7 @@ impl Effect {
             "Jump" => Self::Jump,
             "Magnet" => Self::Magnet,
             "Slide" => Self::Slide,
-            "DisableGravity" => Self::DisableGravity,
+            "WeakMagnet" => Self::WeakMagnet,
             "DisableTrigger" => Self::DisableTrigger,
             _ => unimplemented!("{name:?} effect is unimplemented"),
         }
