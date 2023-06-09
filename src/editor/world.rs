@@ -343,8 +343,22 @@ impl State {
                     if self.config.controls.delete == key {
                         if let Some(group) = self.groups.get_mut(selection.group) {
                             if selection.level < group.levels.len() {
-                                self.register = Some(group.levels.remove(selection.level).state);
-                                group.save_level_list();
+                                if popup::confirm(
+                                    &self.ctx,
+                                    actx,
+                                    &format!(
+                                        "Are you sure you want to delete level\n{}::{}",
+                                        group.name, group.levels[selection.level].name,
+                                    ),
+                                )
+                                .await
+                                {
+                                    let level = group.levels.remove(selection.level);
+                                    std::fs::remove_file(level_path(&group.name, &level.name))
+                                        .unwrap();
+                                    self.register = Some(level.state);
+                                    group.save_level_list();
+                                }
                             }
                         }
                     }
