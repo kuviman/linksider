@@ -195,6 +195,7 @@ impl State {
             .get_mut(from.group)?
             .levels
             .try_remove(from.level)?;
+        let level_name = level.name.clone();
         self.groups
             .get_mut(to.group)
             .unwrap()
@@ -202,6 +203,13 @@ impl State {
             .insert(to.level, level);
         self.groups[from.group].save_level_list();
         self.groups[to.group].save_level_list();
+        if from.group != to.group {
+            std::fs::rename(
+                level_path(&self.groups[from.group].name, &level_name),
+                level_path(&self.groups[to.group].name, &level_name),
+            )
+            .unwrap();
+        }
         Some(())
     }
 
