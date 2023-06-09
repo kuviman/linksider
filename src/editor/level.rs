@@ -9,6 +9,7 @@ pub struct Controls {
     pick: geng::Key,
     grid: geng::Key,
     rotate: geng::Key,
+    reset_to_last_save: geng::Key,
 }
 
 #[derive(Deserialize)]
@@ -26,7 +27,7 @@ pub struct Config {
     grid_color: Rgba<f32>,
     brush_preview_opacity: f32,
     brush_wheel: BrushWheelConfig,
-    autosave_timer: f64,
+    autosave_timer: Option<f64>,
     warning_size: f32,
     warning_color: Rgba<f32>,
     pub controls: Controls,
@@ -34,18 +35,71 @@ pub struct Config {
 
 enum BrushType {
     Entity(String),
-    Tile(Tile),
+    SideEffect(Effect),
     Powerup(Effect),
     Goal,
 }
 
 impl BrushType {
+    fn delete_underneath(&self) -> bool {
+        match self {
+            Self::SideEffect(_) => false,
+            _ => true,
+        }
+    }
     fn tile_name(&self) -> String {
         match self {
             Self::Entity(name) => name.clone(),
-            Self::Tile(tile) => format!("{tile:?}").to_lowercase(),
+            Self::SideEffect(effect) => format!("{effect:?}Power"),
             Self::Powerup(effect) => format!("{effect:?}Power"),
             Self::Goal => "Goal".to_owned(),
+        }
+    }
+
+    fn draw(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        ctx: &Context,
+        camera: &impl geng::AbstractCamera2d,
+        matrix: mat3<f32>,
+    ) {
+        // TypeScript is better
+        match self {
+            Self::SideEffect(_) => {
+                let matrix = matrix * mat3::scale_uniform(0.8);
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    "Player",
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2::splat(-0.5)),
+                );
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    &self.tile_name(),
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2(-0.5, 0.5)),
+                );
+            }
+            Self::Powerup(_) => {
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    &self.tile_name(),
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2(-0.5, 0.0)),
+                );
+            }
+            _ => {
+                ctx.renderer.draw_tile(
+                    framebuffer,
+                    camera,
+                    &self.tile_name(),
+                    Rgba::WHITE,
+                    matrix * mat3::translate(vec2::splat(-0.5)),
+                );
+            }
         }
     }
 }
@@ -61,26 +115,20 @@ impl Brush {
         let angle = self.angle;
         match self.brush_type {
             BrushType::Entity(_) => angle,
-            BrushType::Tile(_) => angle,
+            BrushType::SideEffect(_) => angle.rotate_counter_clockwise(),
             BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
             BrushType::Goal => angle,
         }
         .to_radians()
     }
-    fn pick(state: &GameState, cell: vec2<i32>) -> Option<Self> {
-        if let Some(tile) = state.tiles.get(&cell) {
-            return Some(Self {
-                angle: IntAngle::RIGHT,
-                brush_type: BrushType::Tile(*tile),
-            });
-        }
-        if let Some(entity) = state.entities.iter().find(|entity| entity.pos.cell == cell) {
+    fn pick(level: &Level, cell: vec2<i32>) -> Option<Self> {
+        if let Some(entity) = level.entities.iter().find(|entity| entity.pos.cell == cell) {
             return Some(Self {
                 angle: entity.pos.angle,
                 brush_type: BrushType::Entity(entity.identifier.clone()),
             });
         }
-        if let Some(powerup) = state
+        if let Some(powerup) = level
             .powerups
             .iter()
             .find(|powerup| powerup.pos.cell == cell)
@@ -90,7 +138,7 @@ impl Brush {
                 brush_type: BrushType::Powerup(powerup.effect.clone()),
             });
         }
-        if let Some(goal) = state.goals.iter().find(|goal| goal.pos.cell == cell) {
+        if let Some(goal) = level.goals.iter().find(|goal| goal.pos.cell == cell) {
             return Some(Self {
                 angle: goal.pos.angle,
                 brush_type: BrushType::Goal,
@@ -111,15 +159,16 @@ pub struct State<'a> {
     title: String,
     framebuffer_size: vec2<f32>,
     config: Rc<Config>,
-    game_state: &'a mut GameState,
+    level: &'a mut Level,
     camera: Camera2d,
     level_mesh: renderer::LevelMesh,
     camera_controls: CameraControls,
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
-    history: Vec<GameState>,
-    saved: bool,
+    history: Vec<Rc<Level>>,
+    history_pos: usize,
+    saved: Rc<Level>,
     autosave_timer: Timer,
     show_grid: bool,
 }
@@ -128,32 +177,40 @@ impl<'a> State<'a> {
     pub fn new(
         ctx: &Context,
         title: String,
-        game_state: &'a mut GameState,
+        level: &'a mut Level,
         path: impl AsRef<std::path::Path>,
     ) -> Self {
         let path = path.as_ref();
         let config = ctx.assets.config.editor.level.clone();
+        let saved = Rc::new(level.clone());
         Self {
             title,
-            saved: true,
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
             camera: Camera2d {
-                center: game_state.center(),
+                center: Aabb2::points_bounding_box(
+                    level.entities.iter().map(|entity| entity.pos.cell),
+                )
+                .unwrap_or(Aabb2::ZERO)
+                .extend_positive(vec2::splat(1))
+                .map(|x| x as f32)
+                .center(),
                 rotation: 0.0,
                 fov: config.default_fov,
             },
             config,
-            level_mesh: ctx.renderer.level_mesh(&game_state),
+            level_mesh: ctx.renderer.level_mesh(&level),
             camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
             brush: Brush {
                 angle: IntAngle::RIGHT,
                 brush_type: BrushType::Entity("Player".to_owned()),
             },
             brush_wheel_pos: None,
-            history: vec![game_state.clone()],
-            game_state,
+            history: vec![saved.clone()],
+            history_pos: 0,
+            saved,
+            level,
             show_grid: true,
             ctx: ctx.clone(),
         }
@@ -167,24 +224,32 @@ impl<'a> State<'a> {
     }
 
     fn create(&mut self, screen_pos: vec2<f64>) {
-        self.delete(screen_pos);
+        if self.brush.brush_type.delete_underneath() {
+            self.delete(screen_pos);
+        }
         let cell = self.screen_to_tile(screen_pos);
         match &self.brush.brush_type {
-            BrushType::Entity(name) => self.game_state.add_entity(
-                name,
-                &self.ctx.assets.logic_config.entities[name],
-                Position {
+            BrushType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
+                identifier: name.to_owned(),
+                index: None,
+                pos: Position {
                     cell,
                     angle: self.brush.angle,
                 },
-            ),
-            BrushType::Tile(tile) => {
-                self.game_state.tiles.insert(cell, *tile);
-                self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
+                sides: default(),
+            }),
+            BrushType::SideEffect(effect) => {
+                if let Some(entity) = self
+                    .level
+                    .entities
+                    .iter_mut()
+                    .find(|entity| entity.pos.cell == cell)
+                {
+                    entity.side_at_angle_mut(self.brush.angle).effect = Some(effect.clone());
+                }
             }
             BrushType::Powerup(effect) => {
-                self.game_state.powerups.insert(Powerup {
-                    id: self.game_state.id_gen.gen(),
+                self.level.powerups.push(logicsider::level::Powerup {
                     pos: Position {
                         cell,
                         angle: self.brush.angle,
@@ -192,30 +257,22 @@ impl<'a> State<'a> {
                     effect: effect.clone(),
                 });
             }
-            BrushType::Goal => self.game_state.goals.insert(Goal {
-                id: self.game_state.id_gen.gen(),
+            BrushType::Goal => self.level.goals.push(logicsider::level::Goal {
                 pos: Position {
                     cell,
                     angle: self.brush.angle,
                 },
             }),
         }
+        self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
     fn delete(&mut self, screen_pos: vec2<f64>) {
         let tile = self.screen_to_tile(screen_pos);
-        if self.game_state.tiles.remove(&tile).is_some() {
-            self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
-        }
-        self.game_state
-            .entities
-            .retain(|entity| entity.pos.cell != tile);
-        self.game_state
-            .powerups
-            .retain(|entity| entity.pos.cell != tile);
-        self.game_state
-            .goals
-            .retain(|entity| entity.pos.cell != tile);
+        self.level.entities.retain(|entity| entity.pos.cell != tile);
+        self.level.powerups.retain(|entity| entity.pos.cell != tile);
+        self.level.goals.retain(|entity| entity.pos.cell != tile);
+        self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
     fn brush_wheel(&self) -> Option<impl Iterator<Item = BrushWheelItem> + '_> {
@@ -231,14 +288,14 @@ impl<'a> State<'a> {
                 angle: IntAngle::RIGHT,
                 brush_type,
             });
-        let tiles = Tile::iter_variants()
-            .map(BrushType::Tile)
-            .map(|brush_type| Brush {
-                angle: IntAngle::RIGHT,
-                brush_type,
-            });
         let powerups = Effect::iter_variants()
             .map(BrushType::Powerup)
+            .map(|brush_type| Brush {
+                angle: IntAngle::DOWN,
+                brush_type,
+            });
+        let side_effects = Effect::iter_variants()
+            .map(BrushType::SideEffect)
             .map(|brush_type| Brush {
                 angle: IntAngle::DOWN,
                 brush_type,
@@ -248,13 +305,14 @@ impl<'a> State<'a> {
             brush_type: BrushType::Goal,
         };
 
-        let mut items: Vec<BrushWheelItem> = itertools::chain![entities, tiles, powerups, [goal]]
-            .map(|brush| BrushWheelItem {
-                brush,
-                pos: vec2::ZERO,
-                hovered: false,
-            })
-            .collect();
+        let mut items: Vec<BrushWheelItem> =
+            itertools::chain![entities, powerups, side_effects, [goal]]
+                .map(|brush| BrushWheelItem {
+                    brush,
+                    pos: vec2::ZERO,
+                    hovered: false,
+                })
+                .collect();
         let len = items.len();
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
@@ -277,42 +335,62 @@ impl<'a> State<'a> {
         Some(items.into_iter())
     }
 
-    fn save_if_needed(&mut self) {
-        if !self.saved {
-            log::debug!("Saving");
-            ron::ser::to_writer_pretty(
-                std::io::BufWriter::new(std::fs::File::create(&self.path).unwrap()),
-                &self.game_state,
-                default(),
-            )
-            .unwrap();
-            self.saved = true;
+    fn save(&mut self) {
+        log::debug!("Saving");
+        if *self.history[self.history_pos] != *self.level {
+            log::error!("History had incorrect data wtf");
+            self.history[self.history_pos] = Rc::new(self.level.clone());
         }
+        self.saved = self.history[self.history_pos].clone();
+        self.saved.save_to_file(&self.path).unwrap();
+    }
+
+    fn saved(&self) -> bool {
+        Rc::ptr_eq(&self.saved, &self.history[self.history_pos])
+    }
+
+    fn autosave_if_enabled(&mut self) {
+        if self.config.autosave_timer.is_some() && !self.saved() {
+            self.save();
+        }
+    }
+
+    fn reset_to_last_save(&mut self) {
+        *self.level = self.saved.deref().clone();
+    }
+
+    fn change_history_pos(&mut self, delta: isize) {
+        let new_pos = self.history_pos as isize + delta;
+        if new_pos < 0 || new_pos >= self.history.len() as isize {
+            return;
+        }
+        let new_pos = new_pos as usize;
+        self.history_pos = new_pos;
+        *self.level = self.history[self.history_pos].deref().clone();
+        self.level_mesh = self.ctx.renderer.level_mesh(&self.level);
     }
 
     fn undo(&mut self) {
-        if self.history.len() > 1 {
-            if *self.game_state != self.history.pop().unwrap() {
-                log::error!("DID YOU JUST CTRL-Z WHILE PAINTING?");
-            }
-            self.saved = false;
-            *self.game_state = self.history.last().unwrap().clone();
-            self.level_mesh = self.ctx.renderer.level_mesh(&self.game_state);
-        }
+        self.change_history_pos(-1);
+    }
+
+    fn redo(&mut self) {
+        self.change_history_pos(1);
     }
 
     fn push_history_if_needed(&mut self) {
-        if *self.game_state != *self.history.last().unwrap() {
+        if *self.level != *self.history[self.history_pos] {
+            self.history_pos += 1;
+            self.history.truncate(self.history_pos);
+            self.history.push(Rc::new(self.level.clone()));
             log::debug!("Pushed history");
-            self.history.push(self.game_state.clone());
-            self.saved = false;
         }
     }
 
     fn assign_index(&mut self, index: i32) {
         let cell = self.screen_to_tile(self.ctx.geng.window().cursor_position());
         if let Some(entity) = self
-            .game_state
+            .level
             .entities
             .iter_mut()
             .find(|entity| entity.pos.cell == cell)
@@ -323,19 +401,26 @@ impl<'a> State<'a> {
     }
 }
 
-impl Drop for State<'_> {
-    fn drop(&mut self) {
-        self.save_if_needed();
-    }
-}
-
 impl State<'_> {
     pub async fn run(mut self, actx: &mut async_states::Context) {
         loop {
             match actx.wait().await {
                 async_states::Event::Event(event) => {
                     if let std::ops::ControlFlow::Break(()) = self.handle_event(actx, event).await {
-                        break;
+                        self.autosave_if_enabled();
+                        if self.saved() {
+                            break;
+                        }
+                        if popup::confirm(
+                            &self.ctx,
+                            actx,
+                            "You have unsaved changes\nAre you sure you want yo exit?",
+                        )
+                        .await
+                        {
+                            self.reset_to_last_save();
+                            break;
+                        }
                     }
                 }
                 async_states::Event::Update(delta_time) => self.update(delta_time),
@@ -345,9 +430,11 @@ impl State<'_> {
     }
     fn update(&mut self, delta_time: f64) {
         let _delta_time = delta_time as f32;
-        if self.autosave_timer.elapsed().as_secs_f64() > self.config.autosave_timer {
-            self.save_if_needed();
-            self.autosave_timer.reset();
+        if let Some(autosave_timer) = self.config.autosave_timer {
+            if self.autosave_timer.elapsed().as_secs_f64() > autosave_timer {
+                self.autosave_if_enabled();
+                self.autosave_timer.reset();
+            }
         }
     }
     async fn handle_event(
@@ -367,10 +454,11 @@ impl State<'_> {
             geng::Event::KeyDown { key } if key == controls.grid => {
                 self.show_grid = !self.show_grid;
             }
+            geng::Event::KeyDown { key } if key == controls.reset_to_last_save => {
+                self.reset_to_last_save();
+            }
             geng::Event::KeyDown { key } if key == controls.toggle => {
-                play::State::new(&self.ctx, self.game_state.clone())
-                    .run(actx)
-                    .await;
+                play::State::new(&self.ctx, &self.level).run(actx).await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
                 self.brush_wheel_pos = Some(self.camera.screen_to_world(
@@ -391,7 +479,7 @@ impl State<'_> {
             }
             geng::Event::KeyDown { key } if key == controls.pick => {
                 if let Some(brush) = Brush::pick(
-                    &self.game_state,
+                    &self.level,
                     self.screen_to_tile(self.ctx.geng.window().cursor_position()),
                 ) {
                     self.brush = brush;
@@ -425,12 +513,17 @@ impl State<'_> {
             geng::Event::KeyDown { key: geng::Key::S }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
-                self.save_if_needed();
+                self.save();
             }
             geng::Event::KeyDown { key: geng::Key::Z }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
             {
                 self.undo();
+            }
+            geng::Event::KeyDown { key: geng::Key::Y }
+                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            {
+                self.redo();
             }
 
             // TODO: macro?
@@ -486,17 +579,11 @@ impl State<'_> {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        self.ctx.renderer.draw(
-            framebuffer,
-            &self.camera,
-            history::Frame {
-                current_state: &self.game_state,
-                animation: None,
-            },
-            &self.level_mesh,
-        );
+        self.ctx
+            .renderer
+            .draw_level(framebuffer, &self.camera, &self.level, &self.level_mesh);
 
-        for entity in &self.game_state.entities {
+        for entity in &self.level.entities {
             if let Some(index) = entity.index {
                 self.ctx.geng.default_font().draw(
                     framebuffer,
@@ -542,7 +629,7 @@ impl State<'_> {
             &self.camera,
             &self.title,
             vec2::splat(geng::TextAlign::LEFT),
-            mat3::translate(self.game_state.bounding_box().top_left().map(|x| x as f32)),
+            mat3::translate(self.level.bounding_box().top_left().map(|x| x as f32)),
             Rgba::WHITE,
         );
 
@@ -560,20 +647,18 @@ impl State<'_> {
                 ),
             );
             for item in wheel {
-                self.ctx.renderer.draw_tile(
+                item.brush.brush_type.draw(
                     framebuffer,
+                    &self.ctx,
                     &self.camera,
-                    &item.brush.brush_type.tile_name(),
-                    Rgba::WHITE,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
-                        * mat3::rotate(item.brush.rotation())
-                        * mat3::translate(vec2::splat(-0.5)),
+                        * mat3::rotate(item.brush.rotation()),
                 );
             }
         }
 
-        if !self.saved {
+        if !self.saved() {
             self.ctx.geng.default_font().draw(
                 framebuffer,
                 &geng::PixelPerfectCamera,

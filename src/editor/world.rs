@@ -22,7 +22,7 @@ pub struct Config {
 
 struct Level {
     name: String,
-    state: GameState,
+    state: logicsider::Level,
     preview: ugli::Texture,
 }
 
@@ -72,24 +72,30 @@ pub struct State {
     camera: geng::Camera2d,
     camera_controls: CameraControls,
     config: Rc<Config>,
-    register: Option<GameState>,
+    register: Option<logicsider::Level>,
     click_start: Option<(vec2<f64>, Timer)>,
     drag: Option<Selection>,
 }
 
+fn level_screen_pos(group_index: usize, level_index: usize) -> vec2<i32> {
+    vec2(level_index as i32, -(group_index as i32))
+}
+
 impl State {
     fn clamp_camera(&mut self) {
-        let aabb = Aabb2::ZERO
-            .extend_positive(vec2(
-                self.groups
+        let aabb = Aabb2::points_bounding_box(self.groups.iter().enumerate().flat_map(
+            |(group_index, group)| {
+                group
+                    .levels
                     .iter()
-                    .map(|group| group.levels.len())
-                    .max()
-                    .unwrap_or(0),
-                self.groups.len(),
-            ))
-            .map(|x| x as f32)
-            .extend_uniform(self.config.margin);
+                    .enumerate()
+                    .map(move |(level_index, _level)| level_screen_pos(group_index, level_index))
+            },
+        ))
+        .unwrap()
+        .extend_positive(vec2::splat(1))
+        .map(|x| x as f32)
+        .extend_uniform(self.config.margin);
         self.camera.center = self.camera.center.clamp_aabb({
             let mut aabb = aabb.extend_symmetric(
                 -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
@@ -127,7 +133,7 @@ impl State {
             })
             .chain([(self.groups.len(), 0)]);
         for (group_index, level_index) in places {
-            if Aabb2::point(vec2(level_index, group_index))
+            if Aabb2::point(level_screen_pos(group_index, level_index))
                 .extend_positive(vec2::splat(1))
                 .map(|x| x as f32)
                 .contains(world_pos)
@@ -146,7 +152,7 @@ impl State {
         actx: &mut async_states::Context,
         group_index: usize,
         level_index: usize,
-        game_state: GameState,
+        level: logicsider::Level,
     ) {
         if self.groups.get(group_index).is_none() {
             return;
@@ -155,20 +161,13 @@ impl State {
             return;
         };
         let group = &mut self.groups[group_index];
-        ron::ser::to_writer_pretty(
-            std::io::BufWriter::new(
-                std::fs::File::create(&level_path(&group.name, &name)).unwrap(),
-            ),
-            &game_state,
-            default(),
-        )
-        .unwrap();
+        level.save_to_file(level_path(&group.name, &name)).unwrap();
         group.levels.insert(
             level_index,
             Level {
                 name,
-                preview: generate_preview(&self.ctx, &game_state),
-                state: game_state,
+                preview: generate_preview(&self.ctx, &level),
+                state: level,
             },
         );
         group.save_level_list();
@@ -220,8 +219,13 @@ impl State {
                 .await;
                 level.preview = generate_preview(&self.ctx, &level.state);
             } else {
-                self.insert_level(actx, selection.group, selection.level, GameState::empty())
-                    .await;
+                self.insert_level(
+                    actx,
+                    selection.group,
+                    selection.level,
+                    logicsider::Level::empty(),
+                )
+                .await;
             }
         } else if let Some(name) = popup::prompt(&self.ctx, actx, "New group name", "").await {
             let group = Group {
@@ -323,7 +327,7 @@ impl State {
                                 actx,
                                 selection.group,
                                 selection.level,
-                                GameState::empty(),
+                                logicsider::Level::empty(),
                             )
                             .await;
                         }
@@ -412,8 +416,10 @@ impl State {
                     framebuffer,
                     &self.camera,
                     &draw2d::TexturedQuad::new(
-                        Aabb2::point(vec2(level_index, group_index).map(|x| x as f32 + 0.5))
-                            .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
+                        Aabb2::point(
+                            level_screen_pos(group_index, level_index).map(|x| x as f32 + 0.5),
+                        )
+                        .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
                         &level.preview,
                     ),
                 );
@@ -423,7 +429,9 @@ impl State {
                 &self.camera,
                 "Plus",
                 Rgba::WHITE,
-                mat3::translate(vec2(group.levels.len(), group_index).map(|x| x as f32)),
+                mat3::translate(
+                    level_screen_pos(group_index, group.levels.len()).map(|x| x as f32),
+                ),
             );
         }
         self.ctx.renderer.draw_tile(
@@ -431,7 +439,7 @@ impl State {
             &self.camera,
             "Plus",
             Rgba::WHITE,
-            mat3::translate(vec2(0, self.groups.len()).map(|x| x as f32)),
+            mat3::translate(level_screen_pos(self.groups.len(), 0).map(|x| x as f32)),
         );
         if let Some(drag) = &self.drag {
             let level = &self.groups[drag.group].levels[drag.level];
@@ -452,7 +460,9 @@ impl State {
                 &self.camera,
                 "EditorSelect",
                 Rgba::WHITE,
-                mat3::translate(vec2(selection.level as f32, selection.group as f32)),
+                mat3::translate(
+                    level_screen_pos(selection.group, selection.level).map(|x| x as f32),
+                ),
             );
             let text = match self.groups.get(selection.group) {
                 Some(group) => match group.levels.get(selection.level) {
@@ -466,10 +476,10 @@ impl State {
                 &self.camera,
                 &text,
                 vec2::splat(geng::TextAlign::CENTER),
-                mat3::translate(vec2(
-                    selection.level as f32 + 0.5,
-                    selection.group as f32 + 1.5,
-                )),
+                mat3::translate(
+                    level_screen_pos(selection.group, selection.level).map(|x| x as f32 + 0.5)
+                        + vec2(0.0, 1.0),
+                ),
                 Rgba::WHITE,
                 0.05,
                 Rgba::BLACK,
@@ -478,14 +488,14 @@ impl State {
     }
 }
 
-fn generate_preview(ctx: &Context, game_state: &GameState) -> ugli::Texture {
+fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
     let mut texture = ugli::Texture::new_uninitialized(
         ctx.geng.ugli(),
         vec2::splat(ctx.assets.config.editor.world.preview_texture_size),
     );
     texture.set_filter(ugli::Filter::Nearest);
-    let bb = game_state.bounding_box().map(|x| x as f32);
-    ctx.renderer.draw(
+    let bb = level.bounding_box().map(|x| x as f32);
+    ctx.renderer.draw_level(
         &mut ugli::Framebuffer::new_color(
             ctx.geng.ugli(),
             ugli::ColorAttachment::Texture(&mut texture),
@@ -495,11 +505,8 @@ fn generate_preview(ctx: &Context, game_state: &GameState) -> ugli::Texture {
             center: bb.center(),
             rotation: 0.0,
         },
-        history::Frame {
-            current_state: &game_state,
-            animation: None,
-        },
-        &ctx.renderer.level_mesh(&game_state),
+        level,
+        &ctx.renderer.level_mesh(level),
     );
     texture
 }
@@ -523,13 +530,13 @@ impl State {
                 (0..level_count).map(|x| x.to_string()).collect()
             };
             let levels = future::join_all(level_names.into_iter().map(|level_name| async {
-                let game_state: GameState = file::load_detect(level_path(&group_name, &level_name))
+                let level = logicsider::Level::load_from_file(level_path(&group_name, &level_name))
                     .await
                     .unwrap();
                 Level {
                     name: level_name,
-                    preview: generate_preview(ctx, &game_state),
-                    state: game_state,
+                    preview: generate_preview(ctx, &level),
+                    state: level,
                 }
             }))
             .await;

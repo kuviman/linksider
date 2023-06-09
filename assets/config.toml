@@ -37,7 +37,7 @@ brush_preview_opacity = 0.5
 grid_color = "#7775"
 warning_size = 24
 warning_color = "#ff0"
-autosave_timer = 10
+# autosave_timer = 10
 
 [editor.level.brush_wheel]
 radius = 3
@@ -52,6 +52,7 @@ choose = "Tab"
 pick = "Q"
 grid = "G"
 rotate = "R"
+reset_to_last_save = "F7"
 
 [editor.world]
 fov = 15
