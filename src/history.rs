@@ -9,6 +9,7 @@ pub struct Player {
     auto_continue: bool,
 }
 
+#[derive(Copy, Clone)]
 pub struct Animation<'a> {
     pub prev_state: &'a GameState,
     pub moves: &'a Moves,
@@ -53,6 +54,7 @@ impl Player {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Frame<'a> {
     pub current_state: &'a GameState,
     pub animation: Option<Animation<'a>>,

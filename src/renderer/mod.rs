@@ -2,6 +2,17 @@ use super::*;
 
 mod background;
 
+#[derive(Deserialize)]
+pub struct ShadowConfig {
+    offset: vec2<f32>,
+    opacity: f32,
+}
+
+#[derive(Deserialize)]
+pub struct Config {
+    shadow: ShadowConfig,
+}
+
 #[derive(geng::asset::Load)]
 struct Shaders {
     texture: ugli::Program,
@@ -156,8 +167,6 @@ impl Renderer {
             animation,
         } = frame;
 
-        self.draw_background(framebuffer, camera);
-
         let no_moves = Moves::default();
         let history::Animation {
             prev_state,
@@ -169,14 +178,19 @@ impl Renderer {
             t: 0.0,
         });
 
-        self.draw_mesh_impl(
+        self.draw_background(framebuffer, camera);
+
+        // Shadow
+        self.draw_colored(
             framebuffer,
             camera,
-            &level_mesh.0,
-            ugli::DrawMode::Triangles,
-            &self.assets.renderer.tileset.texture,
-            Rgba::WHITE,
-            mat3::identity(),
+            current_state,
+            prev_state,
+            moves,
+            t,
+            level_mesh,
+            mat3::translate(self.assets.config.render.shadow.offset),
+            Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity),
         );
 
         for goal in &prev_state.goals {
@@ -190,6 +204,42 @@ impl Renderer {
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
+
+        self.draw_colored(
+            framebuffer,
+            camera,
+            current_state,
+            prev_state,
+            moves,
+            t,
+            level_mesh,
+            mat3::identity(),
+            Rgba::WHITE,
+        );
+    }
+
+    fn draw_colored(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        _current_state: &GameState,
+        prev_state: &GameState,
+        moves: &Moves,
+        t: f32,
+        level_mesh: &LevelMesh,
+        transform: mat3<f32>,
+        color: Rgba<f32>,
+    ) {
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            &level_mesh.0,
+            ugli::DrawMode::Triangles,
+            &self.assets.renderer.tileset.texture,
+            color,
+            transform,
+        );
+
         for entity in &prev_state.entities {
             let entity_move = moves.entity_moves.get(&entity.id);
             let (from, to) = match entity_move {
@@ -245,7 +295,7 @@ impl Renderer {
                 //     .extend(transform.translation.z);
             }
 
-            let transform = cube_move_transform(
+            let entity_transform = cube_move_transform(
                 from,
                 to,
                 self.assets.config.border_radius_pixels as f32
@@ -259,8 +309,8 @@ impl Renderer {
                     framebuffer,
                     camera,
                     &entity.identifier,
-                    Rgba::WHITE,
-                    transform,
+                    color,
+                    transform * entity_transform,
                 );
             }
 
@@ -270,8 +320,9 @@ impl Renderer {
                         framebuffer,
                         camera,
                         &format!("{effect:?}Power"),
-                        Rgba::WHITE,
+                        color,
                         transform
+                            * entity_transform
                             * mat3::rotate_around(
                                 vec2::splat(0.5),
                                 Entity::relative_side_angle(side_index).to_angle()
@@ -287,8 +338,9 @@ impl Renderer {
                 framebuffer,
                 camera,
                 &format!("{:?}Power", powerup.effect),
-                Rgba::WHITE,
-                mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
+                color,
+                transform
+                    * mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
                     * (powerup.pos.angle - IntAngle::DOWN).to_matrix()
                     * mat3::translate(vec2::splat(-0.5)),
             );
