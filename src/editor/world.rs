@@ -503,7 +503,7 @@ fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
         &geng::Camera2d {
             fov: bb.height(),
             center: bb.center(),
-            rotation: 0.0,
+            rotation: Angle::ZERO,
         },
         level,
         &ctx.renderer.level_mesh(level),
@@ -552,7 +552,7 @@ impl State {
             groups,
             camera: geng::Camera2d {
                 center: vec2::ZERO,
-                rotation: 0.0,
+                rotation: Angle::ZERO,
                 fov: config.fov,
             },
             camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),

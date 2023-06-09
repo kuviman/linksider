@@ -207,21 +207,21 @@ impl Renderer {
                 let to_pos = to.cell.map(|x| x as f32);
                 if from.angle == to.angle {
                     return mat3::translate(lerp(from_pos, to_pos, t))
-                        * mat3::rotate_around(vec2::splat(0.5), to.angle.to_radians());
+                        * mat3::rotate_around(vec2::splat(0.5), to.angle.to_angle());
                 }
                 let delta_pos = to_pos - from_pos;
-                let delta_rot = to.angle.to_radians() - from.angle.to_radians();
+                let delta_rot = to.angle.to_angle() - from.angle.to_angle();
                 let rotation_origin = vec2::splat(0.5)
                     + from_pos
                     + delta_pos / 2.0
                     + delta_pos.rotate_90() / (delta_rot / 2.0).tan() / 2.0;
 
                 let from_transform = mat3::translate(from_pos)
-                    * mat3::rotate_around(vec2::splat(0.5), from.angle.to_radians());
+                    * mat3::rotate_around(vec2::splat(0.5), from.angle.to_angle());
 
                 // Double border radius when doing 180 since there is also border radius on the
                 // level geometry now
-                let border_radius: f32 = delta_rot.abs() / (f32::PI / 2.0) * border_radius;
+                let border_radius: f32 = delta_rot.abs().as_degrees() / 90.0 * border_radius;
                 let extra_len = (1.0 / ((1.0 - (t - 0.5).abs() * 2.0) * f32::PI / 4.0).cos() - 1.0)
                     * border_radius;
 
@@ -274,8 +274,8 @@ impl Renderer {
                         transform
                             * mat3::rotate_around(
                                 vec2::splat(0.5),
-                                Entity::relative_side_angle(side_index).to_radians()
-                                    - f32::PI / 2.0,
+                                Entity::relative_side_angle(side_index).to_angle()
+                                    - Angle::from_degrees(90.0),
                             )
                             * mat3::translate(vec2(0.0, 1.0)),
                     );
