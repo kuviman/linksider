@@ -1,6 +1,9 @@
 use super::*;
 
 mod background;
+mod vfx;
+
+pub use vfx::Vfx;
 
 #[derive(Deserialize)]
 pub struct ShadowConfig {
@@ -24,6 +27,7 @@ pub struct Assets {
     shaders: Shaders,
     background: background::Assets,
     tileset: autotile::Tileset,
+    vfx: vfx::Assets,
 }
 
 pub struct Renderer {
@@ -222,7 +226,7 @@ impl Renderer {
         &self,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
-        _current_state: &GameState,
+        current_state: &GameState,
         prev_state: &GameState,
         moves: &Moves,
         t: f32,
@@ -281,18 +285,6 @@ impl Renderer {
                             * extra_len,
                     )
                     * from_transform
-
-                //
-                // *transform = Transform::from_translation(prev_pos.extend(transform.translation.z))
-                //     .with_rotation(Quat::from_rotation_z(prev_rot));
-                // transform.rotate_around(
-                //     rotation_origin.extend(123.45),
-                //     Quat::from_rotation_z(delta_rot * t),
-                // );
-                // transform.translation = (transform.translation.xy()
-                //     + (rotation_origin - transform.translation.xy()).normalize_or_zero()
-                //         * extra_len)
-                //     .extend(transform.translation.z);
             }
 
             let entity_transform = cube_move_transform(
@@ -305,6 +297,12 @@ impl Renderer {
 
             // Static entities are cached in level mesh
             if !entity.properties.r#static {
+                let mut color = color;
+                if entity.properties.player && Some(entity.id) != current_state.selected_player {
+                    color = Rgba::from_vec4(
+                        color.to_vec4() * self.assets.config.deselected_player_color.to_vec4(),
+                    );
+                }
                 self.draw_tile(
                     framebuffer,
                     camera,

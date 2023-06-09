@@ -1,0 +1,118 @@
+use super::*;
+
+#[derive(geng::asset::Load)]
+pub struct Assets {
+    player_change: Rc<Texture>,
+    walk: Rc<Texture>,
+    hit_wall: Rc<Texture>,
+    jump: Rc<Texture>,
+    slide: Rc<Texture>,
+}
+
+struct Cell {
+    texture: Rc<Texture>,
+    pos: Position,
+    flip: bool,
+    t: f32,
+}
+
+pub struct Vfx {
+    ctx: Context,
+    cells: Vec<Cell>,
+}
+
+impl Vfx {
+    pub fn new(ctx: &Context) -> Self {
+        Self {
+            ctx: ctx.clone(),
+            cells: default(),
+        }
+    }
+    pub fn add_moves(&mut self, moves: &Moves) {
+        let assets = &self.ctx.assets.renderer.vfx;
+        for entity_move in &moves.entity_moves {
+            let (angle, texture) = match entity_move.move_type {
+                EntityMoveType::Magnet { magnet_angle, .. } => (magnet_angle, &assets.walk),
+                EntityMoveType::EnterGoal { .. } => continue,
+                EntityMoveType::Gravity => continue,
+                EntityMoveType::Move => {
+                    if entity_move.prev_pos.cell == entity_move.new_pos.cell {
+                        continue;
+                    }
+                    (IntAngle::DOWN, &assets.walk)
+                }
+                EntityMoveType::Pushed => continue,
+                EntityMoveType::SlideStart => (IntAngle::DOWN, &assets.slide),
+                EntityMoveType::SlideContinue => (IntAngle::DOWN, &assets.slide),
+                EntityMoveType::Jump { from } => (from, &assets.jump),
+                EntityMoveType::MagnetContinue => continue,
+            };
+            self.cells.push(Cell {
+                texture: texture.clone(),
+                pos: Position {
+                    cell: entity_move.prev_pos.cell,
+                    angle: angle.rotate_counter_clockwise(),
+                },
+                flip: entity_move.used_input == Input::Left,
+                t: 0.0,
+            });
+        }
+    }
+
+    pub fn change_player(&mut self, pos: Position) {
+        self.cells.push(Cell {
+            texture: self.ctx.assets.renderer.vfx.player_change.clone(),
+            pos: Position {
+                cell: pos.cell,
+                angle: IntAngle::ZERO,
+            },
+            flip: false,
+            t: 0.0,
+        });
+    }
+
+    pub fn update(&mut self, delta_time: f32) {
+        for cell in &mut self.cells {
+            cell.t += delta_time / self.ctx.assets.config.animation_time;
+        }
+        self.cells.retain(|cell| cell.t < 1.0);
+    }
+
+    pub fn draw(&self, framebuffer: &mut ugli::Framebuffer, camera: &impl geng::AbstractCamera2d) {
+        for cell in &self.cells {
+            let texture: &ugli::Texture = &cell.texture;
+            assert!(texture.size().y % texture.size().x == 0);
+            let frames = texture.size().y / texture.size().x;
+            let frame = (cell.t * frames as f32).floor();
+            let start_vt = frame / frames as f32;
+            let end_vt = (frame + 1.0) / frames as f32;
+            let (start_vt, end_vt) = (1.0 - end_vt, 1.0 - start_vt);
+            let v = |x, y| draw2d::TexturedVertex {
+                a_pos: vec2(x as f32, y as f32),
+                a_vt: vec2(
+                    if cell.flip { 1 - x } else { x } as f32,
+                    start_vt + (end_vt - start_vt) * y as f32,
+                ),
+                a_color: Rgba::WHITE,
+            };
+            let vertex_data = ugli::VertexBuffer::new_dynamic(
+                self.ctx.geng.ugli(),
+                vec![v(0, 0), v(1, 0), v(1, 1), v(0, 1)],
+            );
+            self.ctx.renderer.draw_mesh_impl(
+                framebuffer,
+                camera,
+                &vertex_data,
+                ugli::DrawMode::TriangleFan,
+                texture,
+                Rgba::WHITE,
+                mat3::translate(cell.pos.cell.map(|x| x as f32 + 0.5))
+                    * mat3::scale_uniform(
+                        texture.size().x as f32 / self.ctx.assets.config.cell_pixel_size as f32,
+                    )
+                    * mat3::rotate(cell.pos.angle.to_angle())
+                    * mat3::translate(vec2::splat(-0.5)),
+            );
+        }
+    }
+}

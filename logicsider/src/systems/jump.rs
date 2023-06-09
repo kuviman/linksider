@@ -41,7 +41,7 @@ pub fn system(
             used_input: input,
             prev_pos: entity.pos,
             new_pos,
-            move_type: EntityMoveType::Jump,
+            move_type: EntityMoveType::Jump { from: jump_from },
         })
     } else {
         None

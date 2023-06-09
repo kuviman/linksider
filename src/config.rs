@@ -41,4 +41,5 @@ pub struct Config {
     pub editor: editor::Config,
     pub level_select: Rc<level_select::Config>,
     pub camera_controls: Rc<camera_controls::Config>,
+    pub deselected_player_color: Rgba<f32>,
 }

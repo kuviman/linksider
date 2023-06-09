@@ -29,6 +29,7 @@ pub struct Assets {
     pub slide: Sound,
     pub jump: Sound,
     pub powerup: Sound,
+    pub player_change: Sound,
 }
 
 struct StopOnDrop(geng::SoundEffect);
@@ -61,6 +62,7 @@ pub struct State {
 }
 
 impl State {
+    // pgorley wants to be a part of the linksider codebase
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
         geng.audio().set_volume(assets.config.sound.volume);
         Self {
@@ -85,7 +87,7 @@ impl State {
                 EntityMoveType::Pushed => continue,
                 EntityMoveType::SlideStart => &assets.slide,
                 EntityMoveType::SlideContinue => continue,
-                EntityMoveType::Jump => &assets.jump,
+                EntityMoveType::Jump { .. } => &assets.jump,
             });
         }
     }
@@ -95,5 +97,9 @@ impl State {
         if !moves.collected_powerups.is_empty() {
             self.play(&assets.powerup);
         }
+    }
+
+    pub fn player_change(&self) {
+        self.play(&self.assets.sound.player_change);
     }
 }

@@ -7,6 +7,7 @@ pub struct State {
     transition: Option<Transition>,
     level_mesh: renderer::LevelMesh,
     history_player: history::Player,
+    vfx: renderer::Vfx,
 }
 
 pub enum Transition {
@@ -34,6 +35,7 @@ impl State {
                 &ctx.assets.logic_config,
                 ctx.assets.config.animation_time,
             ),
+            vfx: renderer::Vfx::new(ctx),
         }
     }
     pub fn finish(&mut self, finish: Transition) {
@@ -80,7 +82,9 @@ impl State {
             timeline_input,
         );
         if let Some(moves) = update.started {
+            // TODO copypasta
             self.ctx.sound.play_turn_start_sounds(moves);
+            self.vfx.add_moves(moves);
         }
         if let Some(moves) = update.finished {
             self.ctx.sound.play_turn_end_sounds(moves);
@@ -95,6 +99,8 @@ impl State {
         if self.history_player.frame().current_state.finished() {
             self.finish(Transition::NextLevel);
         }
+
+        self.vfx.update(delta_time);
     }
     fn handle_event(&mut self, event: geng::Event) {
         match event {
@@ -141,16 +147,29 @@ impl State {
                             .process_move(&self.ctx.assets.logic_config, input)
                         {
                             self.ctx.sound.play_turn_start_sounds(moves);
+                            self.vfx.add_moves(moves);
                         }
                     }
                 }
                 if self.ctx.assets.config.controls.next_player.contains(&key) {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, 1);
+                    if let Some(player) =
+                        self.history_player.frame().current_state.selected_entity()
+                    {
+                        self.vfx.change_player(player.pos);
+                        self.ctx.sound.player_change();
+                    }
                 }
                 if self.ctx.assets.config.controls.prev_player.contains(&key) {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, -1);
+                    if let Some(player) =
+                        self.history_player.frame().current_state.selected_entity()
+                    {
+                        self.vfx.change_player(player.pos);
+                        self.ctx.sound.player_change();
+                    }
                 }
             }
             _ => {}
@@ -158,11 +177,10 @@ impl State {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        self.ctx.renderer.draw(
-            framebuffer,
-            &self.camera,
-            self.history_player.frame(),
-            &self.level_mesh,
-        );
+        let frame = self.history_player.frame();
+        self.ctx
+            .renderer
+            .draw(framebuffer, &self.camera, frame, &self.level_mesh);
+        self.vfx.draw(framebuffer, &self.camera);
     }
 }

@@ -158,7 +158,6 @@ impl Player {
     }
 
     pub fn change_player_selection(&mut self, config: &logicsider::Config, delta: isize) {
-        // TODO player selection should not be part of the game state?
         self.states[self.target_pos].change_player_selection(config, delta);
     }
 }

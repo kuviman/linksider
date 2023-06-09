@@ -27,7 +27,9 @@ pub enum EntityMoveType {
     Pushed,
     SlideStart,
     SlideContinue,
-    Jump,
+    Jump {
+        from: IntAngle,
+    },
     MagnetContinue,
 }
 
