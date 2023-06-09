@@ -14,12 +14,25 @@ pub enum ContinueConfig {
     Never,
 }
 
-pub fn entity_magneted_angles(
+pub fn entity_strong_magneted_angles(
     state: &GameState,
     entity_id: Id,
 ) -> impl Iterator<Item = IntAngle> + '_ {
     effects::entity_active_effects(state, entity_id).flat_map(|(side, effect)| {
         if let Effect::Magnet = effect.deref() {
+            Some(side)
+        } else {
+            None
+        }
+    })
+}
+
+pub fn entity_maybe_weak_magneted_angles(
+    state: &GameState,
+    entity_id: Id,
+) -> impl Iterator<Item = IntAngle> + '_ {
+    effects::entity_active_effects(state, entity_id).flat_map(|(side, effect)| {
+        if let Effect::Magnet | Effect::WeakMagnet = effect.deref() {
             Some(side)
         } else {
             None
@@ -39,7 +52,9 @@ pub fn continue_move(
     if config.magnet.r#continue == ContinueConfig::Never {
         return None;
     }
-    if entity_magneted_angles(state, entity_id).next().is_some()
+    if entity_maybe_weak_magneted_angles(state, entity_id)
+        .next()
+        .is_some()
         && !config.magnet.continue_when_magneted
     {
         return None;

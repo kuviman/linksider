@@ -14,8 +14,8 @@ impl Effect {
     pub fn activate_other(&self) -> Option<Self> {
         match self {
             Self::Jump | Self::Slide => Some(self.clone()),
-            Self::Magnet => Some(Self::DisableGravity),
-            Self::DisableGravity | Self::DisableTrigger => None,
+            Self::Magnet => Some(Self::WeakMagnet),
+            Self::WeakMagnet | Self::DisableTrigger => None,
         }
     }
     fn apply(
@@ -29,7 +29,7 @@ impl Effect {
             Self::Jump => jump::system(state, entity_id, input, angle),
             Self::Slide => slide::system(state, entity_id, input, angle),
             // Some effects are handled in other systems
-            Self::Magnet | Self::DisableTrigger | Self::DisableGravity => None,
+            Self::Magnet | Self::DisableTrigger | Self::WeakMagnet => None,
         }
     }
 }

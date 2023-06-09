@@ -13,7 +13,7 @@ pub fn system(
     }
     let entity = state.entities.get(&entity_id).unwrap();
 
-    let magneted_angles: HashSet<IntAngle> = magnet::entity_magneted_angles(state, entity_id)
+    let magneted_angles: HashSet<IntAngle> = magnet::entity_strong_magneted_angles(state, entity_id)
         .map(|angle| angle.normalize())
         .collect();
 
