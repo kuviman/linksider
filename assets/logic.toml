@@ -1,5 +1,9 @@
 allow_unstable_player_selection = false
-magnet_continue = "Always" # "Input", "Always", "Never"
+
+[magnet]
+continue = "Always" # "Input", "Always", "Never"
+continue_horizontal = false
+continue_when_magneted = false
 
 [entities.Player]
 block = true

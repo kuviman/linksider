@@ -1,5 +1,12 @@
 use super::*;
 
+#[derive(Deserialize, Clone, Debug)]
+pub struct Config {
+    pub r#continue: systems::magnet::ContinueConfig,
+    pub continue_horizontal: bool,
+    pub continue_when_magneted: bool,
+}
+
 #[derive(Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum ContinueConfig {
     Input,
@@ -29,7 +36,12 @@ pub fn continue_move(
         ..
     }: EntityMoveParams,
 ) -> Option<EntityMove> {
-    if config.magnet_continue == ContinueConfig::Never {
+    if config.magnet.r#continue == ContinueConfig::Never {
+        return None;
+    }
+    if entity_magneted_angles(state, entity_id).next().is_some()
+        && !config.magnet.continue_when_magneted
+    {
         return None;
     }
     let entity = state.entities.get(&entity_id).unwrap();
@@ -47,7 +59,10 @@ pub fn continue_move(
         // Cant continue after locked in place rotation
         return None;
     }
-    if prev_input != input && config.magnet_continue == ContinueConfig::Input {
+    if move_dir.y == 0 && !config.magnet.continue_horizontal {
+        return None;
+    }
+    if prev_input != input && config.magnet.r#continue == ContinueConfig::Input {
         return None;
     }
     let new_pos = Position {
