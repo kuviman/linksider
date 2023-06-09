@@ -39,5 +39,6 @@ pub struct Config {
     pub border_radius_pixels: usize,
     pub sound: sound::Config,
     pub editor: editor::Config,
+    pub level_select: Rc<level_select::Config>,
     pub camera_controls: Rc<camera_controls::Config>,
 }

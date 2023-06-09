@@ -4,6 +4,11 @@ animation_time = 0.2
 cell_pixel_size = 16
 border_radius_pixels = 4
 
+[level_select]
+fov = 10
+level_icon_size = 0.9
+margin = 5
+
 [render.shadow]
 offset = [0.125, -0.125]
 opacity = 0.2
