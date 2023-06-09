@@ -33,6 +33,7 @@ pub struct Config {
     pub fov: f32,
     pub camera_speed: f32,
     pub animation_time: f32,
+    pub render: renderer::Config,
     pub controls: Controls,
     pub cell_pixel_size: usize,
     pub border_radius_pixels: usize,
