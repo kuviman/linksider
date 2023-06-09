@@ -65,6 +65,7 @@ pick = "Q"
 grid = "G"
 rotate = "R"
 reset_to_last_save = "F7"
+drag = "LCtrl"
 
 [editor.world]
 fov = 15
