@@ -5,6 +5,7 @@ cell_pixel_size = 16
 border_radius_pixels = 4
 deselected_player_color = "#fff7"
 zzz_time = 30
+happy = true
 
 [level_select]
 fov = 10

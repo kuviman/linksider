@@ -43,4 +43,5 @@ pub struct Config {
     pub camera_controls: Rc<camera_controls::Config>,
     pub deselected_player_color: Rgba<f32>,
     pub zzz_time: f32,
+    pub happy: bool,
 }

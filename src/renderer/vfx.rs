@@ -6,6 +6,7 @@ pub struct Assets {
     walk: Rc<Texture>,
     hit_wall: Rc<Texture>,
     jump: Rc<Texture>,
+    happy: Rc<Texture>,
     slide: Rc<Texture>,
     zzz: Rc<Texture>,
 }
@@ -62,7 +63,14 @@ impl Vfx {
                             t: -(cells_travelled as f32 / jump_force as f32),
                         });
                     }
-                    (from, &assets.jump)
+                    (
+                        from,
+                        if self.ctx.assets.config.happy {
+                            &assets.happy
+                        } else {
+                            &assets.jump
+                        },
+                    )
                 }
                 EntityMoveType::MagnetContinue => continue,
             };

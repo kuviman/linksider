@@ -15,6 +15,7 @@ pub struct Assets {
     r#move: Rc<geng::Sound>,
     slide: Rc<geng::Sound>,
     jump: Rc<geng::Sound>,
+    happy: Rc<geng::Sound>,
     powerup: Rc<geng::Sound>,
     player_change: Rc<geng::Sound>,
     hit_wall: Rc<geng::Sound>,
@@ -111,7 +112,11 @@ impl State {
                             ),
                         );
                     }
-                    &assets.jump
+                    if self.assets.config.happy {
+                        &assets.happy
+                    } else {
+                        &assets.jump
+                    }
                 }
             });
         }
