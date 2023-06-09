@@ -101,6 +101,9 @@ impl State {
         }
 
         self.vfx.update(delta_time);
+        self.ctx
+            .sound
+            .update_game_tick_time(delta_time / self.ctx.assets.config.animation_time);
     }
     fn handle_event(&mut self, event: geng::Event) {
         match event {

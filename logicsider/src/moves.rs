@@ -29,6 +29,10 @@ pub enum EntityMoveType {
     SlideContinue,
     Jump {
         from: IntAngle,
+        blocked_angle: Option<IntAngle>,
+        cells_travelled: usize,
+        /// Number of cells that would be travelled if not blocked
+        jump_force: usize,
     },
     MagnetContinue,
 }

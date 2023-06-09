@@ -44,7 +44,25 @@ impl Vfx {
                 EntityMoveType::Pushed => continue,
                 EntityMoveType::SlideStart => (IntAngle::DOWN, &assets.slide),
                 EntityMoveType::SlideContinue => (IntAngle::DOWN, &assets.slide),
-                EntityMoveType::Jump { from } => (from, &assets.jump),
+                EntityMoveType::Jump {
+                    from,
+                    blocked_angle,
+                    cells_travelled,
+                    jump_force,
+                } => {
+                    if let Some(blocked_angle) = blocked_angle {
+                        self.cells.push(Cell {
+                            texture: assets.hit_wall.clone(),
+                            pos: Position {
+                                cell: entity_move.new_pos.cell,
+                                angle: blocked_angle.rotate_clockwise(),
+                            },
+                            flip: false,
+                            t: -(cells_travelled as f32 / jump_force as f32),
+                        });
+                    }
+                    (from, &assets.jump)
+                }
                 EntityMoveType::MagnetContinue => continue,
             };
             self.cells.push(Cell {
@@ -80,6 +98,9 @@ impl Vfx {
 
     pub fn draw(&self, framebuffer: &mut ugli::Framebuffer, camera: &impl geng::AbstractCamera2d) {
         for cell in &self.cells {
+            if cell.t < 0.0 {
+                continue;
+            }
             let texture: &ugli::Texture = &cell.texture;
             assert!(texture.size().y % texture.size().x == 0);
             let frames = texture.size().y / texture.size().x;

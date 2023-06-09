@@ -246,10 +246,22 @@ impl Renderer {
 
         for entity in &prev_state.entities {
             let entity_move = moves.entity_moves.get(&entity.id);
+            let mut animation_time = 1.0;
             let (from, to) = match entity_move {
-                Some(entity_move) => (entity_move.prev_pos, entity_move.new_pos),
+                Some(entity_move) => {
+                    if let EntityMoveType::Jump {
+                        cells_travelled,
+                        jump_force,
+                        ..
+                    } = entity_move.move_type
+                    {
+                        animation_time = cells_travelled as f32 / jump_force as f32;
+                    }
+                    (entity_move.prev_pos, entity_move.new_pos)
+                }
                 None => (entity.pos, entity.pos),
             };
+            let t = (t / animation_time).min(1.0);
 
             fn cube_move_transform(
                 from: Position,
