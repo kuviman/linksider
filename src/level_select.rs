@@ -135,10 +135,11 @@ impl State {
     ) -> Option<Selection> {
         let group = &self.groups[selection.group];
         let level = &group.levels[selection.level];
-        let level = logicsider::Level::load_from_file(levels::level_path(&group.name, &level.name))
-            .await
-            .unwrap();
-        let finish = play::State::new(&self.ctx, &level).run(actx).await;
+        let mut level_state =
+            logicsider::Level::load_from_file(levels::level_path(&group.name, &level.name))
+                .await
+                .unwrap();
+        let finish = play::State::new(&self.ctx, &level_state).run(actx).await;
         let mut selection = selection;
         match finish {
             play::Transition::NextLevel => {
@@ -153,7 +154,16 @@ impl State {
                     return Some(selection);
                 }
             }
-            play::Transition::Editor => todo!(),
+            play::Transition::Editor => {
+                editor::level::State::new(
+                    &self.ctx,
+                    format!("{}::{}", group.name, level.name),
+                    &mut level_state,
+                    levels::level_path(&group.name, &level.name),
+                )
+                .run(actx)
+                .await
+            }
             play::Transition::Exit => {}
         }
         None
