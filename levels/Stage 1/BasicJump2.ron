@@ -1,0 +1,1721 @@
+V1((
+    entities: [
+        (
+            index: None,
+            identifier: "Player",
+            pos: (
+                cell: (3, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (7, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -5),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -10),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (8, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -10),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (7, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (11, -10),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (11, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -10),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -5),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -5),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (8, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (7, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -10),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (11, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (7, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (9, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -5),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (8, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (8, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (10, -10),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (8, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (4, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -11),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -5),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (6, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (11, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (5, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (7, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (11, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (11, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (13, -9),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -9),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (14, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -4),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -5),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -6),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -13),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (2, -9),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (3, -9),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+    ],
+    powerups: [
+        (
+            pos: (
+                cell: (4, -11),
+                angle: (3),
+            ),
+            effect: Jump,
+        ),
+    ],
+    goals: [
+        (
+            pos: (
+                cell: (6, -5),
+                angle: (0),
+            ),
+        ),
+    ],
+))
