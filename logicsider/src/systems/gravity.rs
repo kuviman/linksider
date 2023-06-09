@@ -2,10 +2,13 @@ use super::*;
 
 pub fn system(
     EntityMoveParams {
-        state, entity_id, ..
+        state,
+        entity_id,
+        config,
+        ..
     }: EntityMoveParams,
 ) -> Option<EntityMove> {
-    if magnet::entity_maybe_weak_magneted_angles(state, entity_id)
+    if magnet::entity_maybe_weak_magneted_angles(state, config, entity_id)
         .next()
         .is_some()
     {

@@ -158,7 +158,7 @@ pub enum Effect {
     Jump,
     Slide,
     Magnet,
-    WeakMagnet, // Fake effect (other side of magnet)
+    WeakMagnet,
     DisableTrigger,
 }
 

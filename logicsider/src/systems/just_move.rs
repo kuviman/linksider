@@ -5,7 +5,7 @@ pub fn system(
         state,
         entity_id,
         input,
-        ..
+        config,
     }: EntityMoveParams,
 ) -> Option<Collection<EntityMove>> {
     if input == Input::Skip {
@@ -13,9 +13,10 @@ pub fn system(
     }
     let entity = state.entities.get(&entity_id).unwrap();
 
-    let magneted_angles: HashSet<IntAngle> = magnet::entity_strong_magneted_angles(state, entity_id)
-        .map(|angle| angle.normalize())
-        .collect();
+    let magneted_angles: HashSet<IntAngle> =
+        magnet::entity_strong_magneted_angles(state, config, entity_id)
+            .map(|angle| angle.normalize())
+            .collect();
 
     struct Direction {
         magnet_angle: Option<IntAngle>,

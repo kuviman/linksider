@@ -4,6 +4,7 @@ allow_unstable_player_selection = false
 continue = "Always" # "Input", "Always", "Never"
 continue_horizontal = false
 continue_when_magneted = false
+weak_on_other_side = false
 
 [entities.Player]
 block = true

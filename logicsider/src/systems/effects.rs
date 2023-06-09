@@ -11,10 +11,14 @@ impl Effect {
     pub fn activate_self(&self) -> bool {
         true
     }
-    pub fn activate_other(&self) -> Option<Self> {
+    pub fn activate_other(&self, config: &Config) -> Option<Self> {
         match self {
             Self::Jump | Self::Slide => Some(self.clone()),
-            Self::Magnet => Some(Self::WeakMagnet),
+            Self::Magnet => Some(if config.magnet.weak_on_other_side {
+                Self::WeakMagnet
+            } else {
+                Self::Magnet
+            }),
             Self::WeakMagnet | Self::DisableTrigger => None,
         }
     }
@@ -51,10 +55,10 @@ pub fn side_effects(
         state,
         entity_id,
         input,
-        ..
+        config,
     }: EntityMoveParams,
 ) -> Option<EntityMove> {
-    for (side, effect) in entity_active_effects(state, entity_id) {
+    for (side, effect) in entity_active_effects(state, config, entity_id) {
         if let Some(pos) = effect.apply(state, entity_id, input, side) {
             return Some(pos);
         }
@@ -62,10 +66,11 @@ pub fn side_effects(
     None
 }
 
-pub fn entity_active_effects(
-    state: &GameState,
+pub fn entity_active_effects<'a>(
+    state: &'a GameState,
+    config: &'a Config,
     entity_id: Id,
-) -> impl Iterator<Item = (IntAngle, Cow<Effect>)> + '_ {
+) -> impl Iterator<Item = (IntAngle, Cow<'a, Effect>)> + 'a {
     let entity = state.entities.get(&entity_id).unwrap();
     let mut result = vec![];
     for (side_index, side) in entity.sides.iter().enumerate() {
@@ -84,7 +89,7 @@ pub fn entity_active_effects(
                     let other_side_index = other_entity.side_index(side_angle.opposite());
                     let other_side = &other_entity.sides[other_side_index];
                     if let Some(effect) = &other_side.effect {
-                        if let Some(effect_on_state) = effect.activate_other() {
+                        if let Some(effect_on_state) = effect.activate_other(config) {
                             result.push((side_angle, Cow::Owned(effect_on_state)));
                         }
                     }

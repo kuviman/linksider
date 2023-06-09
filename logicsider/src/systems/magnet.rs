@@ -5,6 +5,7 @@ pub struct Config {
     pub r#continue: systems::magnet::ContinueConfig,
     pub continue_horizontal: bool,
     pub continue_when_magneted: bool,
+    pub weak_on_other_side: bool,
 }
 
 #[derive(Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
@@ -14,11 +15,12 @@ pub enum ContinueConfig {
     Never,
 }
 
-pub fn entity_strong_magneted_angles(
-    state: &GameState,
+pub fn entity_strong_magneted_angles<'a>(
+    state: &'a GameState,
+    config: &'a crate::Config,
     entity_id: Id,
-) -> impl Iterator<Item = IntAngle> + '_ {
-    effects::entity_active_effects(state, entity_id).flat_map(|(side, effect)| {
+) -> impl Iterator<Item = IntAngle> + 'a {
+    effects::entity_active_effects(state, config, entity_id).flat_map(|(side, effect)| {
         if let Effect::Magnet = effect.deref() {
             Some(side)
         } else {
@@ -27,11 +29,12 @@ pub fn entity_strong_magneted_angles(
     })
 }
 
-pub fn entity_maybe_weak_magneted_angles(
-    state: &GameState,
+pub fn entity_maybe_weak_magneted_angles<'a>(
+    state: &'a GameState,
+    config: &'a crate::Config,
     entity_id: Id,
-) -> impl Iterator<Item = IntAngle> + '_ {
-    effects::entity_active_effects(state, entity_id).flat_map(|(side, effect)| {
+) -> impl Iterator<Item = IntAngle> + 'a {
+    effects::entity_active_effects(state, config, entity_id).flat_map(|(side, effect)| {
         if let Effect::Magnet | Effect::WeakMagnet = effect.deref() {
             Some(side)
         } else {
@@ -52,7 +55,7 @@ pub fn continue_move(
     if config.magnet.r#continue == ContinueConfig::Never {
         return None;
     }
-    if entity_maybe_weak_magneted_angles(state, entity_id)
+    if entity_maybe_weak_magneted_angles(state, config, entity_id)
         .next()
         .is_some()
         && !config.magnet.continue_when_magneted
