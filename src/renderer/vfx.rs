@@ -7,6 +7,7 @@ pub struct Assets {
     hit_wall: Rc<Texture>,
     jump: Rc<Texture>,
     slide: Rc<Texture>,
+    zzz: Rc<Texture>,
 }
 
 struct Cell {
@@ -75,6 +76,18 @@ impl Vfx {
                 t: 0.0,
             });
         }
+    }
+
+    pub fn zzz(&mut self, cell: vec2<i32>) {
+        self.cells.push(Cell {
+            texture: self.ctx.assets.renderer.vfx.zzz.clone(),
+            pos: Position {
+                cell,
+                angle: IntAngle::ZERO,
+            },
+            flip: false,
+            t: 0.0,
+        });
     }
 
     pub fn change_player(&mut self, pos: Position) {

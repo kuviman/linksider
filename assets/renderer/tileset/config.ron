@@ -8,6 +8,7 @@
     ),
     "disable": At(11, 5),
     "Player": At(0, 5),
+    "PlayerZzz": At(2, 5),
     "Goal": At(1, 5),
     "JumpPower": At(0, 6),
     "SlidePower": At(1, 6),

@@ -8,6 +8,8 @@ pub struct State {
     level_mesh: renderer::LevelMesh,
     history_player: history::Player,
     vfx: renderer::Vfx,
+    next_zzz: f32,
+    zzz: bool,
 }
 
 pub enum Transition {
@@ -36,6 +38,8 @@ impl State {
                 ctx.assets.config.animation_time,
             ),
             vfx: renderer::Vfx::new(ctx),
+            next_zzz: ctx.assets.config.zzz_time,
+            zzz: false,
         }
     }
     pub fn finish(&mut self, finish: Transition) {
@@ -104,6 +108,17 @@ impl State {
         self.ctx
             .sound
             .update_game_tick_time(delta_time / self.ctx.assets.config.animation_time);
+
+        self.next_zzz -= delta_time;
+        if self.next_zzz < 0.0 {
+            self.zzz = true;
+            self.next_zzz += self.ctx.assets.config.animation_time;
+            for entity in &self.history_player.frame().current_state.entities {
+                if entity.properties.player {
+                    self.vfx.zzz(entity.pos.cell + vec2(0, 1));
+                }
+            }
+        }
     }
     fn handle_event(&mut self, event: geng::Event) {
         match event {
@@ -144,6 +159,8 @@ impl State {
                     None
                 };
                 if let Some(input) = input {
+                    self.zzz = false;
+                    self.next_zzz = self.ctx.assets.config.zzz_time;
                     if self.history_player.frame().animation.is_none() {
                         if let Some(moves) = self
                             .history_player
@@ -183,7 +200,7 @@ impl State {
         let frame = self.history_player.frame();
         self.ctx
             .renderer
-            .draw(framebuffer, &self.camera, frame, &self.level_mesh);
+            .draw(framebuffer, &self.camera, frame, &self.level_mesh, self.zzz);
         self.vfx.draw(framebuffer, &self.camera);
     }
 }

@@ -156,6 +156,7 @@ impl Renderer {
                 animation: None,
             },
             level_mesh,
+            false,
         );
     }
 
@@ -165,6 +166,7 @@ impl Renderer {
         camera: &impl geng::AbstractCamera2d,
         frame: history::Frame,
         level_mesh: &LevelMesh,
+        zzz: bool,
     ) {
         let history::Frame {
             current_state,
@@ -195,6 +197,7 @@ impl Renderer {
             level_mesh,
             mat3::translate(self.assets.config.render.shadow.offset),
             Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity),
+            zzz,
         );
 
         for goal in &prev_state.goals {
@@ -219,6 +222,7 @@ impl Renderer {
             level_mesh,
             mat3::identity(),
             Rgba::WHITE,
+            zzz,
         );
     }
 
@@ -233,6 +237,7 @@ impl Renderer {
         level_mesh: &LevelMesh,
         transform: mat3<f32>,
         color: Rgba<f32>,
+        zzz: bool,
     ) {
         self.draw_mesh_impl(
             framebuffer,
@@ -318,7 +323,11 @@ impl Renderer {
                 self.draw_tile(
                     framebuffer,
                     camera,
-                    &entity.identifier,
+                    if zzz && entity.identifier == "Player" {
+                        "PlayerZzz"
+                    } else {
+                        &entity.identifier
+                    },
                     color,
                     transform * entity_transform,
                 );
