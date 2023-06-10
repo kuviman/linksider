@@ -12,18 +12,7 @@ pub fn save_group_names(group_names: &[&str]) {
 
 pub async fn load_level_names(group_name: &str) -> Vec<String> {
     let list_path = levels_list_file(group_name);
-    if list_path.is_file() {
-        file::load_detect(list_path).await.unwrap()
-    } else {
-        // TODO remove
-        let level_count: usize = file::load_string(group_dir(&group_name).join("count.txt"))
-            .await
-            .unwrap()
-            .trim()
-            .parse()
-            .unwrap();
-        (0..level_count).map(|x| x.to_string()).collect()
-    }
+    file::load_detect(list_path).await.unwrap()
 }
 
 pub fn save_level_names(group_name: &str, level_names: &[&str]) {
