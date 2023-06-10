@@ -480,23 +480,6 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-1, -9),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
                 cell: (-3, -11),
                 angle: (0),
             ),
