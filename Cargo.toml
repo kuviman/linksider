@@ -11,6 +11,5 @@ assets = ["assets", "levels"]
 [dependencies]
 geng.git = "https://github.com/geng-engine/geng"
 logicsider.path = "logicsider"
-# ldtk.path = "ldtk"
 autotile.path = "autotile"
 serde = "1"
