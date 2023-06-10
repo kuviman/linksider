@@ -26,10 +26,6 @@ struct Level {
     preview: ugli::Texture,
 }
 
-fn level_path(group_name: &str, level_name: &str) -> std::path::PathBuf {
-    group_dir(group_name).join(format!("{level_name}.ron"))
-}
-
 struct Group {
     name: String,
     levels: Vec<Level>,
@@ -37,27 +33,15 @@ struct Group {
 
 impl Group {
     fn save_level_list(&self) {
-        let path = group_dir(&self.name).join("list.ron");
-        let writer = std::io::BufWriter::new(std::fs::File::create(path).unwrap());
-        ron::ser::to_writer_pretty(
-            writer,
+        levels::save_level_names(
+            &self.name,
             &self
                 .levels
                 .iter()
-                .map(|level| &level.name)
+                .map(|level| level.name.as_str())
                 .collect::<Vec<_>>(),
-            default(),
-        )
-        .unwrap();
+        );
     }
-}
-
-fn group_dir(group_name: &str) -> std::path::PathBuf {
-    run_dir().join("levels").join(group_name)
-}
-
-fn groups_list_file() -> std::path::PathBuf {
-    run_dir().join("levels").join("groups.ron")
 }
 
 struct Selection {
@@ -161,7 +145,9 @@ impl State {
             return;
         };
         let group = &mut self.groups[group_index];
-        level.save_to_file(level_path(&group.name, &name)).unwrap();
+        level
+            .save_to_file(levels::level_path(&group.name, &name))
+            .unwrap();
         group.levels.insert(
             level_index,
             Level {
@@ -174,16 +160,13 @@ impl State {
     }
 
     fn save_group_list(&self) {
-        ron::ser::to_writer_pretty(
-            std::io::BufWriter::new(std::fs::File::create(groups_list_file()).unwrap()),
+        levels::save_group_names(
             &self
                 .groups
                 .iter()
-                .map(|group| &group.name)
+                .map(|group| group.name.as_str())
                 .collect::<Vec<_>>(),
-            default(),
-        )
-        .unwrap();
+        );
     }
 
     fn reorder(&mut self, from: Selection, to: Selection) -> Option<()> {
@@ -205,8 +188,8 @@ impl State {
         self.groups[to.group].save_level_list();
         if from.group != to.group {
             std::fs::rename(
-                level_path(&self.groups[from.group].name, &level_name),
-                level_path(&self.groups[to.group].name, &level_name),
+                levels::level_path(&self.groups[from.group].name, &level_name),
+                levels::level_path(&self.groups[to.group].name, &level_name),
             )
             .unwrap();
         }
@@ -216,12 +199,11 @@ impl State {
     async fn click_selection(&mut self, actx: &mut async_states::Context, selection: Selection) {
         if let Some(group) = self.groups.get_mut(selection.group) {
             if let Some(level) = group.levels.get_mut(selection.level) {
-                let level_path = level_path(&group.name, &level.name);
                 editor::level::State::new(
                     &self.ctx,
                     format!("{}::{} (#{})", group.name, level.name, selection.level),
                     &mut level.state,
-                    level_path,
+                    levels::level_path(&group.name, &level.name),
                 )
                 .run(actx)
                 .await;
@@ -240,7 +222,7 @@ impl State {
                 name,
                 levels: Vec::new(),
             };
-            std::fs::create_dir(group_dir(&group.name)).unwrap();
+            std::fs::create_dir(levels::group_dir(&group.name)).unwrap();
             self.groups.push(group);
             self.save_group_list();
         }
@@ -309,8 +291,8 @@ impl State {
                                         .await
                                 {
                                     std::fs::rename(
-                                        level_path(&group.name, &level.name),
-                                        level_path(&group.name, &new_name),
+                                        levels::level_path(&group.name, &level.name),
+                                        levels::level_path(&group.name, &new_name),
                                     )
                                     .unwrap();
                                     level.name = new_name;
@@ -321,8 +303,11 @@ impl State {
                                     popup::prompt(&self.ctx, actx, "Rename group", &group.name)
                                         .await
                                 {
-                                    std::fs::rename(group_dir(&group.name), group_dir(&new_name))
-                                        .unwrap();
+                                    std::fs::rename(
+                                        levels::group_dir(&group.name),
+                                        levels::group_dir(&new_name),
+                                    )
+                                    .unwrap();
                                     group.name = new_name;
                                     self.save_group_list();
                                 }
@@ -354,8 +339,11 @@ impl State {
                                 .await
                                 {
                                     let level = group.levels.remove(selection.level);
-                                    std::fs::remove_file(level_path(&group.name, &level.name))
-                                        .unwrap();
+                                    std::fs::remove_file(levels::level_path(
+                                        &group.name,
+                                        &level.name,
+                                    ))
+                                    .unwrap();
                                     self.register = Some(level.state);
                                     group.save_level_list();
                                 }
@@ -535,26 +523,14 @@ fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
 
 impl State {
     pub async fn load(ctx: &Rc<Context>, actx: &mut async_states::Context) {
-        let group_names: Vec<String> = file::load_detect(groups_list_file()).await.unwrap();
+        let group_names = levels::load_group_names().await;
         let groups = future::join_all(group_names.into_iter().map(|group_name| async {
-            let list_path = group_dir(&group_name).join("list.ron");
-            let level_names: Vec<String> = if list_path.is_file() {
-                file::load_detect(list_path).await.unwrap()
-            } else {
-                // TODO remove
-                let level_count: usize =
-                    file::load_string(group_dir(&group_name).join("count.txt"))
-                        .await
-                        .unwrap()
-                        .trim()
-                        .parse()
-                        .unwrap();
-                (0..level_count).map(|x| x.to_string()).collect()
-            };
+            let level_names = levels::load_level_names(&group_name).await;
             let levels = future::join_all(level_names.into_iter().map(|level_name| async {
-                let level = logicsider::Level::load_from_file(level_path(&group_name, &level_name))
-                    .await
-                    .unwrap();
+                let level =
+                    logicsider::Level::load_from_file(levels::level_path(&group_name, &level_name))
+                        .await
+                        .unwrap();
                 Level {
                     name: level_name,
                     preview: generate_preview(ctx, &level),

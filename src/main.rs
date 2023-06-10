@@ -5,6 +5,8 @@ mod camera_controls;
 mod config;
 mod editor;
 mod history;
+mod level_select;
+mod levels;
 mod play;
 mod popup;
 mod renderer;
@@ -69,8 +71,11 @@ fn main() {
         });
 
         Box::new(async_states::as_state(geng, |mut actx| async move {
-            // TODO only run editor on --editor
-            editor::world::State::load(&ctx, &mut actx).await;
+            if cli_args.editor {
+                editor::world::State::load(&ctx, &mut actx).await;
+            } else {
+                level_select::run(&ctx, &mut actx).await;
+            }
         })) as Box<dyn geng::State>
     });
 }

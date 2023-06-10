@@ -7,6 +7,9 @@ pub struct State {
     transition: Option<Transition>,
     level_mesh: renderer::LevelMesh,
     history_player: history::Player,
+    vfx: renderer::Vfx,
+    next_zzz: f32,
+    zzz: bool,
 }
 
 pub enum Transition {
@@ -34,6 +37,9 @@ impl State {
                 &ctx.assets.logic_config,
                 ctx.assets.config.animation_time,
             ),
+            vfx: renderer::Vfx::new(ctx),
+            next_zzz: ctx.assets.config.zzz_time,
+            zzz: false,
         }
     }
     pub fn finish(&mut self, finish: Transition) {
@@ -80,7 +86,9 @@ impl State {
             timeline_input,
         );
         if let Some(moves) = update.started {
+            // TODO copypasta
             self.ctx.sound.play_turn_start_sounds(moves);
+            self.vfx.add_moves(moves);
         }
         if let Some(moves) = update.finished {
             self.ctx.sound.play_turn_end_sounds(moves);
@@ -94,6 +102,22 @@ impl State {
         }
         if self.history_player.frame().current_state.finished() {
             self.finish(Transition::NextLevel);
+        }
+
+        self.vfx.update(delta_time);
+        self.ctx
+            .sound
+            .update_game_tick_time(delta_time / self.ctx.assets.config.animation_time);
+
+        self.next_zzz -= delta_time;
+        if self.next_zzz < 0.0 {
+            self.zzz = true;
+            self.next_zzz += self.ctx.assets.config.animation_time;
+            for entity in &self.history_player.frame().current_state.entities {
+                if entity.properties.player {
+                    self.vfx.zzz(entity.pos.cell + vec2(0, 1));
+                }
+            }
         }
     }
     fn handle_event(&mut self, event: geng::Event) {
@@ -135,22 +159,37 @@ impl State {
                     None
                 };
                 if let Some(input) = input {
+                    self.zzz = false;
+                    self.next_zzz = self.ctx.assets.config.zzz_time;
                     if self.history_player.frame().animation.is_none() {
                         if let Some(moves) = self
                             .history_player
                             .process_move(&self.ctx.assets.logic_config, input)
                         {
                             self.ctx.sound.play_turn_start_sounds(moves);
+                            self.vfx.add_moves(moves);
                         }
                     }
                 }
                 if self.ctx.assets.config.controls.next_player.contains(&key) {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, 1);
+                    if let Some(player) =
+                        self.history_player.frame().current_state.selected_entity()
+                    {
+                        self.vfx.change_player(player.pos);
+                        self.ctx.sound.player_change();
+                    }
                 }
                 if self.ctx.assets.config.controls.prev_player.contains(&key) {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, -1);
+                    if let Some(player) =
+                        self.history_player.frame().current_state.selected_entity()
+                    {
+                        self.vfx.change_player(player.pos);
+                        self.ctx.sound.player_change();
+                    }
                 }
             }
             _ => {}
@@ -158,11 +197,10 @@ impl State {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
-        self.ctx.renderer.draw(
-            framebuffer,
-            &self.camera,
-            self.history_player.frame(),
-            &self.level_mesh,
-        );
+        let frame = self.history_player.frame();
+        self.ctx
+            .renderer
+            .draw(framebuffer, &self.camera, frame, &self.level_mesh, self.zzz);
+        self.vfx.draw(framebuffer, &self.camera);
     }
 }

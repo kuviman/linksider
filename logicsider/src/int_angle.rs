@@ -33,6 +33,8 @@ impl Neg for IntAngle {
 }
 
 impl IntAngle {
+    pub const ZERO: Self = Self(0);
+
     pub const RIGHT: Self = Self(0);
     pub const UP: Self = Self(1);
     pub const LEFT: Self = Self(2);

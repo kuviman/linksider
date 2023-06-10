@@ -1,6 +1,9 @@
 use super::*;
 
 mod background;
+mod vfx;
+
+pub use vfx::Vfx;
 
 #[derive(Deserialize)]
 pub struct ShadowConfig {
@@ -24,6 +27,7 @@ pub struct Assets {
     shaders: Shaders,
     background: background::Assets,
     tileset: autotile::Tileset,
+    vfx: vfx::Assets,
 }
 
 pub struct Renderer {
@@ -152,6 +156,7 @@ impl Renderer {
                 animation: None,
             },
             level_mesh,
+            false,
         );
     }
 
@@ -161,6 +166,7 @@ impl Renderer {
         camera: &impl geng::AbstractCamera2d,
         frame: history::Frame,
         level_mesh: &LevelMesh,
+        zzz: bool,
     ) {
         let history::Frame {
             current_state,
@@ -191,6 +197,7 @@ impl Renderer {
             level_mesh,
             mat3::translate(self.assets.config.render.shadow.offset),
             Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity),
+            zzz,
         );
 
         for goal in &prev_state.goals {
@@ -215,6 +222,7 @@ impl Renderer {
             level_mesh,
             mat3::identity(),
             Rgba::WHITE,
+            zzz,
         );
     }
 
@@ -222,13 +230,14 @@ impl Renderer {
         &self,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
-        _current_state: &GameState,
+        current_state: &GameState,
         prev_state: &GameState,
         moves: &Moves,
         t: f32,
         level_mesh: &LevelMesh,
         transform: mat3<f32>,
         color: Rgba<f32>,
+        zzz: bool,
     ) {
         self.draw_mesh_impl(
             framebuffer,
@@ -242,10 +251,22 @@ impl Renderer {
 
         for entity in &prev_state.entities {
             let entity_move = moves.entity_moves.get(&entity.id);
+            let mut animation_time = 1.0;
             let (from, to) = match entity_move {
-                Some(entity_move) => (entity_move.prev_pos, entity_move.new_pos),
+                Some(entity_move) => {
+                    if let EntityMoveType::Jump {
+                        cells_travelled,
+                        jump_force,
+                        ..
+                    } = entity_move.move_type
+                    {
+                        animation_time = cells_travelled as f32 / jump_force as f32;
+                    }
+                    (entity_move.prev_pos, entity_move.new_pos)
+                }
                 None => (entity.pos, entity.pos),
             };
+            let t = (t / animation_time).min(1.0);
 
             fn cube_move_transform(
                 from: Position,
@@ -281,18 +302,6 @@ impl Renderer {
                             * extra_len,
                     )
                     * from_transform
-
-                //
-                // *transform = Transform::from_translation(prev_pos.extend(transform.translation.z))
-                //     .with_rotation(Quat::from_rotation_z(prev_rot));
-                // transform.rotate_around(
-                //     rotation_origin.extend(123.45),
-                //     Quat::from_rotation_z(delta_rot * t),
-                // );
-                // transform.translation = (transform.translation.xy()
-                //     + (rotation_origin - transform.translation.xy()).normalize_or_zero()
-                //         * extra_len)
-                //     .extend(transform.translation.z);
             }
 
             let entity_transform = cube_move_transform(
@@ -305,10 +314,20 @@ impl Renderer {
 
             // Static entities are cached in level mesh
             if !entity.properties.r#static {
+                let mut color = color;
+                if entity.properties.player && Some(entity.id) != current_state.selected_player {
+                    color = Rgba::from_vec4(
+                        color.to_vec4() * self.assets.config.deselected_player_color.to_vec4(),
+                    );
+                }
                 self.draw_tile(
                     framebuffer,
                     camera,
-                    &entity.identifier,
+                    if zzz && entity.identifier == "Player" {
+                        "PlayerZzz"
+                    } else {
+                        &entity.identifier
+                    },
                     color,
                     transform * entity_transform,
                 );

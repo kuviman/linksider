@@ -9,6 +9,7 @@ pub struct Controls {
     pick: geng::Key,
     grid: geng::Key,
     rotate: geng::Key,
+    drag: geng::Key,
     reset_to_last_save: geng::Key,
 }
 
@@ -171,6 +172,7 @@ pub struct State<'a> {
     saved: Rc<Level>,
     autosave_timer: Timer,
     show_grid: bool,
+    dragged_entity: Option<usize>,
 }
 
 impl<'a> State<'a> {
@@ -213,6 +215,7 @@ impl<'a> State<'a> {
             level,
             show_grid: true,
             ctx: ctx.clone(),
+            dragged_entity: None,
         }
     }
 
@@ -485,11 +488,28 @@ impl State<'_> {
                     self.brush = brush;
                 }
             }
+            geng::Event::MouseDown {
+                position,
+                button: geng::MouseButton::Left,
+            } if self.ctx.geng.window().is_key_pressed(controls.drag) => {
+                self.dragged_entity = self
+                    .level
+                    .entities
+                    .iter()
+                    .position(|entity| entity.pos.cell == self.screen_to_tile(position));
+            }
             geng::Event::MouseDown { position, button } if button == controls.create => {
                 self.create(position);
             }
             geng::Event::MouseDown { position, button } if button == controls.delete => {
                 self.delete(position);
+            }
+            geng::Event::MouseUp {
+                position,
+                button: geng::MouseButton::Left,
+            } if self.dragged_entity.is_some() => {
+                let index = self.dragged_entity.take().unwrap();
+                self.level.entities[index].pos.cell = self.screen_to_tile(position);
             }
             geng::Event::MouseUp { button, .. }
                 if [controls.create, controls.delete].contains(&button) =>
@@ -497,7 +517,9 @@ impl State<'_> {
                 self.push_history_if_needed();
             }
             geng::Event::MouseMove { position, .. } => {
-                if self.ctx.geng.window().is_button_pressed(controls.create) {
+                if self.dragged_entity.is_some() {
+                    // We drag, do nothing
+                } else if self.ctx.geng.window().is_button_pressed(controls.create) {
                     self.create(position);
                 } else if self.ctx.geng.window().is_button_pressed(controls.delete) {
                     self.delete(position);
@@ -623,6 +645,20 @@ impl State<'_> {
                     .map(|x| x as f32),
             ),
         );
+
+        if let Some(index) = self.dragged_entity {
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.camera,
+                &self.level.entities[index].identifier,
+                Rgba::WHITE,
+                mat3::translate(self.camera.screen_to_world(
+                    self.framebuffer_size,
+                    self.ctx.geng.window().cursor_position().map(|x| x as f32),
+                )) * mat3::scale_uniform(0.5)
+                    * mat3::translate(vec2::splat(-0.5)),
+            );
+        }
 
         self.ctx.geng.default_font().draw(
             framebuffer,

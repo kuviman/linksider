@@ -5,30 +5,20 @@ pub struct Config {
     volume: f64,
 }
 
-pub struct Sound {
-    inner: geng::Sound,
-}
-
-impl geng::asset::Load for Sound {
-    fn load(manager: &geng::asset::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
-        geng::Sound::load(manager, path)
-            .map_ok(|inner| Self { inner })
-            .boxed_local()
-    }
-    const DEFAULT_EXT: Option<&'static str> = Some("wav");
-}
-
 #[derive(geng::asset::Load)]
 pub struct Assets {
     #[load(ext = "mp3", postprocess = "make_looped")]
-    pub music: Sound,
-    pub enter_goal: Sound,
-    pub magnet: Sound,
+    music: geng::Sound,
+    enter_goal: Rc<geng::Sound>,
+    magnet: Rc<geng::Sound>,
     #[load(path = "move.wav")]
-    pub r#move: Sound,
-    pub slide: Sound,
-    pub jump: Sound,
-    pub powerup: Sound,
+    r#move: Rc<geng::Sound>,
+    slide: Rc<geng::Sound>,
+    jump: Rc<geng::Sound>,
+    happy: Rc<geng::Sound>,
+    powerup: Rc<geng::Sound>,
+    player_change: Rc<geng::Sound>,
+    hit_wall: Rc<geng::Sound>,
 }
 
 struct StopOnDrop(geng::SoundEffect);
@@ -49,8 +39,8 @@ impl SoundEffectExt for geng::SoundEffect {
     }
 }
 
-fn make_looped(sound: &mut Sound) {
-    sound.inner.set_looped(true);
+fn make_looped(sound: &mut geng::Sound) {
+    sound.set_looped(true);
 }
 
 pub struct State {
@@ -58,19 +48,42 @@ pub struct State {
     // This field used for its Drop impl
     #[allow(dead_code)]
     music: StopOnDrop,
+    future_sounds: RefCell<Vec<(f32, Rc<geng::Sound>)>>,
+    time: Cell<f32>,
 }
 
 impl State {
+    // pgorley wants to be a part of the linksider codebase
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
         geng.audio().set_volume(assets.config.sound.volume);
         Self {
             assets: assets.clone(),
-            music: assets.sound.music.inner.play().stop_on_drop(),
+            music: assets.sound.music.play().stop_on_drop(),
+            time: Cell::new(0.0),
+            future_sounds: default(),
         }
     }
 
-    fn play(&self, sound: &Sound) {
-        sound.inner.play();
+    // TODO change handling future sounds
+    pub fn update_game_tick_time(&self, delta_time: f32) {
+        self.time.set(self.time.get() + delta_time);
+        for (t, sound) in self.future_sounds.borrow_mut().iter_mut() {
+            *t -= delta_time;
+            if *t <= 0.0 {
+                self.play(sound);
+            }
+        }
+        self.future_sounds.borrow_mut().retain(|(t, _)| *t > 0.0);
+    }
+
+    fn play_after(&self, sound: &Rc<geng::Sound>, time: time::Duration) {
+        self.future_sounds
+            .borrow_mut()
+            .push((time.as_secs_f64() as f32, sound.clone()));
+    }
+
+    fn play(&self, sound: &geng::Sound) {
+        sound.play();
     }
 
     pub fn play_turn_start_sounds(&self, moves: &Moves) {
@@ -85,7 +98,26 @@ impl State {
                 EntityMoveType::Pushed => continue,
                 EntityMoveType::SlideStart => &assets.slide,
                 EntityMoveType::SlideContinue => continue,
-                EntityMoveType::Jump => &assets.jump,
+                EntityMoveType::Jump {
+                    blocked_angle,
+                    cells_travelled,
+                    jump_force,
+                    ..
+                } => {
+                    if blocked_angle.is_some() {
+                        self.play_after(
+                            &assets.hit_wall,
+                            time::Duration::from_secs_f64(
+                                cells_travelled as f64 / jump_force as f64,
+                            ),
+                        );
+                    }
+                    if self.assets.config.happy {
+                        &assets.happy
+                    } else {
+                        &assets.jump
+                    }
+                }
             });
         }
     }
@@ -95,5 +127,9 @@ impl State {
         if !moves.collected_powerups.is_empty() {
             self.play(&assets.powerup);
         }
+    }
+
+    pub fn player_change(&self) {
+        self.play(&self.assets.sound.player_change);
     }
 }
