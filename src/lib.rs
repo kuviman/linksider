@@ -5,6 +5,7 @@ mod camera_controls;
 mod config;
 mod editor;
 mod history;
+mod input;
 mod level_select;
 mod levels;
 mod play;

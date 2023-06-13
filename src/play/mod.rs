@@ -192,7 +192,7 @@ impl State {
                 );
                 player_input = self.touch_input;
             }
-            geng::Event::TouchEnd(touch) => {
+            geng::Event::TouchEnd(_touch) => {
                 self.touch_input = None;
             }
             _ => {}

@@ -15,8 +15,6 @@ pub struct Config {
     level_icon_size: f32,
     margin: f32,
     preview_texture_size: usize,
-    min_drag_distance: f64,
-    max_click_time: f64,
     controls: Controls,
 }
 
@@ -54,10 +52,9 @@ pub struct State {
     framebuffer_size: vec2<f32>,
     groups: Vec<Group>,
     camera: geng::Camera2d,
-    camera_controls: CameraControls,
+    input: input::State,
     config: Rc<Config>,
     register: Option<logicsider::Level>,
-    click_start: Option<(vec2<f64>, Timer)>,
     drag: Option<Selection>,
 }
 
@@ -98,11 +95,15 @@ impl State {
         });
     }
 
-    fn hovered(&self, screen_pos: vec2<f64>) -> Option<Selection> {
+    fn hovered_with_screen_pos(&self, screen_pos: vec2<f64>) -> Option<Selection> {
         let world_pos = self.camera.screen_to_world(
             self.ctx.geng.window().size().map(|x| x as f32),
             screen_pos.map(|x| x as f32),
         );
+        self.hovered_with_world_pos(world_pos)
+    }
+
+    fn hovered_with_world_pos(&self, world_pos: vec2<f32>) -> Option<Selection> {
         let places = self
             .groups
             .iter()
@@ -228,8 +229,8 @@ impl State {
         }
     }
 
-    fn start_drag(&mut self, position: vec2<f64>) {
-        if let Some(selection) = self.hovered(position) {
+    fn start_drag(&mut self, screen_pos: vec2<f64>) {
+        if let Some(selection) = self.hovered_with_screen_pos(screen_pos) {
             if self
                 .groups
                 .get(selection.group)
@@ -256,33 +257,72 @@ impl<T> VecExt<T> for Vec<T> {
     }
 }
 
+impl input::Context for State {
+    fn input(&mut self) -> &mut input::State {
+        &mut self.input
+    }
+    fn is_draggable(&self, screen_pos: vec2<f64>) -> bool {
+        self.hovered_with_screen_pos(screen_pos).is_some()
+    }
+}
+
 impl State {
     async fn run(mut self, actx: &mut async_states::Context) {
         loop {
             match actx.wait().await {
                 async_states::Event::Event(event) => self.handle_event(actx, event).await,
-                async_states::Event::Update(delta_time) => self.update(delta_time),
+                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
                 async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
             }
         }
     }
-    fn update(&mut self, _delta_time: f64) {
-        if let Some((start, timer)) = &self.click_start {
-            if timer.elapsed().as_secs_f64() > self.config.max_click_time {
-                self.start_drag(*start);
+    async fn update(&mut self, actx: &mut async_states::Context, delta_time: f64) {
+        for event in input::Context::update(self, delta_time) {
+            self.handle_input(actx, event).await;
+        }
+    }
+    async fn handle_input(&mut self, actx: &mut async_states::Context, event: input::Event) {
+        match event {
+            input::Event::DragStart(pos) => {
+                self.start_drag(pos);
+            }
+            input::Event::DragMove(_) => {}
+            input::Event::DragEnd(pos) => {
+                if let Some(from) = self.drag.take() {
+                    if let Some(to) = self.hovered_with_screen_pos(pos) {
+                        if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) {
+                            self.insert_level(
+                                actx,
+                                to.group,
+                                to.level,
+                                self.groups[from.group].levels[from.level].state.clone(),
+                            )
+                            .await;
+                        } else {
+                            self.reorder(from, to);
+                        }
+                    }
+                }
+            }
+            input::Event::Click(pos) => {
+                if let Some(selection) = self.hovered_with_screen_pos(pos) {
+                    self.click_selection(actx, selection).await;
+                }
+            }
+            input::Event::TransformView(transform) => {
+                transform.apply(&mut self.camera, self.framebuffer_size);
             }
         }
     }
     async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
-        if self
-            .camera_controls
-            .handle_event(&mut self.camera, event.clone())
-        {
-            return;
+        for event in input::Context::handle_event(self, event.clone()) {
+            self.handle_input(actx, event).await;
         }
         match event {
             geng::Event::KeyDown { key } => {
-                if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
+                if let Some(selection) =
+                    self.hovered_with_screen_pos(self.ctx.geng.window().cursor_position())
+                {
                     if self.config.controls.rename == key {
                         if let Some(group) = self.groups.get_mut(selection.group) {
                             if let Some(level) = group.levels.get_mut(selection.level) {
@@ -369,45 +409,6 @@ impl State {
                     }
                 }
             }
-            geng::Event::MouseDown {
-                position,
-                button: _,
-            } => {
-                self.click_start = Some((position, Timer::new()));
-            }
-            geng::Event::MouseMove { position, .. } => {
-                if let Some((start, _)) = self.click_start {
-                    if (start - position).len() > self.config.min_drag_distance {
-                        self.start_drag(start);
-                    }
-                }
-            }
-            geng::Event::MouseUp {
-                position,
-                button: _,
-            } => {
-                let click_start = self.click_start.take();
-                let drag = self.drag.take();
-                if let Some(selection) = self.hovered(position) {
-                    if let Some(drag) = drag {
-                        if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) {
-                            self.insert_level(
-                                actx,
-                                selection.group,
-                                selection.level,
-                                self.groups[drag.group].levels[drag.level].state.clone(),
-                            )
-                            .await;
-                        } else {
-                            self.reorder(drag, selection);
-                        }
-                    } else if let Some((_, timer)) = click_start {
-                        if timer.elapsed().as_secs_f64() < self.config.max_click_time {
-                            self.click_selection(actx, selection).await;
-                        }
-                    }
-                }
-            }
             _ => {}
         }
     }
@@ -464,7 +465,9 @@ impl State {
                     )),
             );
         }
-        if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
+        if let Some(selection) =
+            self.hovered_with_screen_pos(self.ctx.geng.window().cursor_position())
+        {
             self.ctx.renderer.draw_tile(
                 framebuffer,
                 &self.camera,
@@ -553,12 +556,11 @@ impl State {
                 rotation: Angle::ZERO,
                 fov: config.fov,
             },
-            camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
             config,
             register: None,
             ctx: ctx.clone(),
             drag: None,
-            click_start: None,
+            input: input::State::new(ctx),
         };
         state.run(actx).await
     }

@@ -7,6 +7,11 @@ deselected_player_color = "#fff7"
 zzz_time = 30
 happy = true
 
+[input]
+min_drag_distance = 5
+max_click_time = 0.5
+zoom_speed = 1
+
 [level_select]
 fov = 10
 level_icon_size = 0.9
@@ -72,8 +77,6 @@ fov = 15
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128
-min_drag_distance = 10
-max_click_time = 0.5
 
 [editor.world.controls]
 insert = "I"
