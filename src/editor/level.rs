@@ -35,6 +35,7 @@ pub struct Config {
     pub controls: Controls,
 }
 
+#[derive(PartialEq, Eq)]
 enum ToolType {
     Entity(String),
     SideEffect(Effect),
@@ -274,10 +275,24 @@ impl<'a> State<'a> {
     }
 
     fn use_tool(&mut self, screen_pos: vec2<f64>) {
-        if self.tool.tool_type.delete_underneath() {
+        let cell = self.screen_to_cell(screen_pos);
+        if self.tool.tool_type == ToolType::Entity("Player".to_owned()) {
+            if let Some(entity) = self
+                .level
+                .entities
+                .iter()
+                .find(|entity| entity.pos.cell == cell)
+            {
+                if entity.identifier == "Player" {
+                    self.assign_index(None);
+                    return;
+                } else {
+                    self.delete(screen_pos);
+                }
+            }
+        } else if self.tool.tool_type.delete_underneath() {
             self.delete(screen_pos);
         }
-        let cell = self.screen_to_cell(screen_pos);
         match &self.tool.tool_type {
             ToolType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
                 identifier: name.to_owned(),
@@ -464,7 +479,7 @@ impl<'a> State<'a> {
         }
     }
 
-    fn assign_index(&mut self, index: i32) {
+    fn assign_index(&mut self, index: Option<i32>) {
         let cell = self.screen_to_cell(self.ctx.geng.window().cursor_position());
         if let Some(entity) = self
             .level
@@ -472,7 +487,16 @@ impl<'a> State<'a> {
             .iter_mut()
             .find(|entity| entity.pos.cell == cell)
         {
-            entity.index = Some(index);
+            if entity.identifier == "Player" {
+                let index = match index {
+                    Some(index) => index,
+                    None => match entity.index {
+                        Some(index) => index % 9 + 1,
+                        None => 1,
+                    },
+                };
+                entity.index = Some(index);
+            }
         }
         self.push_history_if_needed();
     }
@@ -621,47 +645,47 @@ impl State<'_> {
             geng::Event::KeyDown {
                 key: geng::Key::Num1,
             } => {
-                self.assign_index(1);
+                self.assign_index(Some(1));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num2,
             } => {
-                self.assign_index(2);
+                self.assign_index(Some(2));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num3,
             } => {
-                self.assign_index(3);
+                self.assign_index(Some(3));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num4,
             } => {
-                self.assign_index(4);
+                self.assign_index(Some(4));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num5,
             } => {
-                self.assign_index(5);
+                self.assign_index(Some(5));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num6,
             } => {
-                self.assign_index(6);
+                self.assign_index(Some(6));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num7,
             } => {
-                self.assign_index(7);
+                self.assign_index(Some(7));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num8,
             } => {
-                self.assign_index(8);
+                self.assign_index(Some(8));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num9,
             } => {
-                self.assign_index(9);
+                self.assign_index(Some(9));
             }
 
             _ => {}
