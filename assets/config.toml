@@ -47,13 +47,13 @@ max_fov = 30
 margin = 5
 index_size = 0.3
 index_color = "white"
-brush_preview_opacity = 0.5
+preview_opacity = 0.5
 grid_color = "#7775"
 warning_size = 24
 warning_color = "#ff0"
 # autosave_timer = 10
 
-[editor.level.brush_wheel]
+[editor.level.tool_wheel]
 radius = 3
 inner_radius = 2
 color = "#777"

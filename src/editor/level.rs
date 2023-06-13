@@ -11,7 +11,7 @@ pub struct Controls {
 }
 
 #[derive(Deserialize)]
-struct BrushWheelConfig {
+struct ToolWheelConfig {
     radius: f32,
     inner_radius: f32,
     color: Rgba<f32>,
@@ -26,22 +26,22 @@ pub struct Config {
     index_size: f32,
     index_color: Rgba<f32>,
     grid_color: Rgba<f32>,
-    brush_preview_opacity: f32,
-    brush_wheel: BrushWheelConfig,
+    preview_opacity: f32,
+    tool_wheel: ToolWheelConfig,
     autosave_timer: Option<f64>,
     warning_size: f32,
     warning_color: Rgba<f32>,
     pub controls: Controls,
 }
 
-enum BrushType {
+enum ToolType {
     Entity(String),
     SideEffect(Effect),
     Powerup(Effect),
     Goal,
 }
 
-impl BrushType {
+impl ToolType {
     fn delete_underneath(&self) -> bool {
         match self {
             Self::SideEffect(_) => false,
@@ -105,20 +105,20 @@ impl BrushType {
     }
 }
 
-struct Brush {
+struct Tool {
     angle: IntAngle,
-    brush_type: BrushType,
+    tool_type: ToolType,
 }
 
-impl Brush {
+impl Tool {
     fn rotation(&self) -> Angle<f32> {
         // TODO normalize angles in the codebase
         let angle = self.angle;
-        match self.brush_type {
-            BrushType::Entity(_) => angle,
-            BrushType::SideEffect(_) => angle.rotate_counter_clockwise(),
-            BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
-            BrushType::Goal => angle,
+        match self.tool_type {
+            ToolType::Entity(_) => angle,
+            ToolType::SideEffect(_) => angle.rotate_counter_clockwise(),
+            ToolType::Powerup(_) => angle.rotate_counter_clockwise(),
+            ToolType::Goal => angle,
         }
         .to_angle()
     }
@@ -126,7 +126,7 @@ impl Brush {
         if let Some(entity) = level.entities.iter().find(|entity| entity.pos.cell == cell) {
             return Some(Self {
                 angle: entity.pos.angle,
-                brush_type: BrushType::Entity(entity.identifier.clone()),
+                tool_type: ToolType::Entity(entity.identifier.clone()),
             });
         }
         if let Some(powerup) = level
@@ -136,21 +136,21 @@ impl Brush {
         {
             return Some(Self {
                 angle: powerup.pos.angle,
-                brush_type: BrushType::Powerup(powerup.effect.clone()),
+                tool_type: ToolType::Powerup(powerup.effect.clone()),
             });
         }
         if let Some(goal) = level.goals.iter().find(|goal| goal.pos.cell == cell) {
             return Some(Self {
                 angle: goal.pos.angle,
-                brush_type: BrushType::Goal,
+                tool_type: ToolType::Goal,
             });
         }
         None
     }
 }
 
-struct BrushWheelItem {
-    brush: Brush,
+struct ToolWheelItem {
+    tool: Tool,
     pos: vec2<f32>,
     hovered: bool,
 }
@@ -164,8 +164,8 @@ pub struct State<'a> {
     camera: Camera2d,
     level_mesh: renderer::LevelMesh,
     input: input::State,
-    brush: Brush,
-    brush_wheel_pos: Option<vec2<f32>>,
+    tool: Tool,
+    tool_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<Rc<Level>>,
     history_pos: usize,
@@ -205,11 +205,11 @@ impl<'a> State<'a> {
             },
             config,
             level_mesh: ctx.renderer.level_mesh(&level),
-            brush: Brush {
+            tool: Tool {
                 angle: IntAngle::RIGHT,
-                brush_type: BrushType::Entity("Player".to_owned()),
+                tool_type: ToolType::Entity("Player".to_owned()),
             },
-            brush_wheel_pos: None,
+            tool_wheel_pos: None,
             history: vec![saved.clone()],
             history_pos: 0,
             saved,
@@ -259,43 +259,43 @@ impl<'a> State<'a> {
     }
 
     fn create(&mut self, screen_pos: vec2<f64>) {
-        if self.brush.brush_type.delete_underneath() {
+        if self.tool.tool_type.delete_underneath() {
             self.delete(screen_pos);
         }
         let cell = self.screen_to_cell(screen_pos);
-        match &self.brush.brush_type {
-            BrushType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
+        match &self.tool.tool_type {
+            ToolType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
                 identifier: name.to_owned(),
                 index: None,
                 pos: Position {
                     cell,
-                    angle: self.brush.angle,
+                    angle: self.tool.angle,
                 },
                 sides: default(),
             }),
-            BrushType::SideEffect(effect) => {
+            ToolType::SideEffect(effect) => {
                 if let Some(entity) = self
                     .level
                     .entities
                     .iter_mut()
                     .find(|entity| entity.pos.cell == cell)
                 {
-                    entity.side_at_angle_mut(self.brush.angle).effect = Some(effect.clone());
+                    entity.side_at_angle_mut(self.tool.angle).effect = Some(effect.clone());
                 }
             }
-            BrushType::Powerup(effect) => {
+            ToolType::Powerup(effect) => {
                 self.level.powerups.push(logicsider::level::Powerup {
                     pos: Position {
                         cell,
-                        angle: self.brush.angle,
+                        angle: self.tool.angle,
                     },
                     effect: effect.clone(),
                 });
             }
-            BrushType::Goal => self.level.goals.push(logicsider::level::Goal {
+            ToolType::Goal => self.level.goals.push(logicsider::level::Goal {
                 pos: Position {
                     cell,
-                    angle: self.brush.angle,
+                    angle: self.tool.angle,
                 },
             }),
         }
@@ -310,40 +310,40 @@ impl<'a> State<'a> {
         self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
-    fn brush_wheel(&self) -> Option<impl Iterator<Item = BrushWheelItem> + '_> {
-        let center = self.brush_wheel_pos?;
+    fn tool_wheel(&self) -> Option<impl Iterator<Item = ToolWheelItem> + '_> {
+        let center = self.tool_wheel_pos?;
         let entities = self
             .ctx
             .assets
             .logic_config
             .entities
             .keys()
-            .map(|name| BrushType::Entity(name.clone()))
-            .map(|brush_type| Brush {
+            .map(|name| ToolType::Entity(name.clone()))
+            .map(|tool_type| Tool {
                 angle: IntAngle::RIGHT,
-                brush_type,
+                tool_type,
             });
         let powerups = Effect::iter_variants()
-            .map(BrushType::Powerup)
-            .map(|brush_type| Brush {
+            .map(ToolType::Powerup)
+            .map(|tool_type| Tool {
                 angle: IntAngle::DOWN,
-                brush_type,
+                tool_type,
             });
         let side_effects = Effect::iter_variants()
-            .map(BrushType::SideEffect)
-            .map(|brush_type| Brush {
+            .map(ToolType::SideEffect)
+            .map(|tool_type| Tool {
                 angle: IntAngle::DOWN,
-                brush_type,
+                tool_type,
             });
-        let goal = Brush {
+        let goal = Tool {
             angle: IntAngle::RIGHT,
-            brush_type: BrushType::Goal,
+            tool_type: ToolType::Goal,
         };
 
-        let mut items: Vec<BrushWheelItem> =
+        let mut items: Vec<ToolWheelItem> =
             itertools::chain![entities, powerups, side_effects, [goal]]
-                .map(|brush| BrushWheelItem {
-                    brush,
+                .map(|tool| ToolWheelItem {
+                    tool,
                     pos: vec2::ZERO,
                     hovered: false,
                 })
@@ -351,14 +351,14 @@ impl<'a> State<'a> {
         let len = items.len();
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
-                + vec2(self.config.brush_wheel.radius, 0.0)
+                + vec2(self.config.tool_wheel.radius, 0.0)
                     .rotate(Angle::from_degrees(360.0 * index as f32 / len as f32));
         }
         let cursor_delta = self.camera.screen_to_world(
             self.framebuffer_size,
             self.ctx.geng.window().cursor_position().map(|x| x as f32),
         ) - center;
-        if cursor_delta.len() > self.config.brush_wheel.inner_radius {
+        if cursor_delta.len() > self.config.tool_wheel.inner_radius {
             if let Some(item) = items
                 .iter_mut()
                 .filter(|item| vec2::dot(item.pos - center, cursor_delta) > 0.0)
@@ -523,28 +523,28 @@ impl State<'_> {
                 play::State::new(&self.ctx, &self.level).run(actx).await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
-                self.brush_wheel_pos = Some(self.camera.screen_to_world(
+                self.tool_wheel_pos = Some(self.camera.screen_to_world(
                     self.framebuffer_size,
                     self.ctx.geng.window().cursor_position().map(|x| x as f32),
                 ));
             }
             geng::Event::KeyUp { key } if key == controls.choose => {
                 let hovered_item = self
-                    .brush_wheel()
+                    .tool_wheel()
                     .into_iter()
                     .flatten()
                     .find(|item| item.hovered);
                 if let Some(item) = hovered_item {
-                    self.brush = item.brush;
+                    self.tool = item.tool;
                 }
-                self.brush_wheel_pos = None;
+                self.tool_wheel_pos = None;
             }
             geng::Event::KeyDown { key } if key == controls.pick => {
-                if let Some(brush) = Brush::pick(
+                if let Some(tool) = Tool::pick(
                     &self.level,
                     self.screen_to_cell(self.ctx.geng.window().cursor_position()),
                 ) {
-                    self.brush = brush;
+                    self.tool = tool;
                 }
             }
             geng::Event::KeyDown { key } if key == controls.rotate => {
@@ -552,7 +552,7 @@ impl State<'_> {
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LShift) {
                     delta = -delta;
                 }
-                self.brush.angle = self.brush.angle.with_input(Input::from_sign(delta));
+                self.tool.angle = self.tool.angle.with_input(Input::from_sign(delta));
             }
             geng::Event::KeyDown { key: geng::Key::S }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
@@ -651,12 +651,12 @@ impl State<'_> {
         self.ctx.renderer.draw_tile(
             framebuffer,
             &self.camera,
-            &self.brush.brush_type.tile_name(),
-            Rgba::new(1.0, 1.0, 1.0, self.config.brush_preview_opacity),
+            &self.tool.tool_type.tile_name(),
+            Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
             mat3::translate(
                 self.screen_to_cell(self.ctx.geng.window().cursor_position())
                     .map(|x| x as f32),
-            ) * mat3::rotate_around(vec2::splat(0.5), self.brush.rotation()),
+            ) * mat3::rotate_around(vec2::splat(0.5), self.tool.rotation()),
         );
         self.ctx.renderer.draw_tile(
             framebuffer,
@@ -692,9 +692,9 @@ impl State<'_> {
             Rgba::WHITE,
         );
 
-        if let Some(wheel) = self.brush_wheel() {
-            let center = self.brush_wheel_pos.unwrap();
-            let config = &self.config.brush_wheel;
+        if let Some(wheel) = self.tool_wheel() {
+            let center = self.tool_wheel_pos.unwrap();
+            let config = &self.config.tool_wheel;
             self.ctx.geng.draw2d().draw2d(
                 framebuffer,
                 &self.camera,
@@ -706,13 +706,13 @@ impl State<'_> {
                 ),
             );
             for item in wheel {
-                item.brush.brush_type.draw(
+                item.tool.tool_type.draw(
                     framebuffer,
                     &self.ctx,
                     &self.camera,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
-                        * mat3::rotate(item.brush.rotation()),
+                        * mat3::rotate(item.tool.rotation()),
                 );
             }
         }
