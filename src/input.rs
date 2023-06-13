@@ -173,7 +173,8 @@ pub trait Context {
         let mut events = vec![];
         if let Some(Drag::DetectPhase { start_position, .. }) = input.drag {
             if (start_position - position).len() > input.config.min_drag_distance {
-                events.extend(self.start_drag(start_position));
+                // events.extend(self.start_drag(start_position));
+                input.drag = Some(Drag::Camera);
             }
         }
         let state = self.input();
