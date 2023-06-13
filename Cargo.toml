@@ -5,8 +5,15 @@ name = "linksider"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate_type = ["rlib", "cdylib"]
+
 [package.metadata.geng]
 assets = ["assets", "levels"]
+
+[package.metadata.android]
+assets = "android-assets"
+sdk.target_sdk_version = 33
 
 [dependencies]
 geng.git = "https://github.com/geng-engine/geng"
