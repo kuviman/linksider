@@ -123,7 +123,7 @@ struct Tool {
 }
 
 impl Tool {
-    fn rotation(&self) -> Angle<f32> {
+    fn draw_angle(&self) -> Angle<f32> {
         // TODO normalize angles in the codebase
         let angle = self.angle;
         match self.tool_type {
@@ -185,6 +185,17 @@ pub struct State<'a> {
     show_grid: bool,
     dragged_entity: Option<usize>,
     drag_pos: vec2<f64>,
+    buttons: Box<[Button<ButtonType>]>,
+}
+
+enum ButtonType {
+    Exit,
+    Save,
+    Undo,
+    Redo,
+    ToolPreview,
+    ToolRotate,
+    Play,
 }
 
 impl<'a> State<'a> {
@@ -234,6 +245,20 @@ impl<'a> State<'a> {
             ctx: ctx.clone(),
             dragged_entity: None,
             input: input::State::new(ctx),
+            buttons: Box::new([
+                Button::square(Anchor::TOP_RIGHT, vec2(0, 0), ButtonType::Exit),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Save),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(2, 0), ButtonType::Undo),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(3, 0), ButtonType::Redo),
+                {
+                    let mut button =
+                        Button::square(Anchor::TOP_LEFT, vec2(0, 0), ButtonType::ToolPreview);
+                    button.usable = false;
+                    button
+                },
+                Button::square(Anchor::TOP_LEFT, vec2(1, 0), ButtonType::ToolRotate),
+                Button::square(Anchor::BOTTOM_RIGHT, vec2(0, 0), ButtonType::Play),
+            ]),
         }
     }
 
@@ -505,33 +530,39 @@ impl<'a> State<'a> {
 impl State<'_> {
     pub async fn run(mut self, actx: &mut async_states::Context) {
         loop {
-            match actx.wait().await {
-                async_states::Event::Event(event) => {
-                    if let std::ops::ControlFlow::Break(()) = self.handle_event(actx, event).await {
-                        self.autosave_if_enabled();
-                        if self.saved() {
-                            break;
-                        }
-                        if popup::confirm(
-                            &self.ctx,
-                            actx,
-                            "You have unsaved changes\nAre you sure you want yo exit?",
-                        )
-                        .await
-                        {
-                            self.reset_to_last_save();
-                            break;
-                        }
-                    }
+            let flow = match actx.wait().await {
+                async_states::Event::Event(event) => self.handle_event(actx, event).await,
+                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
+                async_states::Event::Draw => {
+                    self.draw(&mut actx.framebuffer());
+                    ControlFlow::Continue(())
                 }
-                async_states::Event::Update(delta_time) => self.update(delta_time),
-                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+            };
+            if let ControlFlow::Break(()) = flow {
+                self.autosave_if_enabled();
+                if self.saved() {
+                    break;
+                }
+                if popup::confirm(
+                    &self.ctx,
+                    actx,
+                    "You have unsaved changes\nAre you sure you want yo exit?",
+                )
+                .await
+                {
+                    self.reset_to_last_save();
+                    break;
+                }
             }
         }
     }
-    fn update(&mut self, delta_time: f64) {
+    async fn update(
+        &mut self,
+        actx: &mut async_states::Context,
+        delta_time: f64,
+    ) -> ControlFlow<()> {
         for event in input::Context::update(self, delta_time) {
-            self.handle_input(event);
+            self.handle_input(actx, event).await?;
         }
 
         let _delta_time = delta_time as f32;
@@ -541,9 +572,14 @@ impl State<'_> {
                 self.autosave_timer.reset();
             }
         }
+        ControlFlow::Continue(())
     }
 
-    fn handle_input(&mut self, event: input::Event) {
+    async fn handle_input(
+        &mut self,
+        actx: &mut async_states::Context,
+        event: input::Event,
+    ) -> ControlFlow<()> {
         match event {
             input::Event::DragStart(position) => {
                 self.dragged_entity = self
@@ -568,23 +604,44 @@ impl State<'_> {
                 }
             }
             input::Event::Click(position) => {
-                self.use_tool(position);
-                self.push_history_if_needed();
+                let ui_pos = self
+                    .ui_camera
+                    .screen_to_world(self.framebuffer_size, position.map(|x| x as f32));
+                if let Some(button) = self
+                    .buttons
+                    .iter()
+                    .find(|button| button.calculated_pos.contains(ui_pos))
+                {
+                    match button.button_type {
+                        ButtonType::Exit => return ControlFlow::Break(()),
+                        ButtonType::Save => self.save(),
+                        ButtonType::Undo => self.undo(),
+                        ButtonType::Redo => self.redo(),
+                        ButtonType::ToolPreview => {}
+                        ButtonType::ToolRotate => {
+                            self.tool.angle = self.tool.angle.rotate_clockwise();
+                        }
+                        ButtonType::Play => {
+                            play::State::new(&self.ctx, &self.level).run(actx).await;
+                        }
+                    }
+                } else {
+                    self.use_tool(position);
+                    self.push_history_if_needed();
+                }
             }
             input::Event::TransformView(transform) => {
                 transform.apply(&mut self.camera, self.framebuffer_size);
                 self.clamp_camera();
             }
         }
+        ControlFlow::Continue(())
     }
     async fn handle_event(
         &mut self,
         actx: &mut async_states::Context,
         event: geng::Event,
     ) -> std::ops::ControlFlow<()> {
-        for event in input::Context::handle_event(self, event.clone()) {
-            self.handle_input(event);
-        }
         let controls = &self.config.controls;
         match event {
             geng::Event::MouseMove { position, .. } => {
@@ -690,7 +747,10 @@ impl State<'_> {
 
             _ => {}
         }
-        std::ops::ControlFlow::Continue(())
+        for event in input::Context::handle_event(self, event.clone()) {
+            self.handle_input(actx, event).await?;
+        }
+        ControlFlow::Continue(())
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
@@ -719,7 +779,16 @@ impl State<'_> {
                 .draw_grid(framebuffer, &self.camera, self.config.grid_color);
         }
 
-        if self.tool_wheel_pos.is_none() {
+        let ui_cursor_pos = self
+            .ui_camera
+            .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32));
+
+        if self.tool_wheel_pos.is_none()
+            && !self
+                .buttons
+                .iter()
+                .any(|button| button.calculated_pos.contains(ui_cursor_pos))
+        {
             if self.tool.tool_type.show_preview() {
                 self.ctx.renderer.draw_tile(
                     framebuffer,
@@ -729,7 +798,7 @@ impl State<'_> {
                     mat3::translate(
                         self.screen_to_cell(self.ctx.geng.window().cursor_position())
                             .map(|x| x as f32),
-                    ) * mat3::rotate_around(vec2::splat(0.5), self.tool.rotation()),
+                    ) * mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle()),
                 );
             }
             self.ctx.renderer.draw_tile(
@@ -787,9 +856,56 @@ impl State<'_> {
                     &self.ui_camera,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
-                        * mat3::rotate(item.tool.rotation()),
+                        * mat3::rotate(item.tool.draw_angle()),
                 );
             }
+        }
+
+        buttons::layout(
+            &mut self.buttons,
+            self.ui_camera
+                .view_area(self.framebuffer_size)
+                .bounding_box(),
+        );
+        for button in self.buttons.iter() {
+            let mut matrix = mat3::translate(button.calculated_pos.bottom_left())
+                * mat3::scale(button.calculated_pos.size())
+                * mat3::scale_uniform_around(
+                    vec2::splat(0.5),
+                    if button.usable && button.calculated_pos.contains(ui_cursor_pos) {
+                        1.1
+                    } else {
+                        1.0
+                    },
+                );
+            if let ButtonType::ToolPreview = button.button_type {
+                self.ctx.geng.draw2d().draw2d(
+                    framebuffer,
+                    &self.ui_camera,
+                    &draw2d::Quad::unit(Rgba::BLACK).transform(
+                        matrix
+                            * mat3::scale_uniform_around(vec2::splat(0.5), 1.1)
+                            * mat3::scale_uniform_around(vec2::splat(1.0), 0.5),
+                    ),
+                );
+                matrix *= mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle());
+            }
+            let tool_tile_name = self.tool.tool_type.tile_name();
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.ui_camera,
+                match button.button_type {
+                    ButtonType::Exit => "Home",
+                    ButtonType::Save => "Player", // TODO
+                    ButtonType::Undo => "Undo",
+                    ButtonType::Redo => "Redo",
+                    ButtonType::ToolPreview => &tool_tile_name,
+                    ButtonType::ToolRotate => "Reset",
+                    ButtonType::Play => "Player", // TODO
+                },
+                Rgba::WHITE,
+                matrix,
+            );
         }
 
         if !self.saved() {
