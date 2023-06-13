@@ -173,7 +173,7 @@ pub struct State<'a> {
     autosave_timer: Timer,
     show_grid: bool,
     dragged_entity: Option<usize>,
-    cursor_pos: vec2<f64>,
+    drag_pos: vec2<f64>,
 }
 
 impl<'a> State<'a> {
@@ -191,7 +191,7 @@ impl<'a> State<'a> {
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
-            cursor_pos: vec2::ZERO,
+            drag_pos: vec2::ZERO,
             camera: Camera2d {
                 center: Aabb2::points_bounding_box(
                     level.entities.iter().map(|entity| entity.pos.cell),
@@ -485,9 +485,10 @@ impl State<'_> {
                         .entities
                         .iter()
                         .position(|entity| entity.pos.cell == self.screen_to_cell(position));
+                    self.drag_pos = position;
                 }
                 input::Event::DragMove(position) => {
-                    self.cursor_pos = position;
+                    self.drag_pos = position;
                 }
                 input::Event::DragEnd(position) => {
                     let index = self.dragged_entity.take().unwrap();
@@ -674,10 +675,10 @@ impl State<'_> {
                 &self.camera,
                 &self.level.entities[index].identifier,
                 Rgba::WHITE,
-                mat3::translate(self.camera.screen_to_world(
-                    self.framebuffer_size,
-                    self.ctx.geng.window().cursor_position().map(|x| x as f32),
-                )) * mat3::scale_uniform(0.5)
+                mat3::translate(
+                    self.camera
+                        .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32)),
+                ) * mat3::scale_uniform(0.5)
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
