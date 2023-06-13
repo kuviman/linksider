@@ -276,41 +276,7 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-2, -6),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
                 cell: (-1, -5),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
-                cell: (-1, -6),
                 angle: (0),
             ),
             sides: ((
@@ -344,7 +310,7 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-5, -7),
+                cell: (0, -7),
                 angle: (0),
             ),
             sides: ((
@@ -361,7 +327,7 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-4, -7),
+                cell: (-3, -10),
                 angle: (0),
             ),
             sides: ((
@@ -378,7 +344,7 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-4, -8),
+                cell: (-4, -10),
                 angle: (0),
             ),
             sides: ((
@@ -395,7 +361,7 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-5, -8),
+                cell: (-5, -10),
                 angle: (0),
             ),
             sides: ((
@@ -412,92 +378,7 @@ V1((
             index: None,
             identifier: "block",
             pos: (
-                cell: (-6, -5),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
-                cell: (-6, -6),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
-                cell: (-7, -6),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
-                cell: (-7, -5),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
-                cell: (-3, -11),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "disable",
-            pos: (
-                cell: (0, -12),
+                cell: (-1, -6),
                 angle: (0),
             ),
             sides: ((
@@ -529,10 +410,146 @@ V1((
         ),
         (
             index: None,
+            identifier: "disable",
+            pos: (
+                cell: (0, -12),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
             identifier: "block",
             pos: (
-                cell: (0, -7),
+                cell: (-6, -8),
                 angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-7, -8),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-6, -3),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-5, -9),
+                angle: (-4),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-4, -9),
+                angle: (-4),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-7, -7),
+                angle: (-4),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-6, -7),
+                angle: (-4),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (-2, -6),
+                angle: (-4),
             ),
             sides: ((
                 effect: None,
@@ -549,24 +566,7 @@ V1((
             identifier: "block",
             pos: (
                 cell: (1, -7),
-                angle: (0),
-            ),
-            sides: ((
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            ), (
-                effect: None,
-            )),
-        ),
-        (
-            index: None,
-            identifier: "block",
-            pos: (
-                cell: (0, -8),
-                angle: (0),
+                angle: (-4),
             ),
             sides: ((
                 effect: None,
@@ -583,7 +583,24 @@ V1((
             identifier: "block",
             pos: (
                 cell: (1, -8),
-                angle: (0),
+                angle: (-4),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (0, -8),
+                angle: (-4),
             ),
             sides: ((
                 effect: None,
