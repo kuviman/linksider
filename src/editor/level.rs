@@ -3,18 +3,15 @@ use super::*;
 #[derive(Deserialize)]
 pub struct Controls {
     pub toggle: geng::Key,
-    create: geng::MouseButton,
-    delete: geng::MouseButton,
     choose: geng::Key,
     pick: geng::Key,
     grid: geng::Key,
     rotate: geng::Key,
-    drag: geng::Key,
     reset_to_last_save: geng::Key,
 }
 
 #[derive(Deserialize)]
-struct BrushWheelConfig {
+struct ToolWheelConfig {
     radius: f32,
     inner_radius: f32,
     color: Rgba<f32>,
@@ -23,28 +20,35 @@ struct BrushWheelConfig {
 #[derive(Deserialize)]
 pub struct Config {
     default_fov: f32,
+    min_fov: f32,
+    max_fov: f32,
+    ui_fov: f32,
+    margin: f32,
     index_size: f32,
     index_color: Rgba<f32>,
     grid_color: Rgba<f32>,
-    brush_preview_opacity: f32,
-    brush_wheel: BrushWheelConfig,
+    preview_opacity: f32,
+    tool_wheel: ToolWheelConfig,
     autosave_timer: Option<f64>,
     warning_size: f32,
     warning_color: Rgba<f32>,
     pub controls: Controls,
 }
 
-enum BrushType {
+#[derive(PartialEq, Eq)]
+enum ToolType {
     Entity(String),
     SideEffect(Effect),
     Powerup(Effect),
     Goal,
+    Eraser,
 }
 
-impl BrushType {
+impl ToolType {
     fn delete_underneath(&self) -> bool {
         match self {
             Self::SideEffect(_) => false,
+            Self::Eraser => true,
             _ => true,
         }
     }
@@ -54,6 +58,7 @@ impl BrushType {
             Self::SideEffect(effect) => format!("{effect:?}Power"),
             Self::Powerup(effect) => format!("{effect:?}Power"),
             Self::Goal => "Goal".to_owned(),
+            Self::Eraser => "Eraser".to_owned(),
         }
     }
 
@@ -103,22 +108,27 @@ impl BrushType {
             }
         }
     }
+
+    fn show_preview(&self) -> bool {
+        match self {
+            Self::Eraser => false,
+            _ => true,
+        }
+    }
 }
 
-struct Brush {
+struct Tool {
     angle: IntAngle,
-    brush_type: BrushType,
+    tool_type: ToolType,
 }
 
-impl Brush {
-    fn rotation(&self) -> Angle<f32> {
+impl Tool {
+    fn draw_angle(&self) -> Angle<f32> {
         // TODO normalize angles in the codebase
         let angle = self.angle;
-        match self.brush_type {
-            BrushType::Entity(_) => angle,
-            BrushType::SideEffect(_) => angle.rotate_counter_clockwise(),
-            BrushType::Powerup(_) => angle.rotate_counter_clockwise(),
-            BrushType::Goal => angle,
+        match self.tool_type {
+            ToolType::SideEffect(_) | ToolType::Powerup(_) => angle.rotate_counter_clockwise(),
+            _ => angle,
         }
         .to_angle()
     }
@@ -126,7 +136,7 @@ impl Brush {
         if let Some(entity) = level.entities.iter().find(|entity| entity.pos.cell == cell) {
             return Some(Self {
                 angle: entity.pos.angle,
-                brush_type: BrushType::Entity(entity.identifier.clone()),
+                tool_type: ToolType::Entity(entity.identifier.clone()),
             });
         }
         if let Some(powerup) = level
@@ -136,21 +146,21 @@ impl Brush {
         {
             return Some(Self {
                 angle: powerup.pos.angle,
-                brush_type: BrushType::Powerup(powerup.effect.clone()),
+                tool_type: ToolType::Powerup(powerup.effect.clone()),
             });
         }
         if let Some(goal) = level.goals.iter().find(|goal| goal.pos.cell == cell) {
             return Some(Self {
                 angle: goal.pos.angle,
-                brush_type: BrushType::Goal,
+                tool_type: ToolType::Goal,
             });
         }
         None
     }
 }
 
-struct BrushWheelItem {
-    brush: Brush,
+struct ToolWheelItem {
+    tool: Tool,
     pos: vec2<f32>,
     hovered: bool,
 }
@@ -162,10 +172,11 @@ pub struct State<'a> {
     config: Rc<Config>,
     level: &'a mut Level,
     camera: Camera2d,
+    ui_camera: Camera2d,
     level_mesh: renderer::LevelMesh,
-    camera_controls: CameraControls,
-    brush: Brush,
-    brush_wheel_pos: Option<vec2<f32>>,
+    input: input::State,
+    tool: Tool,
+    tool_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
     history: Vec<Rc<Level>>,
     history_pos: usize,
@@ -173,6 +184,18 @@ pub struct State<'a> {
     autosave_timer: Timer,
     show_grid: bool,
     dragged_entity: Option<usize>,
+    drag_pos: vec2<f64>,
+    buttons: Box<[Button<ButtonType>]>,
+}
+
+enum ButtonType {
+    Exit,
+    Save,
+    Undo,
+    Redo,
+    ToolPreview,
+    ToolRotate,
+    Play,
 }
 
 impl<'a> State<'a> {
@@ -190,6 +213,7 @@ impl<'a> State<'a> {
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
+            drag_pos: vec2::ZERO,
             camera: Camera2d {
                 center: Aabb2::points_bounding_box(
                     level.entities.iter().map(|entity| entity.pos.cell),
@@ -201,14 +225,18 @@ impl<'a> State<'a> {
                 rotation: Angle::ZERO,
                 fov: config.default_fov,
             },
+            ui_camera: Camera2d {
+                center: vec2::ZERO,
+                rotation: Angle::ZERO,
+                fov: config.ui_fov,
+            },
             config,
             level_mesh: ctx.renderer.level_mesh(&level),
-            camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
-            brush: Brush {
+            tool: Tool {
                 angle: IntAngle::RIGHT,
-                brush_type: BrushType::Entity("Player".to_owned()),
+                tool_type: ToolType::Entity("Player".to_owned()),
             },
-            brush_wheel_pos: None,
+            tool_wheel_pos: None,
             history: vec![saved.clone()],
             history_pos: 0,
             saved,
@@ -216,102 +244,188 @@ impl<'a> State<'a> {
             show_grid: true,
             ctx: ctx.clone(),
             dragged_entity: None,
+            input: input::State::new(ctx),
+            buttons: Box::new([
+                Button::square(Anchor::TOP_RIGHT, vec2(0, 0), ButtonType::Exit),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Save),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(2, 0), ButtonType::Undo),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(3, 0), ButtonType::Redo),
+                {
+                    let mut button =
+                        Button::square(Anchor::TOP_LEFT, vec2(0, 0), ButtonType::ToolPreview);
+                    button.usable = false;
+                    button
+                },
+                Button::square(Anchor::TOP_LEFT, vec2(1, 0), ButtonType::ToolRotate),
+                Button::square(Anchor::BOTTOM_RIGHT, vec2(0, 0), ButtonType::Play),
+            ]),
         }
     }
 
-    fn screen_to_tile(&self, screen_pos: vec2<f64>) -> vec2<i32> {
+    fn clamp_camera(&mut self) {
+        let aabb =
+            Aabb2::points_bounding_box(self.level.entities.iter().map(|entity| entity.pos.cell))
+                .unwrap()
+                .extend_positive(vec2::splat(1))
+                .map(|x| x as f32)
+                .extend_uniform(self.config.margin);
+        self.camera.center = self.camera.center.clamp_aabb({
+            let mut aabb = aabb.extend_symmetric(
+                -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
+            );
+            if aabb.min.x > aabb.max.x {
+                let center = (aabb.min.x + aabb.max.x) / 2.0;
+                aabb.min.x = center;
+                aabb.max.x = center;
+            }
+            if aabb.min.y > aabb.max.y {
+                let center = (aabb.min.y + aabb.max.y) / 2.0;
+                aabb.min.y = center;
+                aabb.max.y = center;
+            }
+            aabb
+        });
+        self.camera.rotation = Angle::ZERO;
+        self.camera.fov = self
+            .camera
+            .fov
+            .clamp(self.config.min_fov, self.config.max_fov);
+    }
+
+    fn screen_to_cell(&self, screen_pos: vec2<f64>) -> vec2<i32> {
         let world_pos = self
             .camera
             .screen_to_world(self.framebuffer_size, screen_pos.map(|x| x as f32));
         world_pos.map(|x| x.floor() as i32)
     }
 
-    fn create(&mut self, screen_pos: vec2<f64>) {
-        if self.brush.brush_type.delete_underneath() {
+    fn use_tool(&mut self, screen_pos: vec2<f64>) {
+        let cell = self.screen_to_cell(screen_pos);
+        if self.tool.tool_type == ToolType::Entity("Player".to_owned()) {
+            if let Some(entity) = self
+                .level
+                .entities
+                .iter()
+                .find(|entity| entity.pos.cell == cell)
+            {
+                if entity.identifier == "Player" {
+                    self.assign_index(None);
+                    return;
+                } else {
+                    self.delete(screen_pos);
+                }
+            }
+        } else if self.tool.tool_type.delete_underneath() {
             self.delete(screen_pos);
         }
-        let cell = self.screen_to_tile(screen_pos);
-        match &self.brush.brush_type {
-            BrushType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
+        match &self.tool.tool_type {
+            ToolType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
                 identifier: name.to_owned(),
                 index: None,
                 pos: Position {
                     cell,
-                    angle: self.brush.angle,
+                    angle: self.tool.angle,
                 },
                 sides: default(),
             }),
-            BrushType::SideEffect(effect) => {
+            ToolType::SideEffect(effect) => {
                 if let Some(entity) = self
                     .level
                     .entities
                     .iter_mut()
                     .find(|entity| entity.pos.cell == cell)
                 {
-                    entity.side_at_angle_mut(self.brush.angle).effect = Some(effect.clone());
+                    entity.side_at_angle_mut(self.tool.angle).effect = Some(effect.clone());
                 }
             }
-            BrushType::Powerup(effect) => {
+            ToolType::Powerup(effect) => {
                 self.level.powerups.push(logicsider::level::Powerup {
                     pos: Position {
                         cell,
-                        angle: self.brush.angle,
+                        angle: self.tool.angle,
                     },
                     effect: effect.clone(),
                 });
             }
-            BrushType::Goal => self.level.goals.push(logicsider::level::Goal {
+            ToolType::Goal => self.level.goals.push(logicsider::level::Goal {
                 pos: Position {
                     cell,
-                    angle: self.brush.angle,
+                    angle: self.tool.angle,
                 },
             }),
+            ToolType::Eraser => {}
         }
         self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
     fn delete(&mut self, screen_pos: vec2<f64>) {
-        let tile = self.screen_to_tile(screen_pos);
-        self.level.entities.retain(|entity| entity.pos.cell != tile);
-        self.level.powerups.retain(|entity| entity.pos.cell != tile);
-        self.level.goals.retain(|entity| entity.pos.cell != tile);
+        let cell = self.screen_to_cell(screen_pos);
+        self.level.entities.retain(|entity| entity.pos.cell != cell);
+        self.level.powerups.retain(|entity| entity.pos.cell != cell);
+        self.level.goals.retain(|entity| entity.pos.cell != cell);
         self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
-    fn brush_wheel(&self) -> Option<impl Iterator<Item = BrushWheelItem> + '_> {
-        let center = self.brush_wheel_pos?;
+    fn open_wheel(&mut self) {
+        self.tool_wheel_pos = Some(
+            self.ui_camera
+                .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32)),
+        );
+    }
+
+    fn close_wheel(&mut self) {
+        if self.tool_wheel_pos.is_none() {
+            return;
+        }
+        let hovered_item = self
+            .tool_wheel()
+            .into_iter()
+            .flatten()
+            .find(|item| item.hovered);
+        if let Some(item) = hovered_item {
+            self.tool = item.tool;
+        }
+        self.tool_wheel_pos = None;
+    }
+
+    fn tool_wheel(&self) -> Option<impl Iterator<Item = ToolWheelItem> + '_> {
+        let center = self.tool_wheel_pos?;
         let entities = self
             .ctx
             .assets
             .logic_config
             .entities
             .keys()
-            .map(|name| BrushType::Entity(name.clone()))
-            .map(|brush_type| Brush {
+            .map(|name| ToolType::Entity(name.clone()))
+            .map(|tool_type| Tool {
                 angle: IntAngle::RIGHT,
-                brush_type,
+                tool_type,
             });
         let powerups = Effect::iter_variants()
-            .map(BrushType::Powerup)
-            .map(|brush_type| Brush {
+            .map(ToolType::Powerup)
+            .map(|tool_type| Tool {
                 angle: IntAngle::DOWN,
-                brush_type,
+                tool_type,
             });
         let side_effects = Effect::iter_variants()
-            .map(BrushType::SideEffect)
-            .map(|brush_type| Brush {
+            .map(ToolType::SideEffect)
+            .map(|tool_type| Tool {
                 angle: IntAngle::DOWN,
-                brush_type,
+                tool_type,
             });
-        let goal = Brush {
+        let goal = Tool {
             angle: IntAngle::RIGHT,
-            brush_type: BrushType::Goal,
+            tool_type: ToolType::Goal,
+        };
+        let eraser = Tool {
+            angle: IntAngle::RIGHT,
+            tool_type: ToolType::Eraser,
         };
 
-        let mut items: Vec<BrushWheelItem> =
-            itertools::chain![entities, powerups, side_effects, [goal]]
-                .map(|brush| BrushWheelItem {
-                    brush,
+        let mut items: Vec<ToolWheelItem> =
+            itertools::chain![entities, powerups, side_effects, [goal, eraser]]
+                .map(|tool| ToolWheelItem {
+                    tool,
                     pos: vec2::ZERO,
                     hovered: false,
                 })
@@ -319,14 +433,14 @@ impl<'a> State<'a> {
         let len = items.len();
         for (index, item) in items.iter_mut().enumerate() {
             item.pos = center
-                + vec2(self.config.brush_wheel.radius, 0.0)
+                + vec2(self.config.tool_wheel.radius, 0.0)
                     .rotate(Angle::from_degrees(360.0 * index as f32 / len as f32));
         }
-        let cursor_delta = self.camera.screen_to_world(
-            self.framebuffer_size,
-            self.ctx.geng.window().cursor_position().map(|x| x as f32),
-        ) - center;
-        if cursor_delta.len() > self.config.brush_wheel.inner_radius {
+        let cursor_delta = self
+            .ui_camera
+            .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32))
+            - center;
+        if cursor_delta.len() > self.config.tool_wheel.inner_radius {
             if let Some(item) = items
                 .iter_mut()
                 .filter(|item| vec2::dot(item.pos - center, cursor_delta) > 0.0)
@@ -390,15 +504,24 @@ impl<'a> State<'a> {
         }
     }
 
-    fn assign_index(&mut self, index: i32) {
-        let cell = self.screen_to_tile(self.ctx.geng.window().cursor_position());
+    fn assign_index(&mut self, index: Option<i32>) {
+        let cell = self.screen_to_cell(self.ctx.geng.window().cursor_position());
         if let Some(entity) = self
             .level
             .entities
             .iter_mut()
             .find(|entity| entity.pos.cell == cell)
         {
-            entity.index = Some(index);
+            if entity.identifier == "Player" {
+                let index = match index {
+                    Some(index) => index,
+                    None => match entity.index {
+                        Some(index) => index % 9 + 1,
+                        None => 1,
+                    },
+                };
+                entity.index = Some(index);
+            }
         }
         self.push_history_if_needed();
     }
@@ -407,31 +530,41 @@ impl<'a> State<'a> {
 impl State<'_> {
     pub async fn run(mut self, actx: &mut async_states::Context) {
         loop {
-            match actx.wait().await {
-                async_states::Event::Event(event) => {
-                    if let std::ops::ControlFlow::Break(()) = self.handle_event(actx, event).await {
-                        self.autosave_if_enabled();
-                        if self.saved() {
-                            break;
-                        }
-                        if popup::confirm(
-                            &self.ctx,
-                            actx,
-                            "You have unsaved changes\nAre you sure you want yo exit?",
-                        )
-                        .await
-                        {
-                            self.reset_to_last_save();
-                            break;
-                        }
-                    }
+            let flow = match actx.wait().await {
+                async_states::Event::Event(event) => self.handle_event(actx, event).await,
+                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
+                async_states::Event::Draw => {
+                    self.draw(&mut actx.framebuffer());
+                    ControlFlow::Continue(())
                 }
-                async_states::Event::Update(delta_time) => self.update(delta_time),
-                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+            };
+            if let ControlFlow::Break(()) = flow {
+                self.autosave_if_enabled();
+                if self.saved() {
+                    break;
+                }
+                if popup::confirm(
+                    &self.ctx,
+                    actx,
+                    "You have unsaved changes\nAre you sure you want yo exit?",
+                )
+                .await
+                {
+                    self.reset_to_last_save();
+                    break;
+                }
             }
         }
     }
-    fn update(&mut self, delta_time: f64) {
+    async fn update(
+        &mut self,
+        actx: &mut async_states::Context,
+        delta_time: f64,
+    ) -> ControlFlow<()> {
+        for event in input::Context::update(self, delta_time) {
+            self.handle_input(actx, event).await?;
+        }
+
         let _delta_time = delta_time as f32;
         if let Some(autosave_timer) = self.config.autosave_timer {
             if self.autosave_timer.elapsed().as_secs_f64() > autosave_timer {
@@ -439,6 +572,70 @@ impl State<'_> {
                 self.autosave_timer.reset();
             }
         }
+        ControlFlow::Continue(())
+    }
+
+    async fn handle_input(
+        &mut self,
+        actx: &mut async_states::Context,
+        event: input::Event,
+    ) -> ControlFlow<()> {
+        match event {
+            input::Event::DragStart(position) => {
+                self.dragged_entity = self
+                    .level
+                    .entities
+                    .iter()
+                    .position(|entity| entity.pos.cell == self.screen_to_cell(position));
+                self.drag_pos = position;
+                if self.dragged_entity.is_none() {
+                    self.open_wheel();
+                }
+            }
+            input::Event::DragMove(position) => {
+                self.drag_pos = position;
+            }
+            input::Event::DragEnd(position) => {
+                self.close_wheel();
+                if let Some(index) = self.dragged_entity.take() {
+                    self.level.entities[index].pos.cell = self.screen_to_cell(position);
+                    self.level_mesh = self.ctx.renderer.level_mesh(self.level);
+                    self.push_history_if_needed();
+                }
+            }
+            input::Event::Click(position) => {
+                let ui_pos = self
+                    .ui_camera
+                    .screen_to_world(self.framebuffer_size, position.map(|x| x as f32));
+                if let Some(button) = self
+                    .buttons
+                    .iter()
+                    .find(|button| button.calculated_pos.contains(ui_pos))
+                {
+                    match button.button_type {
+                        ButtonType::Exit => return ControlFlow::Break(()),
+                        ButtonType::Save => self.save(),
+                        ButtonType::Undo => self.undo(),
+                        ButtonType::Redo => self.redo(),
+                        ButtonType::ToolPreview => {}
+                        ButtonType::ToolRotate => {
+                            self.tool.angle = self.tool.angle.rotate_clockwise();
+                        }
+                        ButtonType::Play => {
+                            play::State::new(&self.ctx, &self.level).run(actx).await;
+                        }
+                    }
+                } else {
+                    self.use_tool(position);
+                    self.push_history_if_needed();
+                }
+            }
+            input::Event::TransformView(transform) => {
+                transform.apply(&mut self.camera, self.framebuffer_size);
+                self.clamp_camera();
+            }
+        }
+        ControlFlow::Continue(())
     }
     async fn handle_event(
         &mut self,
@@ -446,9 +643,10 @@ impl State<'_> {
         event: geng::Event,
     ) -> std::ops::ControlFlow<()> {
         let controls = &self.config.controls;
-        self.camera_controls
-            .handle_event(&mut self.camera, event.clone());
         match event {
+            geng::Event::MouseMove { position, .. } => {
+                self.drag_pos = position;
+            }
             geng::Event::KeyDown { key }
                 if self.ctx.assets.config.controls.escape.contains(&key) =>
             {
@@ -464,65 +662,17 @@ impl State<'_> {
                 play::State::new(&self.ctx, &self.level).run(actx).await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
-                self.brush_wheel_pos = Some(self.camera.screen_to_world(
-                    self.framebuffer_size,
-                    self.ctx.geng.window().cursor_position().map(|x| x as f32),
-                ));
+                self.open_wheel();
             }
             geng::Event::KeyUp { key } if key == controls.choose => {
-                let hovered_item = self
-                    .brush_wheel()
-                    .into_iter()
-                    .flatten()
-                    .find(|item| item.hovered);
-                if let Some(item) = hovered_item {
-                    self.brush = item.brush;
-                }
-                self.brush_wheel_pos = None;
+                self.close_wheel();
             }
             geng::Event::KeyDown { key } if key == controls.pick => {
-                if let Some(brush) = Brush::pick(
+                if let Some(tool) = Tool::pick(
                     &self.level,
-                    self.screen_to_tile(self.ctx.geng.window().cursor_position()),
+                    self.screen_to_cell(self.ctx.geng.window().cursor_position()),
                 ) {
-                    self.brush = brush;
-                }
-            }
-            geng::Event::MouseDown {
-                position,
-                button: geng::MouseButton::Left,
-            } if self.ctx.geng.window().is_key_pressed(controls.drag) => {
-                self.dragged_entity = self
-                    .level
-                    .entities
-                    .iter()
-                    .position(|entity| entity.pos.cell == self.screen_to_tile(position));
-            }
-            geng::Event::MouseDown { position, button } if button == controls.create => {
-                self.create(position);
-            }
-            geng::Event::MouseDown { position, button } if button == controls.delete => {
-                self.delete(position);
-            }
-            geng::Event::MouseUp {
-                position,
-                button: geng::MouseButton::Left,
-            } if self.dragged_entity.is_some() => {
-                let index = self.dragged_entity.take().unwrap();
-                self.level.entities[index].pos.cell = self.screen_to_tile(position);
-            }
-            geng::Event::MouseUp { button, .. }
-                if [controls.create, controls.delete].contains(&button) =>
-            {
-                self.push_history_if_needed();
-            }
-            geng::Event::MouseMove { position, .. } => {
-                if self.dragged_entity.is_some() {
-                    // We drag, do nothing
-                } else if self.ctx.geng.window().is_button_pressed(controls.create) {
-                    self.create(position);
-                } else if self.ctx.geng.window().is_button_pressed(controls.delete) {
-                    self.delete(position);
+                    self.tool = tool;
                 }
             }
             geng::Event::KeyDown { key } if key == controls.rotate => {
@@ -530,7 +680,7 @@ impl State<'_> {
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LShift) {
                     delta = -delta;
                 }
-                self.brush.angle = self.brush.angle.with_input(Input::from_sign(delta));
+                self.tool.angle = self.tool.angle.with_input(Input::from_sign(delta));
             }
             geng::Event::KeyDown { key: geng::Key::S }
                 if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
@@ -552,55 +702,59 @@ impl State<'_> {
             geng::Event::KeyDown {
                 key: geng::Key::Num1,
             } => {
-                self.assign_index(1);
+                self.assign_index(Some(1));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num2,
             } => {
-                self.assign_index(2);
+                self.assign_index(Some(2));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num3,
             } => {
-                self.assign_index(3);
+                self.assign_index(Some(3));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num4,
             } => {
-                self.assign_index(4);
+                self.assign_index(Some(4));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num5,
             } => {
-                self.assign_index(5);
+                self.assign_index(Some(5));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num6,
             } => {
-                self.assign_index(6);
+                self.assign_index(Some(6));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num7,
             } => {
-                self.assign_index(7);
+                self.assign_index(Some(7));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num8,
             } => {
-                self.assign_index(8);
+                self.assign_index(Some(8));
             }
             geng::Event::KeyDown {
                 key: geng::Key::Num9,
             } => {
-                self.assign_index(9);
+                self.assign_index(Some(9));
             }
 
             _ => {}
         }
-        std::ops::ControlFlow::Continue(())
+        for event in input::Context::handle_event(self, event.clone()) {
+            self.handle_input(actx, event).await?;
+        }
+        ControlFlow::Continue(())
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
+        self.clamp_camera();
         self.ctx
             .renderer
             .draw_level(framebuffer, &self.camera, &self.level, &self.level_mesh);
@@ -625,26 +779,39 @@ impl State<'_> {
                 .draw_grid(framebuffer, &self.camera, self.config.grid_color);
         }
 
-        self.ctx.renderer.draw_tile(
-            framebuffer,
-            &self.camera,
-            &self.brush.brush_type.tile_name(),
-            Rgba::new(1.0, 1.0, 1.0, self.config.brush_preview_opacity),
-            mat3::translate(
-                self.screen_to_tile(self.ctx.geng.window().cursor_position())
-                    .map(|x| x as f32),
-            ) * mat3::rotate_around(vec2::splat(0.5), self.brush.rotation()),
-        );
-        self.ctx.renderer.draw_tile(
-            framebuffer,
-            &self.camera,
-            "EditorSelect",
-            Rgba::WHITE,
-            mat3::translate(
-                self.screen_to_tile(self.ctx.geng.window().cursor_position())
-                    .map(|x| x as f32),
-            ),
-        );
+        let ui_cursor_pos = self
+            .ui_camera
+            .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32));
+
+        if self.tool_wheel_pos.is_none()
+            && !self
+                .buttons
+                .iter()
+                .any(|button| button.calculated_pos.contains(ui_cursor_pos))
+        {
+            if self.tool.tool_type.show_preview() {
+                self.ctx.renderer.draw_tile(
+                    framebuffer,
+                    &self.camera,
+                    &self.tool.tool_type.tile_name(),
+                    Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
+                    mat3::translate(
+                        self.screen_to_cell(self.ctx.geng.window().cursor_position())
+                            .map(|x| x as f32),
+                    ) * mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle()),
+                );
+            }
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.camera,
+                "EditorSelect",
+                Rgba::WHITE,
+                mat3::translate(
+                    self.screen_to_cell(self.ctx.geng.window().cursor_position())
+                        .map(|x| x as f32),
+                ),
+            );
+        }
 
         if let Some(index) = self.dragged_entity {
             self.ctx.renderer.draw_tile(
@@ -652,10 +819,10 @@ impl State<'_> {
                 &self.camera,
                 &self.level.entities[index].identifier,
                 Rgba::WHITE,
-                mat3::translate(self.camera.screen_to_world(
-                    self.framebuffer_size,
-                    self.ctx.geng.window().cursor_position().map(|x| x as f32),
-                )) * mat3::scale_uniform(0.5)
+                mat3::translate(
+                    self.camera
+                        .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32)),
+                ) * mat3::scale_uniform(0.5)
                     * mat3::translate(vec2::splat(-0.5)),
             );
         }
@@ -669,12 +836,12 @@ impl State<'_> {
             Rgba::WHITE,
         );
 
-        if let Some(wheel) = self.brush_wheel() {
-            let center = self.brush_wheel_pos.unwrap();
-            let config = &self.config.brush_wheel;
+        if let Some(wheel) = self.tool_wheel() {
+            let center = self.tool_wheel_pos.unwrap();
+            let config = &self.config.tool_wheel;
             self.ctx.geng.draw2d().draw2d(
                 framebuffer,
-                &self.camera,
+                &self.ui_camera,
                 &draw2d::Ellipse::circle_with_cut(
                     center,
                     config.inner_radius,
@@ -683,15 +850,52 @@ impl State<'_> {
                 ),
             );
             for item in wheel {
-                item.brush.brush_type.draw(
+                item.tool.tool_type.draw(
                     framebuffer,
                     &self.ctx,
-                    &self.camera,
+                    &self.ui_camera,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
-                        * mat3::rotate(item.brush.rotation()),
+                        * mat3::rotate(item.tool.draw_angle()),
                 );
             }
+        }
+
+        buttons::layout(
+            &mut self.buttons,
+            self.ui_camera
+                .view_area(self.framebuffer_size)
+                .bounding_box(),
+        );
+        for (mut matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
+            if let ButtonType::ToolPreview = button.button_type {
+                self.ctx.geng.draw2d().draw2d(
+                    framebuffer,
+                    &self.ui_camera,
+                    &draw2d::Quad::unit(Rgba::BLACK).transform(
+                        matrix
+                            * mat3::scale_uniform_around(vec2::splat(0.5), 1.1)
+                            * mat3::scale_uniform_around(vec2::splat(1.0), 0.5),
+                    ),
+                );
+                matrix *= mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle());
+            }
+            let tool_tile_name = self.tool.tool_type.tile_name();
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.ui_camera,
+                match button.button_type {
+                    ButtonType::Exit => "Home",
+                    ButtonType::Save => "Save",
+                    ButtonType::Undo => "Undo",
+                    ButtonType::Redo => "Redo",
+                    ButtonType::ToolPreview => &tool_tile_name,
+                    ButtonType::ToolRotate => "Reset",
+                    ButtonType::Play => "Play",
+                },
+                Rgba::WHITE,
+                matrix,
+            );
         }
 
         if !self.saved() {
@@ -704,5 +908,15 @@ impl State<'_> {
                 self.config.warning_color,
             );
         }
+    }
+}
+
+impl input::Context for State<'_> {
+    fn input(&mut self) -> &mut input::State {
+        &mut self.input
+    }
+
+    fn is_draggable(&self, _screen_pos: vec2<f64>) -> bool {
+        true
     }
 }

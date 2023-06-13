@@ -1,4 +1,3 @@
-fov = 12
 camera_speed = 2
 animation_time = 0.2
 cell_pixel_size = 16
@@ -6,6 +5,15 @@ border_radius_pixels = 4
 deselected_player_color = "#fff7"
 zzz_time = 30
 happy = true
+
+[play]
+ui_fov = 5
+fov = 12
+
+[input]
+min_drag_distance = 5
+max_click_time = 0.5
+zoom_speed = 1
 
 [level_select]
 fov = 10
@@ -35,45 +43,40 @@ next_level = "P"
 prev_level = "O"
 effect = { jump = "J", delete = "Delete" }
 
-[camera_controls]
-min_fov = 5
-max_fov = 50
-zoom_speed = 0.1
-drag = "Middle"
-
 [editor.level]
 default_fov = 15
+min_fov = 5
+max_fov = 30
+ui_fov = 5
+margin = 5
 index_size = 0.3
 index_color = "white"
-brush_preview_opacity = 0.5
+preview_opacity = 0.5
 grid_color = "#7775"
 warning_size = 24
 warning_color = "#ff0"
 # autosave_timer = 10
 
-[editor.level.brush_wheel]
+[editor.level.tool_wheel]
 radius = 3
 inner_radius = 2
 color = "#777"
 
 [editor.level.controls]
 toggle = "F1"
-create = "Left"
-delete = "Right"
 choose = "Tab"
 pick = "Q"
 grid = "G"
 rotate = "R"
 reset_to_last_save = "F7"
-drag = "LCtrl"
 
 [editor.world]
-fov = 15
+default_fov = 15
+min_fov = 5
+max_fov = 30
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128
-min_drag_distance = 10
-max_click_time = 0.5
 
 [editor.world.controls]
 insert = "I"
