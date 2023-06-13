@@ -492,6 +492,8 @@ impl State<'_> {
                 input::Event::DragEnd(position) => {
                     let index = self.dragged_entity.take().unwrap();
                     self.level.entities[index].pos.cell = self.screen_to_cell(position);
+                    self.level_mesh = self.ctx.renderer.level_mesh(self.level);
+                    self.push_history_if_needed();
                 }
                 input::Event::Click(position) => {
                     self.create(position);
