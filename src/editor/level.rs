@@ -39,12 +39,14 @@ enum ToolType {
     SideEffect(Effect),
     Powerup(Effect),
     Goal,
+    Eraser,
 }
 
 impl ToolType {
     fn delete_underneath(&self) -> bool {
         match self {
             Self::SideEffect(_) => false,
+            Self::Eraser => true,
             _ => true,
         }
     }
@@ -54,6 +56,7 @@ impl ToolType {
             Self::SideEffect(effect) => format!("{effect:?}Power"),
             Self::Powerup(effect) => format!("{effect:?}Power"),
             Self::Goal => "Goal".to_owned(),
+            Self::Eraser => "Eraser".to_owned(),
         }
     }
 
@@ -103,6 +106,13 @@ impl ToolType {
             }
         }
     }
+
+    fn show_preview(&self) -> bool {
+        match self {
+            Self::Eraser => false,
+            _ => true,
+        }
+    }
 }
 
 struct Tool {
@@ -115,10 +125,8 @@ impl Tool {
         // TODO normalize angles in the codebase
         let angle = self.angle;
         match self.tool_type {
-            ToolType::Entity(_) => angle,
-            ToolType::SideEffect(_) => angle.rotate_counter_clockwise(),
-            ToolType::Powerup(_) => angle.rotate_counter_clockwise(),
-            ToolType::Goal => angle,
+            ToolType::SideEffect(_) | ToolType::Powerup(_) => angle.rotate_counter_clockwise(),
+            _ => angle,
         }
         .to_angle()
     }
@@ -258,7 +266,7 @@ impl<'a> State<'a> {
         world_pos.map(|x| x.floor() as i32)
     }
 
-    fn create(&mut self, screen_pos: vec2<f64>) {
+    fn use_tool(&mut self, screen_pos: vec2<f64>) {
         if self.tool.tool_type.delete_underneath() {
             self.delete(screen_pos);
         }
@@ -298,6 +306,7 @@ impl<'a> State<'a> {
                     angle: self.tool.angle,
                 },
             }),
+            ToolType::Eraser => {}
         }
         self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
@@ -339,9 +348,13 @@ impl<'a> State<'a> {
             angle: IntAngle::RIGHT,
             tool_type: ToolType::Goal,
         };
+        let eraser = Tool {
+            angle: IntAngle::RIGHT,
+            tool_type: ToolType::Eraser,
+        };
 
         let mut items: Vec<ToolWheelItem> =
-            itertools::chain![entities, powerups, side_effects, [goal]]
+            itertools::chain![entities, powerups, side_effects, [goal, eraser]]
                 .map(|tool| ToolWheelItem {
                     tool,
                     pos: vec2::ZERO,
@@ -497,7 +510,7 @@ impl State<'_> {
                     self.push_history_if_needed();
                 }
                 input::Event::Click(position) => {
-                    self.create(position);
+                    self.use_tool(position);
                     self.push_history_if_needed();
                 }
                 input::Event::TransformView(transform) => {
@@ -648,16 +661,18 @@ impl State<'_> {
                 .draw_grid(framebuffer, &self.camera, self.config.grid_color);
         }
 
-        self.ctx.renderer.draw_tile(
-            framebuffer,
-            &self.camera,
-            &self.tool.tool_type.tile_name(),
-            Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
-            mat3::translate(
-                self.screen_to_cell(self.ctx.geng.window().cursor_position())
-                    .map(|x| x as f32),
-            ) * mat3::rotate_around(vec2::splat(0.5), self.tool.rotation()),
-        );
+        if self.tool.tool_type.show_preview() {
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.camera,
+                &self.tool.tool_type.tile_name(),
+                Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
+                mat3::translate(
+                    self.screen_to_cell(self.ctx.geng.window().cursor_position())
+                        .map(|x| x as f32),
+                ) * mat3::rotate_around(vec2::splat(0.5), self.tool.rotation()),
+            );
+        }
         self.ctx.renderer.draw_tile(
             framebuffer,
             &self.camera,
