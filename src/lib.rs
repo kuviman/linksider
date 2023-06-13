@@ -85,8 +85,7 @@ pub fn main() {
         });
 
         Box::new(async_states::as_state(geng, |mut actx| async move {
-            if true {
-                // cli_args.editor {
+            if cli_args.editor {
                 editor::world::State::load(&ctx, &mut actx).await;
             } else {
                 level_select::run(&ctx, &mut actx).await;

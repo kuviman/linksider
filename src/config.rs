@@ -30,7 +30,7 @@ pub struct Controls {
 #[derive(geng::asset::Load, Deserialize)]
 #[load(serde = "toml")]
 pub struct Config {
-    pub fov: f32,
+    pub play: Rc<play::Config>,
     pub camera_speed: f32,
     pub animation_time: f32,
     pub render: renderer::Config,

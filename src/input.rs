@@ -14,6 +14,12 @@ pub struct State {
     drag: Option<Drag>,
 }
 
+impl State {
+    pub fn cursor_pos(&self) -> vec2<f64> {
+        self.cursor_pos
+    }
+}
+
 #[derive(Copy, Clone)]
 struct Touch {
     id: u64,

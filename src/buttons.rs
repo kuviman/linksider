@@ -1,5 +1,24 @@
 use super::*;
 
+pub fn matrices<T>(
+    cursor_pos: vec2<f32>,
+    buttons: &[Button<T>],
+) -> impl Iterator<Item = (mat3<f32>, &Button<T>)> + '_ {
+    buttons.iter().map(move |button| {
+        let matrix = mat3::translate(button.calculated_pos.bottom_left())
+            * mat3::scale(button.calculated_pos.size())
+            * mat3::scale_uniform_around(
+                vec2::splat(0.5),
+                if button.usable && button.calculated_pos.contains(cursor_pos) {
+                    1.1
+                } else {
+                    1.0
+                },
+            );
+        (matrix, button)
+    })
+}
+
 pub fn layout<T>(buttons: &mut [Button<T>], viewport: Aabb2<f32>) {
     for button in buttons {
         button.calculated_pos = button

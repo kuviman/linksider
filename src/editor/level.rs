@@ -867,17 +867,7 @@ impl State<'_> {
                 .view_area(self.framebuffer_size)
                 .bounding_box(),
         );
-        for button in self.buttons.iter() {
-            let mut matrix = mat3::translate(button.calculated_pos.bottom_left())
-                * mat3::scale(button.calculated_pos.size())
-                * mat3::scale_uniform_around(
-                    vec2::splat(0.5),
-                    if button.usable && button.calculated_pos.contains(ui_cursor_pos) {
-                        1.1
-                    } else {
-                        1.0
-                    },
-                );
+        for (mut matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
             if let ButtonType::ToolPreview = button.button_type {
                 self.ctx.geng.draw2d().draw2d(
                     framebuffer,
@@ -896,12 +886,12 @@ impl State<'_> {
                 &self.ui_camera,
                 match button.button_type {
                     ButtonType::Exit => "Home",
-                    ButtonType::Save => "Player", // TODO
+                    ButtonType::Save => "Save",
                     ButtonType::Undo => "Undo",
                     ButtonType::Redo => "Redo",
                     ButtonType::ToolPreview => &tool_tile_name,
                     ButtonType::ToolRotate => "Reset",
-                    ButtonType::Play => "Player", // TODO
+                    ButtonType::Play => "Play",
                 },
                 Rgba::WHITE,
                 matrix,
