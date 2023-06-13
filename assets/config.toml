@@ -44,6 +44,7 @@ effect = { jump = "J", delete = "Delete" }
 default_fov = 15
 min_fov = 5
 max_fov = 30
+ui_fov = 15
 margin = 5
 index_size = 0.3
 index_color = "white"

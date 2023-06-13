@@ -22,6 +22,7 @@ pub struct Config {
     default_fov: f32,
     min_fov: f32,
     max_fov: f32,
+    ui_fov: f32,
     margin: f32,
     index_size: f32,
     index_color: Rgba<f32>,
@@ -170,6 +171,7 @@ pub struct State<'a> {
     config: Rc<Config>,
     level: &'a mut Level,
     camera: Camera2d,
+    ui_camera: Camera2d,
     level_mesh: renderer::LevelMesh,
     input: input::State,
     tool: Tool,
@@ -210,6 +212,11 @@ impl<'a> State<'a> {
                 .center(),
                 rotation: Angle::ZERO,
                 fov: config.default_fov,
+            },
+            ui_camera: Camera2d {
+                center: vec2::ZERO,
+                rotation: Angle::ZERO,
+                fov: config.ui_fov,
             },
             config,
             level_mesh: ctx.renderer.level_mesh(&level),
@@ -319,6 +326,28 @@ impl<'a> State<'a> {
         self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
+    fn open_wheel(&mut self) {
+        self.tool_wheel_pos = Some(
+            self.ui_camera
+                .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32)),
+        );
+    }
+
+    fn close_wheel(&mut self) {
+        if self.tool_wheel_pos.is_none() {
+            return;
+        }
+        let hovered_item = self
+            .tool_wheel()
+            .into_iter()
+            .flatten()
+            .find(|item| item.hovered);
+        if let Some(item) = hovered_item {
+            self.tool = item.tool;
+        }
+        self.tool_wheel_pos = None;
+    }
+
     fn tool_wheel(&self) -> Option<impl Iterator<Item = ToolWheelItem> + '_> {
         let center = self.tool_wheel_pos?;
         let entities = self
@@ -367,10 +396,10 @@ impl<'a> State<'a> {
                 + vec2(self.config.tool_wheel.radius, 0.0)
                     .rotate(Angle::from_degrees(360.0 * index as f32 / len as f32));
         }
-        let cursor_delta = self.camera.screen_to_world(
-            self.framebuffer_size,
-            self.ctx.geng.window().cursor_position().map(|x| x as f32),
-        ) - center;
+        let cursor_delta = self
+            .ui_camera
+            .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32))
+            - center;
         if cursor_delta.len() > self.config.tool_wheel.inner_radius {
             if let Some(item) = items
                 .iter_mut()
@@ -499,15 +528,20 @@ impl State<'_> {
                     .iter()
                     .position(|entity| entity.pos.cell == self.screen_to_cell(position));
                 self.drag_pos = position;
+                if self.dragged_entity.is_none() {
+                    self.open_wheel();
+                }
             }
             input::Event::DragMove(position) => {
                 self.drag_pos = position;
             }
             input::Event::DragEnd(position) => {
-                let index = self.dragged_entity.take().unwrap();
-                self.level.entities[index].pos.cell = self.screen_to_cell(position);
-                self.level_mesh = self.ctx.renderer.level_mesh(self.level);
-                self.push_history_if_needed();
+                self.close_wheel();
+                if let Some(index) = self.dragged_entity.take() {
+                    self.level.entities[index].pos.cell = self.screen_to_cell(position);
+                    self.level_mesh = self.ctx.renderer.level_mesh(self.level);
+                    self.push_history_if_needed();
+                }
             }
             input::Event::Click(position) => {
                 self.use_tool(position);
@@ -529,6 +563,9 @@ impl State<'_> {
         }
         let controls = &self.config.controls;
         match event {
+            geng::Event::MouseMove { position, .. } => {
+                self.drag_pos = position;
+            }
             geng::Event::KeyDown { key }
                 if self.ctx.assets.config.controls.escape.contains(&key) =>
             {
@@ -544,21 +581,10 @@ impl State<'_> {
                 play::State::new(&self.ctx, &self.level).run(actx).await;
             }
             geng::Event::KeyDown { key } if key == controls.choose => {
-                self.tool_wheel_pos = Some(self.camera.screen_to_world(
-                    self.framebuffer_size,
-                    self.ctx.geng.window().cursor_position().map(|x| x as f32),
-                ));
+                self.open_wheel();
             }
             geng::Event::KeyUp { key } if key == controls.choose => {
-                let hovered_item = self
-                    .tool_wheel()
-                    .into_iter()
-                    .flatten()
-                    .find(|item| item.hovered);
-                if let Some(item) = hovered_item {
-                    self.tool = item.tool;
-                }
-                self.tool_wheel_pos = None;
+                self.close_wheel();
             }
             geng::Event::KeyDown { key } if key == controls.pick => {
                 if let Some(tool) = Tool::pick(
@@ -669,28 +695,30 @@ impl State<'_> {
                 .draw_grid(framebuffer, &self.camera, self.config.grid_color);
         }
 
-        if self.tool.tool_type.show_preview() {
+        if self.tool_wheel_pos.is_none() {
+            if self.tool.tool_type.show_preview() {
+                self.ctx.renderer.draw_tile(
+                    framebuffer,
+                    &self.camera,
+                    &self.tool.tool_type.tile_name(),
+                    Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
+                    mat3::translate(
+                        self.screen_to_cell(self.ctx.geng.window().cursor_position())
+                            .map(|x| x as f32),
+                    ) * mat3::rotate_around(vec2::splat(0.5), self.tool.rotation()),
+                );
+            }
             self.ctx.renderer.draw_tile(
                 framebuffer,
                 &self.camera,
-                &self.tool.tool_type.tile_name(),
-                Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
+                "EditorSelect",
+                Rgba::WHITE,
                 mat3::translate(
                     self.screen_to_cell(self.ctx.geng.window().cursor_position())
                         .map(|x| x as f32),
-                ) * mat3::rotate_around(vec2::splat(0.5), self.tool.rotation()),
+                ),
             );
         }
-        self.ctx.renderer.draw_tile(
-            framebuffer,
-            &self.camera,
-            "EditorSelect",
-            Rgba::WHITE,
-            mat3::translate(
-                self.screen_to_cell(self.ctx.geng.window().cursor_position())
-                    .map(|x| x as f32),
-            ),
-        );
 
         if let Some(index) = self.dragged_entity {
             self.ctx.renderer.draw_tile(
@@ -720,7 +748,7 @@ impl State<'_> {
             let config = &self.config.tool_wheel;
             self.ctx.geng.draw2d().draw2d(
                 framebuffer,
-                &self.camera,
+                &self.ui_camera,
                 &draw2d::Ellipse::circle_with_cut(
                     center,
                     config.inner_radius,
@@ -732,7 +760,7 @@ impl State<'_> {
                 item.tool.tool_type.draw(
                     framebuffer,
                     &self.ctx,
-                    &self.camera,
+                    &self.ui_camera,
                     mat3::translate(item.pos)
                         * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
                         * mat3::rotate(item.tool.rotation()),
@@ -758,11 +786,7 @@ impl input::Context for State<'_> {
         &mut self.input
     }
 
-    fn is_draggable(&self, screen_pos: vec2<f64>) -> bool {
-        let cell = self.screen_to_cell(screen_pos);
-        self.level
-            .entities
-            .iter()
-            .any(|entity| entity.pos.cell == cell)
+    fn is_draggable(&self, _screen_pos: vec2<f64>) -> bool {
+        true
     }
 }
