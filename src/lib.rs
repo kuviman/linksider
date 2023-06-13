@@ -1,7 +1,6 @@
 use geng::prelude::*;
 
 mod async_states;
-mod camera_controls;
 mod config;
 mod editor;
 mod history;
@@ -14,7 +13,6 @@ mod renderer;
 mod sound;
 mod util;
 
-use camera_controls::CameraControls;
 use config::Config;
 use logicsider::*;
 use renderer::Renderer;
@@ -83,7 +81,7 @@ pub fn main() {
         });
 
         Box::new(async_states::as_state(geng, |mut actx| async move {
-            if cli_args.editor {
+            if true { // cli_args.editor {
                 editor::world::State::load(&ctx, &mut actx).await;
             } else {
                 level_select::run(&ctx, &mut actx).await;

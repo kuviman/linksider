@@ -3,13 +3,10 @@ use super::*;
 #[derive(Deserialize)]
 pub struct Controls {
     pub toggle: geng::Key,
-    create: geng::MouseButton,
-    delete: geng::MouseButton,
     choose: geng::Key,
     pick: geng::Key,
     grid: geng::Key,
     rotate: geng::Key,
-    drag: geng::Key,
     reset_to_last_save: geng::Key,
 }
 
@@ -163,7 +160,7 @@ pub struct State<'a> {
     level: &'a mut Level,
     camera: Camera2d,
     level_mesh: renderer::LevelMesh,
-    camera_controls: CameraControls,
+    input: input::State,
     brush: Brush,
     brush_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
@@ -173,6 +170,7 @@ pub struct State<'a> {
     autosave_timer: Timer,
     show_grid: bool,
     dragged_entity: Option<usize>,
+    cursor_pos: vec2<f64>,
 }
 
 impl<'a> State<'a> {
@@ -190,6 +188,7 @@ impl<'a> State<'a> {
             autosave_timer: Timer::new(),
             path: path.to_owned(),
             framebuffer_size: vec2::splat(1.0),
+            cursor_pos: vec2::ZERO,
             camera: Camera2d {
                 center: Aabb2::points_bounding_box(
                     level.entities.iter().map(|entity| entity.pos.cell),
@@ -203,7 +202,6 @@ impl<'a> State<'a> {
             },
             config,
             level_mesh: ctx.renderer.level_mesh(&level),
-            camera_controls: CameraControls::new(&ctx.geng, &ctx.assets.config.camera_controls),
             brush: Brush {
                 angle: IntAngle::RIGHT,
                 brush_type: BrushType::Entity("Player".to_owned()),
@@ -216,10 +214,11 @@ impl<'a> State<'a> {
             show_grid: true,
             ctx: ctx.clone(),
             dragged_entity: None,
+            input: input::State::new(ctx),
         }
     }
 
-    fn screen_to_tile(&self, screen_pos: vec2<f64>) -> vec2<i32> {
+    fn screen_to_cell(&self, screen_pos: vec2<f64>) -> vec2<i32> {
         let world_pos = self
             .camera
             .screen_to_world(self.framebuffer_size, screen_pos.map(|x| x as f32));
@@ -230,7 +229,7 @@ impl<'a> State<'a> {
         if self.brush.brush_type.delete_underneath() {
             self.delete(screen_pos);
         }
-        let cell = self.screen_to_tile(screen_pos);
+        let cell = self.screen_to_cell(screen_pos);
         match &self.brush.brush_type {
             BrushType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
                 identifier: name.to_owned(),
@@ -271,10 +270,10 @@ impl<'a> State<'a> {
     }
 
     fn delete(&mut self, screen_pos: vec2<f64>) {
-        let tile = self.screen_to_tile(screen_pos);
-        self.level.entities.retain(|entity| entity.pos.cell != tile);
-        self.level.powerups.retain(|entity| entity.pos.cell != tile);
-        self.level.goals.retain(|entity| entity.pos.cell != tile);
+        let cell = self.screen_to_cell(screen_pos);
+        self.level.entities.retain(|entity| entity.pos.cell != cell);
+        self.level.powerups.retain(|entity| entity.pos.cell != cell);
+        self.level.goals.retain(|entity| entity.pos.cell != cell);
         self.level_mesh = self.ctx.renderer.level_mesh(self.level);
     }
 
@@ -391,7 +390,7 @@ impl<'a> State<'a> {
     }
 
     fn assign_index(&mut self, index: i32) {
-        let cell = self.screen_to_tile(self.ctx.geng.window().cursor_position());
+        let cell = self.screen_to_cell(self.ctx.geng.window().cursor_position());
         if let Some(entity) = self
             .level
             .entities
@@ -445,9 +444,32 @@ impl State<'_> {
         actx: &mut async_states::Context,
         event: geng::Event,
     ) -> std::ops::ControlFlow<()> {
+        for event in input::Context::handle_event(self, event.clone()) {
+            match event {
+                input::Event::DragStart(position) => {
+                    self.dragged_entity = self
+                        .level
+                        .entities
+                        .iter()
+                        .position(|entity| entity.pos.cell == self.screen_to_cell(position));
+                }
+                input::Event::DragMove(position) => {
+                    self.cursor_pos = position;
+                }
+                input::Event::DragEnd(position) => {
+                    let index = self.dragged_entity.take().unwrap();
+                    self.level.entities[index].pos.cell = self.screen_to_cell(position);
+                }
+                input::Event::Click(position) => {
+                    self.create(position);
+                    self.push_history_if_needed();
+                }
+                input::Event::TransformView(transform) => {
+                    transform.apply(&mut self.camera, self.framebuffer_size);
+                }
+            }
+        }
         let controls = &self.config.controls;
-        self.camera_controls
-            .handle_event(&mut self.camera, event.clone());
         match event {
             geng::Event::KeyDown { key }
                 if self.ctx.assets.config.controls.escape.contains(&key) =>
@@ -483,46 +505,9 @@ impl State<'_> {
             geng::Event::KeyDown { key } if key == controls.pick => {
                 if let Some(brush) = Brush::pick(
                     &self.level,
-                    self.screen_to_tile(self.ctx.geng.window().cursor_position()),
+                    self.screen_to_cell(self.ctx.geng.window().cursor_position()),
                 ) {
                     self.brush = brush;
-                }
-            }
-            geng::Event::MouseDown {
-                position,
-                button: geng::MouseButton::Left,
-            } if self.ctx.geng.window().is_key_pressed(controls.drag) => {
-                self.dragged_entity = self
-                    .level
-                    .entities
-                    .iter()
-                    .position(|entity| entity.pos.cell == self.screen_to_tile(position));
-            }
-            geng::Event::MouseDown { position, button } if button == controls.create => {
-                self.create(position);
-            }
-            geng::Event::MouseDown { position, button } if button == controls.delete => {
-                self.delete(position);
-            }
-            geng::Event::MouseUp {
-                position,
-                button: geng::MouseButton::Left,
-            } if self.dragged_entity.is_some() => {
-                let index = self.dragged_entity.take().unwrap();
-                self.level.entities[index].pos.cell = self.screen_to_tile(position);
-            }
-            geng::Event::MouseUp { button, .. }
-                if [controls.create, controls.delete].contains(&button) =>
-            {
-                self.push_history_if_needed();
-            }
-            geng::Event::MouseMove { position, .. } => {
-                if self.dragged_entity.is_some() {
-                    // We drag, do nothing
-                } else if self.ctx.geng.window().is_button_pressed(controls.create) {
-                    self.create(position);
-                } else if self.ctx.geng.window().is_button_pressed(controls.delete) {
-                    self.delete(position);
                 }
             }
             geng::Event::KeyDown { key } if key == controls.rotate => {
@@ -631,7 +616,7 @@ impl State<'_> {
             &self.brush.brush_type.tile_name(),
             Rgba::new(1.0, 1.0, 1.0, self.config.brush_preview_opacity),
             mat3::translate(
-                self.screen_to_tile(self.ctx.geng.window().cursor_position())
+                self.screen_to_cell(self.ctx.geng.window().cursor_position())
                     .map(|x| x as f32),
             ) * mat3::rotate_around(vec2::splat(0.5), self.brush.rotation()),
         );
@@ -641,7 +626,7 @@ impl State<'_> {
             "EditorSelect",
             Rgba::WHITE,
             mat3::translate(
-                self.screen_to_tile(self.ctx.geng.window().cursor_position())
+                self.screen_to_cell(self.ctx.geng.window().cursor_position())
                     .map(|x| x as f32),
             ),
         );
@@ -704,5 +689,19 @@ impl State<'_> {
                 self.config.warning_color,
             );
         }
+    }
+}
+
+impl input::Context for State<'_> {
+    fn input(&mut self) -> &mut input::State {
+        &mut self.input
+    }
+
+    fn is_draggable(&self, screen_pos: vec2<f64>) -> bool {
+        let cell = self.screen_to_cell(screen_pos);
+        self.level
+            .entities
+            .iter()
+            .any(|entity| entity.pos.cell == cell)
     }
 }

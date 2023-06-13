@@ -40,12 +40,6 @@ next_level = "P"
 prev_level = "O"
 effect = { jump = "J", delete = "Delete" }
 
-[camera_controls]
-min_fov = 5
-max_fov = 50
-zoom_speed = 0.1
-drag = "Middle"
-
 [editor.level]
 default_fov = 15
 index_size = 0.3
@@ -63,14 +57,11 @@ color = "#777"
 
 [editor.level.controls]
 toggle = "F1"
-create = "Left"
-delete = "Right"
 choose = "Tab"
 pick = "Q"
 grid = "G"
 rotate = "R"
 reset_to_last_save = "F7"
-drag = "LCtrl"
 
 [editor.world]
 fov = 15
