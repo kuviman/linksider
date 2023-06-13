@@ -208,7 +208,7 @@ pub trait Context {
                     from: center(old_touches),
                     to: center(new_touches),
                     fov_scale: distance(old_touches) / distance(new_touches),
-                    rotation: angle(old_touches) - angle(new_touches),
+                    rotation: angle(new_touches) - angle(old_touches),
                 }));
             }
             Some(Drag::DetectPhase { .. }) | None => {}
