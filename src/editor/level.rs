@@ -477,11 +477,45 @@ impl State<'_> {
         }
     }
     fn update(&mut self, delta_time: f64) {
+        for event in input::Context::update(self, delta_time) {
+            self.handle_input(event);
+        }
+
         let _delta_time = delta_time as f32;
         if let Some(autosave_timer) = self.config.autosave_timer {
             if self.autosave_timer.elapsed().as_secs_f64() > autosave_timer {
                 self.autosave_if_enabled();
                 self.autosave_timer.reset();
+            }
+        }
+    }
+
+    fn handle_input(&mut self, event: input::Event) {
+        match event {
+            input::Event::DragStart(position) => {
+                self.dragged_entity = self
+                    .level
+                    .entities
+                    .iter()
+                    .position(|entity| entity.pos.cell == self.screen_to_cell(position));
+                self.drag_pos = position;
+            }
+            input::Event::DragMove(position) => {
+                self.drag_pos = position;
+            }
+            input::Event::DragEnd(position) => {
+                let index = self.dragged_entity.take().unwrap();
+                self.level.entities[index].pos.cell = self.screen_to_cell(position);
+                self.level_mesh = self.ctx.renderer.level_mesh(self.level);
+                self.push_history_if_needed();
+            }
+            input::Event::Click(position) => {
+                self.use_tool(position);
+                self.push_history_if_needed();
+            }
+            input::Event::TransformView(transform) => {
+                transform.apply(&mut self.camera, self.framebuffer_size);
+                self.clamp_camera();
             }
         }
     }
@@ -491,33 +525,7 @@ impl State<'_> {
         event: geng::Event,
     ) -> std::ops::ControlFlow<()> {
         for event in input::Context::handle_event(self, event.clone()) {
-            match event {
-                input::Event::DragStart(position) => {
-                    self.dragged_entity = self
-                        .level
-                        .entities
-                        .iter()
-                        .position(|entity| entity.pos.cell == self.screen_to_cell(position));
-                    self.drag_pos = position;
-                }
-                input::Event::DragMove(position) => {
-                    self.drag_pos = position;
-                }
-                input::Event::DragEnd(position) => {
-                    let index = self.dragged_entity.take().unwrap();
-                    self.level.entities[index].pos.cell = self.screen_to_cell(position);
-                    self.level_mesh = self.ctx.renderer.level_mesh(self.level);
-                    self.push_history_if_needed();
-                }
-                input::Event::Click(position) => {
-                    self.use_tool(position);
-                    self.push_history_if_needed();
-                }
-                input::Event::TransformView(transform) => {
-                    transform.apply(&mut self.camera, self.framebuffer_size);
-                    self.clamp_camera();
-                }
-            }
+            self.handle_input(event);
         }
         let controls = &self.config.controls;
         match event {
