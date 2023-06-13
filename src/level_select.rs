@@ -191,27 +191,34 @@ impl State {
         loop {
             match actx.wait().await {
                 async_states::Event::Event(event) => self.handle_event(actx, event).await,
-                async_states::Event::Update(delta_time) => self.update(delta_time),
+                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
                 async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
             }
         }
     }
-    fn update(&mut self, _delta_time: f64) {}
+    async fn update(&mut self, actx: &mut async_states::Context, delta_time: f64) {
+        for event in input::Context::update(self, delta_time) {
+            self.handle_input(actx, event).await;
+        }
+    }
     async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
         for event in input::Context::handle_event(self, event.clone()) {
-            match event {
-                input::Event::Click(position) => {
-                    if let Some(selection) = self.hovered(position) {
-                        self.play(actx, selection).await;
-                    }
+            self.handle_input(actx, event).await;
+        }
+    }
+    async fn handle_input(&mut self, actx: &mut async_states::Context, event: input::Event) {
+        match event {
+            input::Event::Click(position) => {
+                if let Some(selection) = self.hovered(position) {
+                    self.play(actx, selection).await;
                 }
-                input::Event::TransformView(transform) => {
-                    // TODO not allow transforms?
-                    transform.apply(&mut self.camera, self.framebuffer_size);
-                    self.camera.rotation = Angle::ZERO;
-                }
-                _ => unreachable!(),
             }
+            input::Event::TransformView(transform) => {
+                // TODO not allow transforms?
+                transform.apply(&mut self.camera, self.framebuffer_size);
+                self.camera.rotation = Angle::ZERO;
+            }
+            _ => unreachable!(),
         }
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
