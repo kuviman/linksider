@@ -11,7 +11,9 @@ pub struct Controls {
 
 #[derive(Deserialize)]
 pub struct Config {
-    fov: f32,
+    default_fov: f32,
+    min_fov: f32,
+    max_fov: f32,
     level_icon_size: f32,
     margin: f32,
     preview_texture_size: usize,
@@ -93,6 +95,11 @@ impl State {
             }
             aabb
         });
+        self.camera.rotation = Angle::ZERO;
+        self.camera.fov = self
+            .camera
+            .fov
+            .clamp(self.config.min_fov, self.config.max_fov);
     }
 
     fn hovered_with_screen_pos(&self, screen_pos: vec2<f64>) -> Option<Selection> {
@@ -311,6 +318,7 @@ impl State {
             }
             input::Event::TransformView(transform) => {
                 transform.apply(&mut self.camera, self.framebuffer_size);
+                self.clamp_camera();
             }
         }
     }
@@ -554,7 +562,7 @@ impl State {
             camera: geng::Camera2d {
                 center: vec2::ZERO,
                 rotation: Angle::ZERO,
-                fov: config.fov,
+                fov: config.default_fov,
             },
             config,
             register: None,

@@ -20,6 +20,9 @@ struct BrushWheelConfig {
 #[derive(Deserialize)]
 pub struct Config {
     default_fov: f32,
+    min_fov: f32,
+    max_fov: f32,
+    margin: f32,
     index_size: f32,
     index_color: Rgba<f32>,
     grid_color: Rgba<f32>,
@@ -216,6 +219,36 @@ impl<'a> State<'a> {
             dragged_entity: None,
             input: input::State::new(ctx),
         }
+    }
+
+    fn clamp_camera(&mut self) {
+        let aabb =
+            Aabb2::points_bounding_box(self.level.entities.iter().map(|entity| entity.pos.cell))
+                .unwrap()
+                .extend_positive(vec2::splat(1))
+                .map(|x| x as f32)
+                .extend_uniform(self.config.margin);
+        self.camera.center = self.camera.center.clamp_aabb({
+            let mut aabb = aabb.extend_symmetric(
+                -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
+            );
+            if aabb.min.x > aabb.max.x {
+                let center = (aabb.min.x + aabb.max.x) / 2.0;
+                aabb.min.x = center;
+                aabb.max.x = center;
+            }
+            if aabb.min.y > aabb.max.y {
+                let center = (aabb.min.y + aabb.max.y) / 2.0;
+                aabb.min.y = center;
+                aabb.max.y = center;
+            }
+            aabb
+        });
+        self.camera.rotation = Angle::ZERO;
+        self.camera.fov = self
+            .camera
+            .fov
+            .clamp(self.config.min_fov, self.config.max_fov);
     }
 
     fn screen_to_cell(&self, screen_pos: vec2<f64>) -> vec2<i32> {
@@ -466,6 +499,7 @@ impl State<'_> {
                 }
                 input::Event::TransformView(transform) => {
                     transform.apply(&mut self.camera, self.framebuffer_size);
+                    self.clamp_camera();
                 }
             }
         }
@@ -586,6 +620,7 @@ impl State<'_> {
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
+        self.clamp_camera();
         self.ctx
             .renderer
             .draw_level(framebuffer, &self.camera, &self.level, &self.level_mesh);

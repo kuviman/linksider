@@ -42,6 +42,9 @@ effect = { jump = "J", delete = "Delete" }
 
 [editor.level]
 default_fov = 15
+min_fov = 5
+max_fov = 30
+margin = 5
 index_size = 0.3
 index_color = "white"
 brush_preview_opacity = 0.5
@@ -64,7 +67,9 @@ rotate = "R"
 reset_to_last_save = "F7"
 
 [editor.world]
-fov = 15
+default_fov = 15
+min_fov = 5
+max_fov = 30
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128

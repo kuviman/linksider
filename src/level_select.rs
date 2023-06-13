@@ -206,7 +206,9 @@ impl State {
                     }
                 }
                 input::Event::TransformView(transform) => {
+                    // TODO not allow transforms?
                     transform.apply(&mut self.camera, self.framebuffer_size);
+                    self.camera.rotation = Angle::ZERO;
                 }
                 _ => unreachable!(),
             }
