@@ -36,7 +36,6 @@ jobs:
         run: |
           echo "${{ secrets.APK_KEYSTORE }}" > keystore.base64
           base64 -d keystore.base64 > secret.keystore
-          ls -la
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -44,7 +43,7 @@ jobs:
           args: build --release
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          CARGO_APK_RELEASE_KEYSTORE: ./secret.keystore
+          CARGO_APK_RELEASE_KEYSTORE: ${{ github.workspace }}/secret.keystore
           CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.APK_KEYSTORE_PASSWORD }}
       - name: Copy apk
         run: mkdir android && cp target/release/apk/linksider.apk android/
