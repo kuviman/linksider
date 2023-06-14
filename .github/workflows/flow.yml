@@ -28,6 +28,10 @@ jobs:
         with:
           ndk-version: r25c
           add-to-path: false
+      - name: Create assets folder
+        run: |
+          mkdir android-assets
+          cp -r assets levels android-assets/
       - name: Build
         uses: actions-rs/cargo@v1
         with:
