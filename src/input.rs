@@ -8,7 +8,6 @@ pub struct Config {
 }
 
 pub struct State {
-    geng: Geng,
     config: Rc<Config>,
     cursor_pos: vec2<f64>,
     drag: Option<Drag>,
@@ -42,7 +41,6 @@ enum Drag {
 impl State {
     pub fn new(ctx: &crate::Context) -> Self {
         Self {
-            geng: ctx.geng.clone(),
             config: ctx.assets.config.input.clone(),
             cursor_pos: vec2::ZERO,
             drag: None,

@@ -4,6 +4,7 @@ use super::*;
 pub struct Config {
     margin: f32,
     fov: f32,
+    ui_fov: f32,
     level_icon_size: f32,
 }
 
@@ -31,7 +32,17 @@ pub async fn run(ctx: &Context, actx: &mut async_states::Context) {
             rotation: Angle::ZERO,
             fov: config.fov,
         },
+        ui_camera: geng::Camera2d {
+            center: vec2::ZERO,
+            rotation: Angle::ZERO,
+            fov: config.ui_fov,
+        },
         input: input::State::new(ctx),
+        buttons: Box::new([Button::square(
+            Anchor::TOP_RIGHT,
+            vec2(0, 0),
+            ButtonType::Editor,
+        )]),
     }
     .run(actx)
     .await
@@ -57,7 +68,13 @@ pub struct State {
     config: Rc<Config>,
     groups: Vec<Group>,
     camera: geng::Camera2d,
+    ui_camera: geng::Camera2d,
     input: input::State,
+    buttons: Box<[Button<ButtonType>]>,
+}
+
+enum ButtonType {
+    Editor,
 }
 
 fn level_screen_pos(group_index: usize, level_index: usize) -> vec2<i32> {
@@ -209,7 +226,20 @@ impl State {
     async fn handle_input(&mut self, actx: &mut async_states::Context, event: input::Event) {
         match event {
             input::Event::Click(position) => {
-                if let Some(selection) = self.hovered(position) {
+                let ui_pos = self
+                    .ui_camera
+                    .screen_to_world(self.framebuffer_size, position.map(|x| x as f32));
+                if let Some(button) = self
+                    .buttons
+                    .iter()
+                    .find(|button| button.calculated_pos.contains(ui_pos))
+                {
+                    match button.button_type {
+                        ButtonType::Editor => {
+                            editor::world::State::load(&self.ctx, actx).await;
+                        }
+                    }
+                } else if let Some(selection) = self.hovered(position) {
                     self.play(actx, selection).await;
                 }
             }
@@ -265,6 +295,28 @@ impl State {
                 Rgba::WHITE,
                 0.05,
                 Rgba::BLACK,
+            );
+        }
+
+        buttons::layout(
+            &mut self.buttons,
+            self.ui_camera
+                .view_area(self.framebuffer_size)
+                .bounding_box(),
+        );
+        let ui_cursor_pos = self.ui_camera.screen_to_world(
+            self.framebuffer_size,
+            self.ctx.geng.window().cursor_position().map(|x| x as f32),
+        );
+        for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.ui_camera,
+                match button.button_type {
+                    ButtonType::Editor => "Edit",
+                },
+                Rgba::WHITE,
+                matrix,
             );
         }
     }

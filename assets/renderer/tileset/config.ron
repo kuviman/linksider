@@ -28,6 +28,7 @@
     "SwitchPlayer": At(6, 8),
     "Play": At(9, 8),
     "Save": At(10, 9),
+    "Edit": At(4, 8),
   },
   error: At(4, 4),
 )
