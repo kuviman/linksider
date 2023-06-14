@@ -7,7 +7,7 @@ zzz_time = 30
 happy = true
 
 [play]
-ui_fov = 5
+ui_fov = 6
 fov = 12
 
 [input]
@@ -47,7 +47,7 @@ effect = { jump = "J", delete = "Delete" }
 default_fov = 15
 min_fov = 5
 max_fov = 30
-ui_fov = 5
+ui_fov = 6
 margin = 5
 index_size = 0.3
 index_color = "white"
@@ -58,8 +58,9 @@ warning_color = "#ff0"
 # autosave_timer = 10
 
 [editor.level.tool_wheel]
-radius = 3
-inner_radius = 2
+item_scale = 0.3
+radius = 1
+inner_radius = 0.7
 color = "#777"
 
 [editor.level.controls]
