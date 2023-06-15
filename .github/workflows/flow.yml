@@ -21,7 +21,7 @@ jobs:
           target: aarch64-linux-android
           profile: minimal
       - name: Install cargo-apk
-        run: cargo install cargo-apk
+        run: cargo install cargo-apk --git "https://github.com/kuviman/cargo-apk?dev"
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
@@ -44,6 +44,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           CARGO_APK_RELEASE_KEYSTORE: ${{ github.workspace }}/secret.keystore
+
           CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.APK_KEYSTORE_PASSWORD }}
       - name: Copy apk
         run: mkdir android && cp target/release/apk/linksider.apk android/
