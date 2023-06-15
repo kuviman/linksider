@@ -112,7 +112,7 @@ impl ToolType {
 
     fn show_preview(&self) -> bool {
         match self {
-            Self::Eraser => false,
+            Self::Eraser => true,
             _ => true,
         }
     }
@@ -848,7 +848,7 @@ impl State<'_> {
                 self.ctx.geng.draw2d().draw2d(
                     framebuffer,
                     &self.ui_camera,
-                    &draw2d::Quad::unit(Rgba::BLACK).transform(
+                    &draw2d::Quad::unit(Rgba::GRAY).transform(
                         matrix
                             * mat3::scale_uniform_around(vec2::splat(0.5), 1.1)
                             * mat3::scale_uniform_around(vec2::splat(1.0), 0.5),
