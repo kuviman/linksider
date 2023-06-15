@@ -132,6 +132,7 @@ jobs:
           folder: website/public
           clean-exclude: |
             play
+          single-commit: true
 
   deploy-web:
     name: Deploy web
@@ -151,6 +152,7 @@ jobs:
         with:
           folder: web
           target-folder: play/web
+          single-commit: true
 
   deploy-android:
     name: Deploy android
@@ -170,6 +172,7 @@ jobs:
         with:
           folder: android
           target-folder: play/android
+          single-commit: true
 
   deploy-native:
     name: Deploy native
@@ -197,3 +200,4 @@ jobs:
         with:
           folder: native
           target-folder: play/native
+          single-commit: true
