@@ -642,16 +642,23 @@ impl State<'_> {
         &mut self,
         actx: &mut async_states::Context,
         event: geng::Event,
-    ) -> std::ops::ControlFlow<()> {
+    ) -> ControlFlow<()> {
         let controls = &self.config.controls;
         match event {
+            geng::Event::MouseDown {
+                position,
+                button: geng::MouseButton::Right,
+            } => {
+                self.delete(position);
+                return ControlFlow::Continue(());
+            }
             geng::Event::MouseMove { position, .. } => {
                 self.drag_pos = position;
             }
             geng::Event::KeyDown { key }
                 if self.ctx.assets.config.controls.escape.contains(&key) =>
             {
-                return std::ops::ControlFlow::Break(());
+                return ControlFlow::Break(());
             }
             geng::Event::KeyDown { key } if key == controls.grid => {
                 self.show_grid = !self.show_grid;
