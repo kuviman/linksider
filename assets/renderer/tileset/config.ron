@@ -29,6 +29,8 @@
     "Play": At(9, 8),
     "Save": At(10, 9),
     "Edit": At(4, 8),
+    "Yes": At(3, 9),
+    "No": At(1, 9),
   },
   error: At(4, 4),
 )

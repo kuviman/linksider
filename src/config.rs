@@ -42,6 +42,7 @@ pub struct Config {
     pub level_select: Rc<level_select::Config>,
     pub input: Rc<input::Config>,
     pub deselected_player_color: Rgba<f32>,
+    pub popup: popup::Config,
     pub zzz_time: f32,
     pub happy: bool,
 }

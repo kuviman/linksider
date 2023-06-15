@@ -40,7 +40,7 @@ pub async fn run(ctx: &Context, actx: &mut async_states::Context) {
         input: input::State::new(ctx),
         buttons: Box::new([Button::square(
             Anchor::TOP_RIGHT,
-            vec2(0, 0),
+            vec2(-1, -1),
             ButtonType::Editor,
         )]),
     }

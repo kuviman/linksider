@@ -35,6 +35,7 @@ impl Anchor {
     pub const TOP_RIGHT: Self = Self(vec2(1.0, 1.0));
     pub const BOTTOM_LEFT: Self = Self(vec2(0.0, 0.0));
     pub const BOTTOM_RIGHT: Self = Self(vec2(1.0, 0.0));
+    pub const CENTER: Self = Self(vec2(0.5, 0.5));
 }
 
 pub struct Button<T> {
@@ -62,10 +63,8 @@ impl<T> Button<T> {
         let padding = 0.1;
         Self::new(
             anchor,
-            Aabb2::point(pos.zip(anchor.0).map(|(x, anchor)| {
-                (x as f32 * (size + padding) + padding + size / 2.0) * (1.0 - anchor * 2.0)
-            }))
-            .extend_symmetric(vec2::splat(size / 2.0)),
+            Aabb2::point(pos.map(|x| x as f32 * (size + padding) + padding + size / 2.0))
+                .extend_symmetric(vec2::splat(size / 2.0)),
             button_type,
         )
     }

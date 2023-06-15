@@ -6,6 +6,9 @@ deselected_player_color = "#fff7"
 zzz_time = 30
 happy = true
 
+[popup]
+ui_fov = 6
+
 [play]
 ui_fov = 6
 fov = 12

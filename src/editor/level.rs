@@ -247,18 +247,18 @@ impl<'a> State<'a> {
             dragged_entity: None,
             input: input::State::new(ctx),
             buttons: Box::new([
-                Button::square(Anchor::TOP_RIGHT, vec2(0, 0), ButtonType::Exit),
+                Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Save),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(2, 0), ButtonType::Undo),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(3, 0), ButtonType::Redo),
                 {
                     let mut button =
-                        Button::square(Anchor::TOP_LEFT, vec2(0, 0), ButtonType::ToolPreview);
+                        Button::square(Anchor::TOP_LEFT, vec2(0, -1), ButtonType::ToolPreview);
                     button.usable = false;
                     button
                 },
-                Button::square(Anchor::TOP_LEFT, vec2(1, 0), ButtonType::ToolRotate),
-                Button::square(Anchor::BOTTOM_RIGHT, vec2(0, 0), ButtonType::Play),
+                Button::square(Anchor::TOP_LEFT, vec2(1, -1), ButtonType::ToolRotate),
+                Button::square(Anchor::BOTTOM_RIGHT, vec2(-1, 0), ButtonType::Play),
             ]),
         }
     }
