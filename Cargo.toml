@@ -15,6 +15,7 @@ assets = ["assets", "levels"]
 assets = "android-assets"
 sdk.target_sdk_version = 33
 application.activity.orientation = "landscape"
+application.activity.theme = "@android:style/Theme.NoTitleBar.Fullscreen"
 
 [dependencies]
 geng.git = "https://github.com/geng-engine/geng"
