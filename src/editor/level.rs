@@ -264,12 +264,16 @@ impl<'a> State<'a> {
     }
 
     fn clamp_camera(&mut self) {
-        let aabb =
-            Aabb2::points_bounding_box(self.level.entities.iter().map(|entity| entity.pos.cell))
-                .unwrap()
-                .extend_positive(vec2::splat(1))
-                .map(|x| x as f32)
-                .extend_uniform(self.config.margin);
+        let aabb = match Aabb2::points_bounding_box(
+            self.level.entities.iter().map(|entity| entity.pos.cell),
+        ) {
+            Some(aabb) => aabb,
+            None => return,
+        };
+        let aabb = aabb
+            .extend_positive(vec2::splat(1))
+            .map(|x| x as f32)
+            .extend_uniform(self.config.margin);
         self.camera.center = self.camera.center.clamp_aabb({
             let mut aabb = aabb.extend_symmetric(
                 -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
