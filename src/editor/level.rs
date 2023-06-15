@@ -326,7 +326,25 @@ impl<'a> State<'a> {
         match &self.tool.tool_type {
             ToolType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
                 identifier: name.to_owned(),
-                index: None,
+                index: if name == "Player" {
+                    let find_free_index = || {
+                        let used_indices: HashSet<i32> = self
+                            .level
+                            .entities
+                            .iter()
+                            .filter_map(|entity| entity.index)
+                            .collect();
+                        for i in 1.. {
+                            if !used_indices.contains(&i) {
+                                return i;
+                            }
+                        }
+                        unreachable!()
+                    };
+                    Some(find_free_index())
+                } else {
+                    None
+                },
                 pos: Position {
                     cell,
                     angle: self.tool.angle,
