@@ -12,6 +12,7 @@ pub struct Controls {
 
 #[derive(Deserialize)]
 struct ToolWheelConfig {
+    item_scale: f32,
     radius: f32,
     inner_radius: f32,
     color: Rgba<f32>,
@@ -246,18 +247,18 @@ impl<'a> State<'a> {
             dragged_entity: None,
             input: input::State::new(ctx),
             buttons: Box::new([
-                Button::square(Anchor::TOP_RIGHT, vec2(0, 0), ButtonType::Exit),
+                Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Save),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(2, 0), ButtonType::Undo),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(3, 0), ButtonType::Redo),
                 {
                     let mut button =
-                        Button::square(Anchor::TOP_LEFT, vec2(0, 0), ButtonType::ToolPreview);
+                        Button::square(Anchor::TOP_LEFT, vec2(0, -1), ButtonType::ToolPreview);
                     button.usable = false;
                     button
                 },
-                Button::square(Anchor::TOP_LEFT, vec2(1, 0), ButtonType::ToolRotate),
-                Button::square(Anchor::BOTTOM_RIGHT, vec2(0, 0), ButtonType::Play),
+                Button::square(Anchor::TOP_LEFT, vec2(1, -1), ButtonType::ToolRotate),
+                Button::square(Anchor::BOTTOM_RIGHT, vec2(-1, 0), ButtonType::Play),
             ]),
         }
     }
@@ -836,31 +837,6 @@ impl State<'_> {
             Rgba::WHITE,
         );
 
-        if let Some(wheel) = self.tool_wheel() {
-            let center = self.tool_wheel_pos.unwrap();
-            let config = &self.config.tool_wheel;
-            self.ctx.geng.draw2d().draw2d(
-                framebuffer,
-                &self.ui_camera,
-                &draw2d::Ellipse::circle_with_cut(
-                    center,
-                    config.inner_radius,
-                    2.0 * config.radius - config.inner_radius,
-                    config.color,
-                ),
-            );
-            for item in wheel {
-                item.tool.tool_type.draw(
-                    framebuffer,
-                    &self.ctx,
-                    &self.ui_camera,
-                    mat3::translate(item.pos)
-                        * mat3::scale_uniform(if item.hovered { 2.0 } else { 1.0 })
-                        * mat3::rotate(item.tool.draw_angle()),
-                );
-            }
-        }
-
         buttons::layout(
             &mut self.buttons,
             self.ui_camera
@@ -907,6 +883,34 @@ impl State<'_> {
                 mat3::scale_uniform(self.config.warning_size),
                 self.config.warning_color,
             );
+        }
+
+        if let Some(wheel) = self.tool_wheel() {
+            let center = self.tool_wheel_pos.unwrap();
+            let config = &self.config.tool_wheel;
+            self.ctx.geng.draw2d().draw2d(
+                framebuffer,
+                &self.ui_camera,
+                &draw2d::Ellipse::circle_with_cut(
+                    center,
+                    config.inner_radius,
+                    2.0 * config.radius - config.inner_radius,
+                    config.color,
+                ),
+            );
+            for item in wheel {
+                item.tool.tool_type.draw(
+                    framebuffer,
+                    &self.ctx,
+                    &self.ui_camera,
+                    mat3::translate(item.pos)
+                        * mat3::scale_uniform(
+                            if item.hovered { 2.0 } else { 1.0 }
+                                * self.config.tool_wheel.item_scale,
+                        )
+                        * mat3::rotate(item.tool.draw_angle()),
+                );
+            }
         }
     }
 }

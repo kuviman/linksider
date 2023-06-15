@@ -1,3 +1,4 @@
+#!/bin/bash
 use super::*;
 
 #[derive(Deserialize)]
@@ -14,6 +15,7 @@ pub struct Config {
     default_fov: f32,
     min_fov: f32,
     max_fov: f32,
+    ui_fov: f32,
     level_icon_size: f32,
     margin: f32,
     preview_texture_size: usize,
@@ -50,14 +52,20 @@ struct Selection {
 }
 
 pub struct State {
-    ctx: Rc<Context>,
+    ctx: Context,
     framebuffer_size: vec2<f32>,
     groups: Vec<Group>,
     camera: geng::Camera2d,
+    ui_camera: geng::Camera2d,
     input: input::State,
     config: Rc<Config>,
     register: Option<logicsider::Level>,
     drag: Option<Selection>,
+    buttons: Box<[Button<ButtonType>]>,
+}
+
+enum ButtonType {
+    Exit,
 }
 
 fn level_screen_pos(group_index: usize, level_index: usize) -> vec2<i32> {
@@ -276,19 +284,36 @@ impl input::Context for State {
 impl State {
     async fn run(mut self, actx: &mut async_states::Context) {
         loop {
-            match actx.wait().await {
+            let flow = match actx.wait().await {
                 async_states::Event::Event(event) => self.handle_event(actx, event).await,
                 async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
-                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+                async_states::Event::Draw => {
+                    self.draw(&mut actx.framebuffer());
+                    ControlFlow::Continue(())
+                }
+            };
+            if let ControlFlow::Break(()) = flow {
+                break;
             }
         }
     }
-    async fn update(&mut self, actx: &mut async_states::Context, delta_time: f64) {
+    #[must_use]
+    async fn update(
+        &mut self,
+        actx: &mut async_states::Context,
+        delta_time: f64,
+    ) -> ControlFlow<()> {
         for event in input::Context::update(self, delta_time) {
-            self.handle_input(actx, event).await;
+            self.handle_input(actx, event).await?;
         }
+        ControlFlow::Continue(())
     }
-    async fn handle_input(&mut self, actx: &mut async_states::Context, event: input::Event) {
+    #[must_use]
+    async fn handle_input(
+        &mut self,
+        actx: &mut async_states::Context,
+        event: input::Event,
+    ) -> ControlFlow<()> {
         match event {
             input::Event::DragStart(pos) => {
                 self.start_drag(pos);
@@ -312,7 +337,18 @@ impl State {
                 }
             }
             input::Event::Click(pos) => {
-                if let Some(selection) = self.hovered_with_screen_pos(pos) {
+                let ui_pos = self
+                    .ui_camera
+                    .screen_to_world(self.framebuffer_size, pos.map(|x| x as f32));
+                if let Some(button) = self
+                    .buttons
+                    .iter()
+                    .find(|button| button.calculated_pos.contains(ui_pos))
+                {
+                    match button.button_type {
+                        ButtonType::Exit => return ControlFlow::Break(()),
+                    }
+                } else if let Some(selection) = self.hovered_with_screen_pos(pos) {
                     self.click_selection(actx, selection).await;
                 }
             }
@@ -321,10 +357,15 @@ impl State {
                 self.clamp_camera();
             }
         }
+        ControlFlow::Continue(())
     }
-    async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
+    async fn handle_event(
+        &mut self,
+        actx: &mut async_states::Context,
+        event: geng::Event,
+    ) -> ControlFlow<()> {
         for event in input::Context::handle_event(self, event.clone()) {
-            self.handle_input(actx, event).await;
+            self.handle_input(actx, event).await?;
         }
         match event {
             geng::Event::KeyDown { key } => {
@@ -419,6 +460,7 @@ impl State {
             }
             _ => {}
         }
+        ControlFlow::Continue(())
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
@@ -506,6 +548,28 @@ impl State {
                 Rgba::BLACK,
             );
         }
+
+        buttons::layout(
+            &mut self.buttons,
+            self.ui_camera
+                .view_area(self.framebuffer_size)
+                .bounding_box(),
+        );
+        let ui_cursor_pos = self.ui_camera.screen_to_world(
+            self.framebuffer_size,
+            self.input.cursor_pos().map(|x| x as f32),
+        );
+        for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
+            self.ctx.renderer.draw_tile(
+                framebuffer,
+                &self.ui_camera,
+                match button.button_type {
+                    ButtonType::Exit => "Home",
+                },
+                Rgba::WHITE,
+                matrix,
+            );
+        }
     }
 }
 
@@ -533,7 +597,7 @@ fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
 }
 
 impl State {
-    pub async fn load(ctx: &Rc<Context>, actx: &mut async_states::Context) {
+    pub async fn load(ctx: &Context, actx: &mut async_states::Context) {
         let group_names = levels::load_group_names().await;
         let groups = future::join_all(group_names.into_iter().map(|group_name| async {
             let level_names = levels::load_level_names(&group_name).await;
@@ -564,11 +628,21 @@ impl State {
                 rotation: Angle::ZERO,
                 fov: config.default_fov,
             },
+            ui_camera: geng::Camera2d {
+                center: vec2::ZERO,
+                rotation: Angle::ZERO,
+                fov: config.ui_fov,
+            },
             config,
             register: None,
             ctx: ctx.clone(),
             drag: None,
             input: input::State::new(ctx),
+            buttons: Box::new([Button::square(
+                Anchor::TOP_RIGHT,
+                vec2(-1, -1),
+                ButtonType::Exit,
+            )]),
         };
         state.run(actx).await
     }

@@ -5,6 +5,54 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-android:
+    name: Build android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install things
+        if: matrix.platform.channel == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-linux-android
+          profile: minimal
+      - name: Install cargo-apk
+        run: cargo install cargo-apk
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25c
+          add-to-path: false
+      - name: Create assets folder
+        run: |
+          mkdir android-assets
+          cp -r assets levels android-assets/
+      - name: Setup keystore
+        run: |
+          echo "${{ secrets.APK_KEYSTORE }}" > keystore.base64
+          base64 -d keystore.base64 > secret.keystore
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: apk
+          args: build --release
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          CARGO_APK_RELEASE_KEYSTORE: ${{ github.workspace }}/secret.keystore
+          CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.APK_KEYSTORE_PASSWORD }}
+      - name: Copy apk
+        run: mkdir android && cp target/release/apk/linksider.apk android/
+      - name: Upload artifacts (android)
+        uses: actions/upload-artifact@v2
+        with:
+          name: android
+          path: android
+
   build-web:
     name: Build web
     runs-on: ubuntu-latest
@@ -102,6 +150,25 @@ jobs:
         with:
           folder: web
           target-folder: play/web
+
+  deploy-android:
+    name: Deploy android
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/main' && github.repository_owner == 'kuviman'
+    runs-on: ubuntu-latest
+    needs:
+      - build-android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: android
+          target-folder: play/android
 
   deploy-native:
     name: Deploy native
