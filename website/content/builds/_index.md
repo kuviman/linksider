@@ -10,3 +10,4 @@
 - [Windows](/play/native/linksider-windows.zip)
 - [Linux](/play/native/linksider-linux.zip)
 - [MacOS](/play/native/linksider-mac.zip)
+- [Android](/play/android/linksider.apk)
