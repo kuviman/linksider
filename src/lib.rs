@@ -56,8 +56,12 @@ mod android_main {
         android::init(app);
         android::set_file_mode(android::FileMode::FileSystem);
         if !run_dir().join("levels").exists() {
-            android::copy_assets_to_filesystem(["assets", "levels"], run_dir());
+            android::copy_assets_to_filesystem(["levels"], run_dir());
         }
+        if run_dir().join("assets").exists() {
+            std::fs::remove_dir_all(run_dir().join("assets")).unwrap();
+        }
+        android::copy_assets_to_filesystem(["assets"], run_dir());
         super::main();
     }
 }
