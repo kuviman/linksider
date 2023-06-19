@@ -21,7 +21,7 @@ jobs:
           target: aarch64-linux-android
           profile: minimal
       - name: Install cargo-apk
-        run: cargo install cargo-apk --git "https://github.com/kuviman/cargo-apk?dev"
+        run: cargo install cargo-apk --git "https://github.com/kuviman/cargo-apk" --branch dev
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
