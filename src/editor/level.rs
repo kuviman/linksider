@@ -74,14 +74,14 @@ impl ToolType {
         match self {
             Self::SideEffect(_) => {
                 let matrix = matrix * mat3::scale_uniform(0.8);
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     "Player",
                     Rgba::WHITE,
                     matrix * mat3::translate(vec2::splat(-0.5)),
                 );
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     &self.tile_name(),
@@ -90,7 +90,7 @@ impl ToolType {
                 );
             }
             Self::Powerup(_) => {
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     &self.tile_name(),
@@ -99,7 +99,7 @@ impl ToolType {
                 );
             }
             _ => {
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     &self.tile_name(),
@@ -820,7 +820,7 @@ impl State<'_> {
                 .any(|button| button.calculated_pos.contains(ui_cursor_pos))
         {
             if self.tool.tool_type.show_preview() {
-                self.ctx.renderer.draw_tile(
+                self.ctx.renderer.draw_game_tile(
                     framebuffer,
                     &self.camera,
                     &self.tool.tool_type.tile_name(),
@@ -831,7 +831,7 @@ impl State<'_> {
                     ) * mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle()),
                 );
             }
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "EditorSelect",
@@ -844,7 +844,7 @@ impl State<'_> {
         }
 
         if let Some(index) = self.dragged_entity {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 &self.level.entities[index].identifier,
@@ -886,7 +886,7 @@ impl State<'_> {
                 matrix *= mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle());
             }
             let tool_tile_name = self.tool.tool_type.tile_name();
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.ui_camera,
                 match button.button_type {

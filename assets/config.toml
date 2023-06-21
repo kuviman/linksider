@@ -21,7 +21,9 @@ zoom_speed = 1
 [level_select]
 fov = 10
 ui_fov = 6
-level_icon_size = 0.9
+level_icon_offset = [0, 0.0625]
+level_icon_size = 0.625
+icon_color = "#46425e"
 margin = 5
 
 [render.shadow]

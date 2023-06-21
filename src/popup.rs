@@ -71,7 +71,7 @@ pub async fn confirm(ctx: &Context, actx: &mut async_states::Context, title: &st
                     ),
                     &buttons,
                 ) {
-                    ctx.renderer.draw_tile(
+                    ctx.renderer.draw_game_tile(
                         framebuffer,
                         &ui_camera,
                         match button.button_type {

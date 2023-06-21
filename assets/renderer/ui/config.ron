@@ -1,0 +1,8 @@
+(
+  texture: "texture.png",
+  tile_size: (16, 16),
+  tiles: {
+    "LevelButton": At(1, 0),
+  },
+  error: At(0, 0),
+)

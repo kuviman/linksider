@@ -485,7 +485,7 @@ impl State {
                     ),
                 );
             }
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "Plus",
@@ -495,7 +495,7 @@ impl State {
                 ),
             );
         }
-        self.ctx.renderer.draw_tile(
+        self.ctx.renderer.draw_game_tile(
             framebuffer,
             &self.camera,
             "Plus",
@@ -518,7 +518,7 @@ impl State {
         if let Some(selection) =
             self.hovered_with_screen_pos(self.ctx.geng.window().cursor_position())
         {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "EditorSelect",
@@ -560,7 +560,7 @@ impl State {
             self.input.cursor_pos().map(|x| x as f32),
         );
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.ui_camera,
                 match button.button_type {

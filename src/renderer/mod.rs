@@ -26,27 +26,44 @@ struct Shaders {
 pub struct Assets {
     shaders: Shaders,
     background: background::Assets,
-    tileset: autotile::Tileset,
+    game: autotile::Tileset,
+    ui: autotile::Tileset,
     vfx: vfx::Assets,
+    numbers: Texture,
 }
 
 pub struct Renderer {
     geng: Geng,
     assets: Rc<crate::Assets>,
     background: background::State,
-    entity_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
+    index_meshes: Vec<ugli::VertexBuffer<draw2d::TexturedVertex>>,
+    game_tile_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
+    ui_tile_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
     grid_mesh: ugli::VertexBuffer<draw2d::TexturedVertex>,
     white_texture: ugli::Texture,
 }
 
 impl Renderer {
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
-        let tileset = &assets.renderer.tileset;
-        Self {
-            geng: geng.clone(),
-            assets: assets.clone(),
-            background: background::State::new(geng, assets),
-            entity_meshes: tileset
+        let create_mesh = |uv| {
+            ugli::VertexBuffer::new_static(geng.ugli(), {
+                let pos = Aabb2::ZERO.extend_positive(vec2::splat(1.0));
+                let corners = pos.zip(uv).corners();
+                [
+                    corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
+                ]
+                .map(
+                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
+                        a_pos: vec2(pos_x, pos_y),
+                        a_color: Rgba::WHITE,
+                        a_vt: vec2(uv_x, uv_y),
+                    },
+                )
+                .to_vec()
+            })
+        };
+        let create_tile_meshes = |tileset: &autotile::Tileset| {
+            tileset
                 .def
                 .tiles
                 .iter()
@@ -54,27 +71,31 @@ impl Renderer {
                     tile.default.map(|tileset_pos| {
                         (
                             name.to_owned(),
-                            ugli::VertexBuffer::new_static(geng.ugli(), {
-                                let uv = tileset.def.uv(tileset_pos, tileset.texture.size());
-                                let pos = Aabb2::ZERO.extend_positive(vec2::splat(1.0));
-                                let corners = pos.zip(uv).corners();
-                                [
-                                    corners[0], corners[1], corners[2], corners[0], corners[2],
-                                    corners[3],
-                                ]
-                                .map(
-                                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
-                                        a_pos: vec2(pos_x, pos_y),
-                                        a_color: Rgba::WHITE,
-                                        a_vt: vec2(uv_x, uv_y),
-                                    },
-                                )
-                                .to_vec()
-                            }),
+                            create_mesh(tileset.def.uv(tileset_pos, tileset.texture.size())),
                         )
                     })
                 })
-                .collect(),
+                .collect()
+        };
+        Self {
+            geng: geng.clone(),
+            assets: assets.clone(),
+            background: background::State::new(geng, assets),
+            index_meshes: {
+                let texture_size = assets.renderer.numbers.size();
+                assert!(texture_size.x % texture_size.y == 0);
+                let len = texture_size.x / texture_size.y;
+                (0..len)
+                    .map(|i| {
+                        create_mesh(
+                            Aabb2::point(vec2(i as f32 / len as f32, 0.0))
+                                .extend_positive(vec2(1.0 / len as f32, 1.0)),
+                        )
+                    })
+                    .collect()
+            },
+            game_tile_meshes: create_tile_meshes(&assets.renderer.game),
+            ui_tile_meshes: create_tile_meshes(&assets.renderer.ui),
             white_texture: ugli::Texture::new_with(geng.ugli(), vec2(1, 1), |_| Rgba::WHITE),
             grid_mesh: Self::create_grid_mesh(geng.ugli(), 100, 100),
         }
@@ -201,7 +222,7 @@ impl Renderer {
         );
 
         for goal in &prev_state.goals {
-            self.draw_tile(
+            self.draw_game_tile(
                 framebuffer,
                 camera,
                 "Goal",
@@ -244,7 +265,7 @@ impl Renderer {
             camera,
             &level_mesh.0,
             ugli::DrawMode::Triangles,
-            &self.assets.renderer.tileset.texture,
+            &self.assets.renderer.game.texture,
             color,
             transform,
         );
@@ -320,7 +341,7 @@ impl Renderer {
                         color.to_vec4() * self.assets.config.deselected_player_color.to_vec4(),
                     );
                 }
-                self.draw_tile(
+                self.draw_game_tile(
                     framebuffer,
                     camera,
                     if zzz && entity.identifier == "Player" {
@@ -335,7 +356,7 @@ impl Renderer {
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
-                    self.draw_tile(
+                    self.draw_game_tile(
                         framebuffer,
                         camera,
                         &format!("{effect:?}Power"),
@@ -353,7 +374,7 @@ impl Renderer {
             }
         }
         for powerup in &prev_state.powerups {
-            self.draw_tile(
+            self.draw_game_tile(
                 framebuffer,
                 camera,
                 &format!("{:?}Power", powerup.effect),
@@ -366,7 +387,7 @@ impl Renderer {
         }
     }
 
-    pub fn draw_tile(
+    pub fn draw_game_tile(
         &self,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
@@ -374,7 +395,7 @@ impl Renderer {
         color: Rgba<f32>,
         matrix: mat3<f32>,
     ) {
-        let Some(vertex_data) = self.entity_meshes.get(name) else {
+        let Some(vertex_data) = self.game_tile_meshes.get(name) else {
             log::error!("No data for rendering {name:?}");
             return;
         };
@@ -383,10 +404,57 @@ impl Renderer {
             camera,
             vertex_data,
             ugli::DrawMode::Triangles,
-            &self.assets.renderer.tileset.texture,
+            &self.assets.renderer.game.texture,
             color,
             matrix,
-        )
+        );
+    }
+
+    pub fn draw_ui_tile(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        name: &str,
+        color: Rgba<f32>,
+        matrix: mat3<f32>,
+    ) {
+        let Some(vertex_data) = self.ui_tile_meshes.get(name) else {
+            log::error!("No data for rendering {name:?}");
+            return;
+        };
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            vertex_data,
+            ugli::DrawMode::Triangles,
+            &self.assets.renderer.ui.texture,
+            color,
+            matrix,
+        );
+    }
+
+    pub fn draw_index(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        index: usize,
+        color: Rgba<f32>,
+        matrix: mat3<f32>,
+    ) {
+        let vertex_data = self
+            .index_meshes
+            .get(index)
+            .or(self.index_meshes.last())
+            .unwrap();
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            vertex_data,
+            ugli::DrawMode::TriangleFan,
+            &self.assets.renderer.numbers,
+            color,
+            matrix,
+        );
     }
 
     fn draw_mesh_impl(
@@ -452,17 +520,19 @@ impl Renderer {
             self.geng.ugli(),
             self.assets
                 .renderer
-                .tileset
+                .game
                 .def
                 .generate_mesh(&TileMap {
                     config: &self.assets.logic_config,
                     level,
                 })
                 .flat_map(|tile| {
-                    let uv = self.assets.renderer.tileset.def.uv(
-                        tile.tileset_pos,
-                        self.assets.renderer.tileset.texture.size(),
-                    );
+                    let uv = self
+                        .assets
+                        .renderer
+                        .game
+                        .def
+                        .uv(tile.tileset_pos, self.assets.renderer.game.texture.size());
                     let pos = Aabb2::point(tile.pos)
                         .extend_positive(vec2::splat(1))
                         .map(|x| x as f32);

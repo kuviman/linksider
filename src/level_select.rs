@@ -5,6 +5,8 @@ pub struct Config {
     margin: f32,
     fov: f32,
     ui_fov: f32,
+    icon_color: Rgba<f32>,
+    level_icon_offset: vec2<f32>,
     level_icon_size: f32,
 }
 
@@ -78,7 +80,10 @@ enum ButtonType {
 }
 
 fn level_screen_pos(group_index: usize, level_index: usize) -> vec2<i32> {
-    vec2(level_index as i32, -(group_index as i32))
+    vec2(
+        level_index as i32 + group_index as i32,
+        -(group_index as i32 * 2),
+    )
 }
 
 impl State {
@@ -257,21 +262,28 @@ impl State {
         self.ctx.renderer.draw_background(framebuffer, &self.camera);
         for (group_index, group) in self.groups.iter().enumerate() {
             for (level_index, _level) in group.levels.iter().enumerate() {
-                self.ctx.geng.draw2d().draw2d(
+                let matrix =
+                    mat3::translate(level_screen_pos(group_index, level_index).map(|x| x as f32));
+                self.ctx.renderer.draw_ui_tile(
                     framebuffer,
                     &self.camera,
-                    &draw2d::Quad::new(
-                        Aabb2::point(
-                            level_screen_pos(group_index, level_index).map(|x| x as f32 + 0.5),
-                        )
-                        .extend_symmetric(vec2::splat(self.config.level_icon_size / 2.0)),
-                        Rgba::WHITE,
-                    ),
+                    "LevelButton",
+                    Rgba::WHITE,
+                    matrix,
+                );
+                self.ctx.renderer.draw_index(
+                    framebuffer,
+                    &self.camera,
+                    level_index,
+                    self.config.icon_color,
+                    matrix
+                        * mat3::translate(self.config.level_icon_offset)
+                        * mat3::scale_uniform_around(vec2::splat(0.5), self.config.level_icon_size),
                 );
             }
         }
         if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "EditorSelect",
@@ -309,7 +321,7 @@ impl State {
             self.ctx.geng.window().cursor_position().map(|x| x as f32),
         );
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.ui_camera,
                 match button.button_type {
