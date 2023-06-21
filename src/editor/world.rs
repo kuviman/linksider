@@ -57,7 +57,7 @@ pub struct State {
     groups: Vec<Group>,
     camera: geng::Camera2d,
     ui_camera: geng::Camera2d,
-    input: input::State,
+    input: input::Controller,
     config: Rc<Config>,
     register: Option<logicsider::Level>,
     drag: Option<Selection>,
@@ -273,7 +273,7 @@ impl<T> VecExt<T> for Vec<T> {
 }
 
 impl input::Context for State {
-    fn input(&mut self) -> &mut input::State {
+    fn input(&mut self) -> &mut input::Controller {
         &mut self.input
     }
     fn is_draggable(&self, screen_pos: vec2<f64>) -> bool {
@@ -356,6 +356,7 @@ impl State {
                 transform.apply(&mut self.camera, self.framebuffer_size);
                 self.clamp_camera();
             }
+            _ => {}
         }
         ControlFlow::Continue(())
     }
@@ -637,7 +638,7 @@ impl State {
             register: None,
             ctx: ctx.clone(),
             drag: None,
-            input: input::State::new(ctx),
+            input: input::Controller::new(ctx),
             buttons: Box::new([Button::square(
                 Anchor::TOP_RIGHT,
                 vec2(-1, -1),

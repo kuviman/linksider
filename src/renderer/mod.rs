@@ -30,6 +30,26 @@ pub struct Assets {
     ui: autotile::Tileset,
     vfx: vfx::Assets,
     numbers: Texture,
+    #[load(load_with = "load_group_icons(&manager)")]
+    group_icons: HashMap<String, Texture>,
+}
+
+async fn load_group_icons(
+    manager: &geng::asset::Manager,
+) -> anyhow::Result<HashMap<String, Texture>> {
+    let group_names = levels::load_group_names().await;
+    Ok(
+        future::join_all(group_names.into_iter().map(|name| async move {
+            let texture: Texture = manager
+                .load(levels::group_dir(&name).join("group_icon.png"))
+                .await?;
+            Ok::<_, anyhow::Error>((name, texture))
+        }))
+        .await
+        .into_iter()
+        .filter_map(Result::ok)
+        .collect(),
+    )
 }
 
 pub struct Renderer {
@@ -179,6 +199,27 @@ impl Renderer {
             level_mesh,
             false,
         );
+    }
+
+    pub fn draw_group_icon(
+        &self,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+        group: &str,
+        color: Rgba<f32>,
+        matrix: mat3<f32>,
+    ) {
+        if let Some(texture) = self.assets.renderer.group_icons.get(group) {
+            self.geng.draw2d().draw2d(
+                framebuffer,
+                camera,
+                &draw2d::TexturedQuad::unit_colored(&**texture, color).transform(
+                    matrix
+                        * mat3::scale(vec2(texture.size().map(|x| x as f32).aspect(), 1.0))
+                        * mat3::scale_uniform_around(vec2::splat(1.0), 0.5),
+                ),
+            );
+        }
     }
 
     pub fn draw(

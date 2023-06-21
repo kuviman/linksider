@@ -7,13 +7,13 @@ pub struct Config {
     zoom_speed: f64,
 }
 
-pub struct State {
+pub struct Controller {
     config: Rc<Config>,
     cursor_pos: vec2<f64>,
     drag: Option<Drag>,
 }
 
-impl State {
+impl Controller {
     pub fn cursor_pos(&self) -> vec2<f64> {
         self.cursor_pos
     }
@@ -38,12 +38,26 @@ enum Drag {
     },
 }
 
-impl State {
+pub enum State {
+    Idle,
+    Drag,
+    TransformView,
+}
+
+impl Controller {
     pub fn new(ctx: &crate::Context) -> Self {
         Self {
             config: ctx.assets.config.input.clone(),
             cursor_pos: vec2::ZERO,
             drag: None,
+        }
+    }
+    pub fn state(&self) -> State {
+        match self.drag {
+            Some(Drag::Drag) => State::Drag,
+            Some(Drag::Camera | Drag::Pinch { .. }) => State::TransformView,
+            Some(Drag::DetectPhase { .. }) => State::Idle,
+            None => State::Idle,
         }
     }
 }
@@ -54,6 +68,7 @@ pub enum Event {
     DragEnd(vec2<f64>),
     Click(vec2<f64>),
     TransformView(TransformView),
+    StopTransformView,
 }
 
 pub struct TransformView {
@@ -74,7 +89,7 @@ impl TransformView {
 }
 
 pub trait Context {
-    fn input(&mut self) -> &mut State;
+    fn input(&mut self) -> &mut Controller;
     fn is_draggable(&self, screen_pos: vec2<f64>) -> bool;
     fn update(&mut self, _delta_time: f64) -> Vec<Event> {
         let state = self.input();
@@ -145,7 +160,10 @@ pub trait Context {
                 Some(Drag::Drag) => {
                     return vec![Event::DragEnd(position)];
                 }
-                Some(Drag::Pinch { .. }) | Some(Drag::Camera) | None => {}
+                Some(Drag::Pinch { .. }) | Some(Drag::Camera) => {
+                    return vec![Event::StopTransformView];
+                }
+                None => {}
             },
             geng::Event::Wheel { delta } => {
                 return vec![Event::TransformView(TransformView {

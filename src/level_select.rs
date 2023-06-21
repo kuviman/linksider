@@ -1,18 +1,34 @@
 use super::*;
 
 #[derive(Deserialize)]
+pub struct Controls {
+    up: Vec<geng::Key>,
+    down: Vec<geng::Key>,
+    left: Vec<geng::Key>,
+    right: Vec<geng::Key>,
+    play: Vec<geng::Key>,
+}
+
+#[derive(Deserialize)]
 pub struct Config {
-    margin: f32,
     fov: f32,
     ui_fov: f32,
+    connector_width: f32,
+    connector_color: Rgba<f32>,
     icon_color: Rgba<f32>,
     level_icon_offset: vec2<f32>,
     level_icon_size: f32,
+    camera_speed: f32,
+    other_group_opacity: f32,
+    select_scale: f32,
+    controls: Controls,
 }
 
 pub async fn run(ctx: &Context, actx: &mut async_states::Context) {
     let config = &ctx.assets.config.level_select;
     State {
+        cursor_position: None,
+        selection: Selection { group: 0, level: 0 },
         ctx: ctx.clone(),
         framebuffer_size: vec2::splat(1.0),
         config: config.clone(),
@@ -39,7 +55,7 @@ pub async fn run(ctx: &Context, actx: &mut async_states::Context) {
             rotation: Angle::ZERO,
             fov: config.ui_fov,
         },
-        input: input::State::new(ctx),
+        input: input::Controller::new(ctx),
         buttons: Box::new([Button::square(
             Anchor::TOP_RIGHT,
             vec2(-1, -1),
@@ -59,9 +75,19 @@ struct Group {
     levels: Vec<Level>,
 }
 
+#[derive(Copy, Clone)]
 struct Selection {
     group: usize,
     level: usize,
+}
+
+impl Selection {
+    fn world_pos(&self) -> vec2<i32> {
+        vec2(
+            self.level as i32 + self.group as i32,
+            -(self.group as i32 * 2),
+        )
+    }
 }
 
 pub struct State {
@@ -69,9 +95,11 @@ pub struct State {
     framebuffer_size: vec2<f32>,
     config: Rc<Config>,
     groups: Vec<Group>,
+    selection: Selection,
     camera: geng::Camera2d,
     ui_camera: geng::Camera2d,
-    input: input::State,
+    cursor_position: Option<vec2<f64>>,
+    input: input::Controller,
     buttons: Box<[Button<ButtonType>]>,
 }
 
@@ -79,44 +107,24 @@ enum ButtonType {
     Editor,
 }
 
-fn level_screen_pos(group_index: usize, level_index: usize) -> vec2<i32> {
-    vec2(
-        level_index as i32 + group_index as i32,
-        -(group_index as i32 * 2),
-    )
-}
-
 impl State {
     fn clamp_camera(&mut self) {
-        let aabb = Aabb2::points_bounding_box(self.groups.iter().enumerate().flat_map(
-            |(group_index, group)| {
-                group
-                    .levels
-                    .iter()
-                    .enumerate()
-                    .map(move |(level_index, _level)| level_screen_pos(group_index, level_index))
-            },
-        ))
-        .unwrap()
-        .extend_positive(vec2::splat(1))
-        .map(|x| x as f32)
-        .extend_uniform(self.config.margin);
-        self.camera.center = self.camera.center.clamp_aabb({
-            let mut aabb = aabb.extend_symmetric(
-                -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
-            );
-            if aabb.min.x > aabb.max.x {
-                let center = (aabb.min.x + aabb.max.x) / 2.0;
-                aabb.min.x = center;
-                aabb.max.x = center;
-            }
-            if aabb.min.y > aabb.max.y {
-                let center = (aabb.min.y + aabb.max.y) / 2.0;
-                aabb.min.y = center;
-                aabb.max.y = center;
-            }
-            aabb
-        });
+        let mut min_y = Selection { group: 0, level: 0 }.world_pos().y as f32 + 0.5;
+        let mut max_y = Selection {
+            group: self.groups.len() - 1,
+            level: 0,
+        }
+        .world_pos()
+        .y as f32
+            + 0.5;
+        if min_y > max_y {
+            mem::swap(&mut min_y, &mut max_y);
+        }
+        self.camera.center.y = self.camera.center.y.clamp(min_y, max_y);
+        let group_index_f32 = -(self.camera.center.y - 0.5) / 2.0;
+        let min_x = group_index_f32 + 0.5;
+        let max_x = min_x + 9.0;
+        self.camera.center.x = self.camera.center.x.clamp(min_x, max_x);
     }
 
     fn hovered(&self, screen_pos: vec2<f64>) -> Option<Selection> {
@@ -133,18 +141,18 @@ impl State {
                     .levels
                     .iter()
                     .enumerate()
-                    .map(move |(level_index, _level)| (group_index, level_index))
+                    .map(move |(level_index, _level)| Selection {
+                        group: group_index,
+                        level: level_index,
+                    })
             });
-        for (group_index, level_index) in places {
-            if Aabb2::point(level_screen_pos(group_index, level_index))
+        for place in places {
+            if Aabb2::point(place.world_pos())
                 .extend_positive(vec2::splat(1))
                 .map(|x| x as f32)
                 .contains(world_pos)
             {
-                return Some(Selection {
-                    group: group_index,
-                    level: level_index,
-                });
+                return Some(place);
             }
         }
         None
@@ -197,10 +205,43 @@ impl State {
             selection = self.play_impl(actx, current).await;
         }
     }
+
+    fn viewed_level(&self) -> Selection {
+        let group_index = (0..self.groups.len())
+            .min_by_key(|&group_index| {
+                r32((Selection {
+                    group: group_index,
+                    level: 0,
+                }
+                .world_pos()
+                .y as f32
+                    + 0.5
+                    - self.camera.center.y)
+                    .abs())
+            })
+            .unwrap();
+        let level_index = (0..self.groups[group_index].levels.len())
+            .min_by_key(|&level_index| {
+                r32((Selection {
+                    group: group_index,
+                    level: level_index,
+                }
+                .world_pos()
+                .x as f32
+                    + 0.5
+                    - self.camera.center.x)
+                    .abs())
+            })
+            .unwrap();
+        Selection {
+            group: group_index,
+            level: level_index,
+        }
+    }
 }
 
 impl input::Context for State {
-    fn input(&mut self) -> &mut input::State {
+    fn input(&mut self) -> &mut input::Controller {
         &mut self.input
     }
     fn is_draggable(&self, _screen_pos: vec2<f64>) -> bool {
@@ -222,10 +263,58 @@ impl State {
         for event in input::Context::update(self, delta_time) {
             self.handle_input(actx, event).await;
         }
+        let delta_time = delta_time as f32;
+        if !matches!(self.input.state(), input::State::TransformView) {
+            self.camera.center = lerp(
+                self.camera.center,
+                self.selection.world_pos().map(|x| x as f32 + 0.5),
+                (delta_time * self.config.camera_speed).min(1.0),
+            );
+        }
     }
     async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
         for event in input::Context::handle_event(self, event.clone()) {
             self.handle_input(actx, event).await;
+        }
+        if let geng::Event::MouseMove { position, .. } = event {
+            self.cursor_position = Some(position);
+        }
+        if let geng::Event::KeyUp { key } = event {
+            if self.config.controls.left.contains(&key) {
+                if self.selection.level > 0 {
+                    self.selection.level -= 1;
+                }
+                self.cursor_position = None;
+            }
+            if self.config.controls.right.contains(&key) {
+                if self.selection.level + 1 < self.groups[self.selection.group].levels.len() {
+                    self.selection.level += 1;
+                }
+                self.cursor_position = None;
+            }
+            if self.config.controls.up.contains(&key) {
+                if self.selection.group > 0 {
+                    self.selection.group -= 1;
+                    self.selection.level += 1;
+                }
+                self.cursor_position = None;
+            }
+            if self.config.controls.down.contains(&key) {
+                if self.selection.group + 1 < self.groups.len() {
+                    self.selection.group += 1;
+                    if self.selection.level > 0 {
+                        self.selection.level -= 1;
+                    }
+                }
+                self.cursor_position = None;
+            }
+            self.selection.level = self
+                .selection
+                .level
+                .min(self.groups[self.selection.group].levels.len() - 1);
+            if self.config.controls.play.contains(&key) {
+                self.play(actx, self.selection).await;
+            }
         }
     }
     async fn handle_input(&mut self, actx: &mut async_states::Context, event: input::Event) {
@@ -249,9 +338,13 @@ impl State {
                 }
             }
             input::Event::TransformView(transform) => {
-                // TODO not allow transforms?
                 transform.apply(&mut self.camera, self.framebuffer_size);
+                self.camera.fov = self.config.fov;
                 self.camera.rotation = Angle::ZERO;
+            }
+            input::Event::StopTransformView => {
+                self.selection = self.viewed_level();
+                self.cursor_position = None;
             }
             _ => unreachable!(),
         }
@@ -259,56 +352,114 @@ impl State {
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
         self.clamp_camera();
+
+        let selection = if matches!(self.input.state(), input::State::TransformView) {
+            self.viewed_level()
+        } else {
+            self.cursor_position
+                .and_then(|pos| self.hovered(pos))
+                .unwrap_or(self.selection)
+        };
+
         self.ctx.renderer.draw_background(framebuffer, &self.camera);
-        for (group_index, group) in self.groups.iter().enumerate() {
-            for (level_index, _level) in group.levels.iter().enumerate() {
-                let matrix =
-                    mat3::translate(level_screen_pos(group_index, level_index).map(|x| x as f32));
-                self.ctx.renderer.draw_ui_tile(
-                    framebuffer,
-                    &self.camera,
-                    "LevelButton",
-                    Rgba::WHITE,
-                    matrix,
-                );
-                self.ctx.renderer.draw_index(
-                    framebuffer,
-                    &self.camera,
-                    level_index,
-                    self.config.icon_color,
-                    matrix
-                        * mat3::translate(self.config.level_icon_offset)
-                        * mat3::scale_uniform_around(vec2::splat(0.5), self.config.level_icon_size),
-                );
+        // TODO not create this texture every frame KEKW
+        let mut other_groups =
+            ugli::Texture::new_uninitialized(self.ctx.geng.ugli(), framebuffer.size());
+        {
+            let mut other_framebuffer = ugli::Framebuffer::new_color(
+                self.ctx.geng.ugli(),
+                ugli::ColorAttachment::Texture(&mut other_groups),
+            );
+            for (group_index, group) in self.groups.iter().enumerate() {
+                let draw_group = |framebuffer: &mut ugli::Framebuffer| {
+                    self.ctx.renderer.draw_group_icon(
+                        framebuffer,
+                        &self.camera,
+                        &group.name,
+                        Rgba::WHITE,
+                        mat3::translate(
+                            Selection {
+                                group: group_index,
+                                level: 0,
+                            }
+                            .world_pos()
+                            .map(|x| x as f32)
+                                + vec2(0.0, 1.0),
+                        ),
+                    );
+                    self.ctx.geng.draw2d().draw2d(
+                        framebuffer,
+                        &self.camera,
+                        &draw2d::Quad::new(
+                            Aabb2::point(
+                                Selection {
+                                    group: group_index,
+                                    level: 0,
+                                }
+                                .world_pos()
+                                .map(|x| x as f32 + 0.5),
+                            )
+                            .extend_positive(vec2(group.levels.len() as f32 - 1.0, 0.0))
+                            .extend_uniform(self.config.connector_width / 2.0),
+                            self.config.connector_color,
+                        ),
+                    );
+                    for (level_index, _level) in group.levels.iter().enumerate() {
+                        let matrix = mat3::translate(
+                            Selection {
+                                group: group_index,
+                                level: level_index,
+                            }
+                            .world_pos()
+                            .map(|x| x as f32),
+                        );
+                        self.ctx.renderer.draw_ui_tile(
+                            framebuffer,
+                            &self.camera,
+                            "LevelButton",
+                            Rgba::WHITE,
+                            matrix,
+                        );
+                        self.ctx.renderer.draw_index(
+                            framebuffer,
+                            &self.camera,
+                            level_index,
+                            self.config.icon_color,
+                            matrix
+                                * mat3::translate(self.config.level_icon_offset)
+                                * mat3::scale_uniform_around(
+                                    vec2::splat(0.5),
+                                    self.config.level_icon_size,
+                                ),
+                        );
+                    }
+                };
+                if group_index == selection.group {
+                    draw_group(framebuffer);
+                } else {
+                    draw_group(&mut other_framebuffer);
+                }
             }
         }
-        if let Some(selection) = self.hovered(self.ctx.geng.window().cursor_position()) {
-            self.ctx.renderer.draw_game_tile(
-                framebuffer,
-                &self.camera,
-                "EditorSelect",
-                Rgba::WHITE,
-                mat3::translate(
-                    level_screen_pos(selection.group, selection.level).map(|x| x as f32),
-                ),
-            );
-            let group = &self.groups[selection.group];
-            let level = &group.levels[selection.level];
-            let text = format!("{}::{}", group.name, level.name);
-            self.ctx.geng.default_font().draw_with_outline(
-                framebuffer,
-                &self.camera,
-                &text,
-                vec2::splat(geng::TextAlign::CENTER),
-                mat3::translate(
-                    level_screen_pos(selection.group, selection.level).map(|x| x as f32 + 0.5)
-                        + vec2(0.0, 1.0),
-                ),
-                Rgba::WHITE,
-                0.05,
-                Rgba::BLACK,
-            );
-        }
+        self.ctx.geng.draw2d().draw2d(
+            framebuffer,
+            &geng::PixelPerfectCamera,
+            &draw2d::TexturedQuad::colored(
+                Aabb2::ZERO.extend_positive(self.framebuffer_size),
+                &other_groups,
+                Rgba::new(1.0, 1.0, 1.0, self.config.other_group_opacity),
+            ),
+        );
+        self.ctx.renderer.draw_ui_tile(
+            framebuffer,
+            &self.camera,
+            "Select",
+            Rgba::WHITE,
+            mat3::translate(selection.world_pos().map(|x| x as f32))
+                * mat3::scale_uniform_around(vec2::splat(0.5), self.config.select_scale),
+        );
+        let group = &self.groups[selection.group];
+        let _level = &group.levels[selection.level];
 
         buttons::layout(
             &mut self.buttons,

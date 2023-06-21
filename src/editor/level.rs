@@ -175,7 +175,7 @@ pub struct State<'a> {
     camera: Camera2d,
     ui_camera: Camera2d,
     level_mesh: renderer::LevelMesh,
-    input: input::State,
+    input: input::Controller,
     tool: Tool,
     tool_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
@@ -245,7 +245,7 @@ impl<'a> State<'a> {
             show_grid: true,
             ctx: ctx.clone(),
             dragged_entity: None,
-            input: input::State::new(ctx),
+            input: input::Controller::new(ctx),
             buttons: Box::new([
                 Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Save),
@@ -657,6 +657,7 @@ impl State<'_> {
                 transform.apply(&mut self.camera, self.framebuffer_size);
                 self.clamp_camera();
             }
+            _ => {}
         }
         ControlFlow::Continue(())
     }
@@ -945,7 +946,7 @@ impl State<'_> {
 }
 
 impl input::Context for State<'_> {
-    fn input(&mut self) -> &mut input::State {
+    fn input(&mut self) -> &mut input::Controller {
         &mut self.input
     }
 
