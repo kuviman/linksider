@@ -29,7 +29,7 @@ So participating in the [Bevy Jam 3](https://itch.io/jam/bevy-jam-3) was a great
 On day 1 we were starting out with bevy for the first time ever, so we went ahead and read the bevy book. Surprisingly it was very short.
 
 One of the first things to notice was very long compilation time.
-Which wouldnt really matter too much for me since building of the dependencies is only supposed to happen once. But, almost every time I added a new dependency to the project (like `bevy_rapier` or `bevy_ecs_ldtk`) it was recompiling the entire world from scratch again, making me wait for 20 minutes which made me not want to add new dependencies ever even if I would benefit from them. It would be faster if I didn't use `--jobs 2` for compilation, but that would cause unpleasant lagging of the system.
+Which wouldn't really matter too much for me since building of the dependencies is only supposed to happen once. But, almost every time I added a new dependency to the project (like `bevy_rapier` or `bevy_ecs_ldtk`) it was recompiling the entire world from scratch again, making me wait for 20 minutes which made me not want to add new dependencies ever even if I would benefit from them. It would be faster if I didn't use `--jobs 2` for compilation, but that would cause unpleasant lagging of the system.
 
 Also dynamic linking was set up from beginning, like shown in the book.
 But I was getting a lot of linker errors (about unresolved symbols) from time to time for some reason. Only full recompilation was solving that issue, so we ended up using regular static linking instead which made us wait for 20-40 secs for every small change in game code.
@@ -61,7 +61,7 @@ Also using [bevy-inspector-egui](https://crates.io/crates/bevy-inspector-egui) w
 In order to make levels we decided to try out [LDTK](https://ldtk.io/).
 We never used it before but heard good things about it, and there was an existing [plugin for bevy](https://crates.io/crates/bevy_ecs_ldtk).
 
-It was very simple to load the level tilemap and have it drawn on the screen (although initially I had to realise that I should not put my camera at z=0).
+It was very simple to load the level tilemap and have it drawn on the screen (although initially I had to realize that I should not put my camera at z=0).
 
 For spawning the entities & int grid cells `bevy_ecs_ldtk` uses the derive macro approach which I was not really a big fan of.
 I think it would be easier to use if instead of writing logic in derive attributes I could simple use any regular Rust function/closure returning a bundle, so like instead of:
@@ -91,7 +91,7 @@ The way it worked was spawning a polyline for every tile, and then despawning a 
 
 One other thing I missed from `bevy_ecs_ldtk` was registering int cells by name instead of by actual int value, since there is an option to specify names in ldtk itself.
 
-<!-- cheeseburge -->
+<!-- cheeseburger -->
 
 ## Rewrite from scratch
 
