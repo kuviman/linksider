@@ -49,7 +49,7 @@ impl Vfx {
                 EntityMoveType::Jump {
                     from,
                     blocked_angle,
-                    cells_travelled,
+                    cells_traveled: cells_travelled,
                     jump_force,
                 } => {
                     if let Some(blocked_angle) = blocked_angle {

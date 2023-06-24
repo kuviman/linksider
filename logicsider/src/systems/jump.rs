@@ -22,7 +22,7 @@ pub fn system(
         .map(|&p| pos.cell + (jump_to - IntAngle::UP).rotate_vec(p));
 
     let mut new_pos = None;
-    let mut cells_travelled = 0;
+    let mut cells_traveled = 0;
     let mut blocked_angle = None;
     let mut prev_cell = entity.pos.cell;
     for p in path {
@@ -39,7 +39,7 @@ pub fn system(
                 pos.angle
             },
         });
-        cells_travelled += 1;
+        cells_traveled += 1;
     }
     if let Some(new_pos) = new_pos {
         Some(EntityMove {
@@ -50,7 +50,7 @@ pub fn system(
             move_type: EntityMoveType::Jump {
                 from: jump_from,
                 blocked_angle,
-                cells_travelled,
+                cells_traveled,
                 jump_force: 3,
             },
         })

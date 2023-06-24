@@ -317,12 +317,12 @@ impl Renderer {
             let (from, to) = match entity_move {
                 Some(entity_move) => {
                     if let EntityMoveType::Jump {
-                        cells_travelled,
+                        cells_traveled,
                         jump_force,
                         ..
                     } = entity_move.move_type
                     {
-                        animation_time = cells_travelled as f32 / jump_force as f32;
+                        animation_time = cells_traveled as f32 / jump_force as f32;
                     }
                     (entity_move.prev_pos, entity_move.new_pos)
                 }
