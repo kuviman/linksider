@@ -21,7 +21,7 @@ jobs:
           target: aarch64-linux-android
           profile: minimal
       - name: Install cargo-apk
-        run: cargo install cargo-apk --git "https://github.com/kuviman/cargo-apk" --branch dev
+        run: cargo install cargo-apk --git "https://github.com/geng-engine/cargo-apk" --branch dev
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
@@ -92,7 +92,7 @@ jobs:
           toolchain: stable
           profile: minimal
       - name: Install cargo-geng
-        run: cargo install cargo-geng --git https://github.com/kuviman/geng
+        run: cargo install cargo-geng --git https://github.com/geng-engine/geng
       - name: Test
         uses: actions-rs/cargo@v1
         with:
