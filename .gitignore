@@ -3,5 +3,4 @@
 
 /.direnv/
 /target
-/Cargo.lock
 /android-assets/
