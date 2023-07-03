@@ -4,17 +4,17 @@ V1((
             index: Some(1),
             identifier: "Player",
             pos: (
-                cell: (6, -10),
+                cell: (9, -5),
                 angle: (0),
             ),
             sides: ((
-                effect: None,
+                effect: Some(Magnet),
             ), (
-                effect: None,
+                effect: Some(Magnet),
             ), (
-                effect: None,
+                effect: Some(Magnet),
             ), (
-                effect: None,
+                effect: Some(Magnet),
             )),
         ),
         (
@@ -2585,36 +2585,7 @@ V1((
             )),
         ),
     ],
-    powerups: [
-        (
-            pos: (
-                cell: (8, -10),
-                angle: (3),
-            ),
-            effect: Magnet,
-        ),
-        (
-            pos: (
-                cell: (7, -10),
-                angle: (3),
-            ),
-            effect: Magnet,
-        ),
-        (
-            pos: (
-                cell: (9, -10),
-                angle: (3),
-            ),
-            effect: Magnet,
-        ),
-        (
-            pos: (
-                cell: (10, -10),
-                angle: (3),
-            ),
-            effect: Magnet,
-        ),
-    ],
+    powerups: [],
     goals: [
         (
             pos: (
