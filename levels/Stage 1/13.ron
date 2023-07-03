@@ -561,6 +561,23 @@ V1((
                 effect: None,
             )),
         ),
+        (
+            index: None,
+            identifier: "block",
+            pos: (
+                cell: (12, -7),
+                angle: (0),
+            ),
+            sides: ((
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            ), (
+                effect: None,
+            )),
+        ),
     ],
     powerups: [],
     goals: [
