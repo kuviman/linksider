@@ -1,4 +1,6 @@
+# git worktree add gh-pages
+/gh-pages
+
 /.direnv/
 /target
-/Cargo.lock
 /android-assets/

@@ -4,7 +4,7 @@ cell_pixel_size = 16
 border_radius_pixels = 4
 deselected_player_color = "#fff7"
 zzz_time = 30
-happy = true
+happy = false
 
 [popup]
 ui_fov = 6
@@ -19,10 +19,23 @@ max_click_time = 0.5
 zoom_speed = 1
 
 [level_select]
-fov = 10
+fov = 12
 ui_fov = 6
-level_icon_size = 0.9
-margin = 5
+level_icon_offset = [0, 0.0625]
+level_icon_size = 0.625
+icon_color = "#46425e"
+connector_width = 0.25
+connector_color = "#ffb0a3"
+camera_speed = 5
+other_group_opacity = 0.5
+select_scale = 1.5
+
+[level_select.controls]
+left = ["Left", "A", "H"]
+right = ["Right", "D", "L"]
+up = ["Up", "W", "K"]
+down = ["Down", "S", "J"]
+play = ["Space", "Enter", "O"]
 
 [render.shadow]
 offset = [0.125, -0.125]
@@ -52,7 +65,7 @@ default_fov = 15
 min_fov = 5
 max_fov = 30
 ui_fov = 6
-margin = 5
+margin = 15
 index_size = 0.3
 index_color = "white"
 preview_opacity = 0.5

@@ -57,7 +57,7 @@ pub struct State {
     groups: Vec<Group>,
     camera: geng::Camera2d,
     ui_camera: geng::Camera2d,
-    input: input::State,
+    input: input::Controller,
     config: Rc<Config>,
     register: Option<logicsider::Level>,
     drag: Option<Selection>,
@@ -273,7 +273,7 @@ impl<T> VecExt<T> for Vec<T> {
 }
 
 impl input::Context for State {
-    fn input(&mut self) -> &mut input::State {
+    fn input(&mut self) -> &mut input::Controller {
         &mut self.input
     }
     fn is_draggable(&self, screen_pos: vec2<f64>) -> bool {
@@ -356,6 +356,7 @@ impl State {
                 transform.apply(&mut self.camera, self.framebuffer_size);
                 self.clamp_camera();
             }
+            _ => {}
         }
         ControlFlow::Continue(())
     }
@@ -485,7 +486,7 @@ impl State {
                     ),
                 );
             }
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "Plus",
@@ -495,7 +496,7 @@ impl State {
                 ),
             );
         }
-        self.ctx.renderer.draw_tile(
+        self.ctx.renderer.draw_game_tile(
             framebuffer,
             &self.camera,
             "Plus",
@@ -518,7 +519,7 @@ impl State {
         if let Some(selection) =
             self.hovered_with_screen_pos(self.ctx.geng.window().cursor_position())
         {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "EditorSelect",
@@ -560,7 +561,7 @@ impl State {
             self.input.cursor_pos().map(|x| x as f32),
         );
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.ui_camera,
                 match button.button_type {
@@ -637,7 +638,7 @@ impl State {
             register: None,
             ctx: ctx.clone(),
             drag: None,
-            input: input::State::new(ctx),
+            input: input::Controller::new(ctx),
             buttons: Box::new([Button::square(
                 Anchor::TOP_RIGHT,
                 vec2(-1, -1),

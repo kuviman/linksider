@@ -100,7 +100,7 @@ impl State {
                 EntityMoveType::SlideContinue => continue,
                 EntityMoveType::Jump {
                     blocked_angle,
-                    cells_travelled,
+                    cells_traveled,
                     jump_force,
                     ..
                 } => {
@@ -108,7 +108,7 @@ impl State {
                         self.play_after(
                             &assets.hit_wall,
                             time::Duration::from_secs_f64(
-                                cells_travelled as f64 / jump_force as f64,
+                                cells_traveled as f64 / jump_force as f64,
                             ),
                         );
                     }

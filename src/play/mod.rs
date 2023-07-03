@@ -276,7 +276,7 @@ impl State {
             self.ctx.geng.window().cursor_position().map(|x| x as f32),
         );
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.ui_camera,
                 match button.button_type {

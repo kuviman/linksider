@@ -74,14 +74,14 @@ impl ToolType {
         match self {
             Self::SideEffect(_) => {
                 let matrix = matrix * mat3::scale_uniform(0.8);
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     "Player",
                     Rgba::WHITE,
                     matrix * mat3::translate(vec2::splat(-0.5)),
                 );
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     &self.tile_name(),
@@ -90,7 +90,7 @@ impl ToolType {
                 );
             }
             Self::Powerup(_) => {
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     &self.tile_name(),
@@ -99,7 +99,7 @@ impl ToolType {
                 );
             }
             _ => {
-                ctx.renderer.draw_tile(
+                ctx.renderer.draw_game_tile(
                     framebuffer,
                     camera,
                     &self.tile_name(),
@@ -175,7 +175,7 @@ pub struct State<'a> {
     camera: Camera2d,
     ui_camera: Camera2d,
     level_mesh: renderer::LevelMesh,
-    input: input::State,
+    input: input::Controller,
     tool: Tool,
     tool_wheel_pos: Option<vec2<f32>>,
     path: std::path::PathBuf,
@@ -245,7 +245,7 @@ impl<'a> State<'a> {
             show_grid: true,
             ctx: ctx.clone(),
             dragged_entity: None,
-            input: input::State::new(ctx),
+            input: input::Controller::new(ctx),
             buttons: Box::new([
                 Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
                 Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Save),
@@ -264,12 +264,16 @@ impl<'a> State<'a> {
     }
 
     fn clamp_camera(&mut self) {
-        let aabb =
-            Aabb2::points_bounding_box(self.level.entities.iter().map(|entity| entity.pos.cell))
-                .unwrap()
-                .extend_positive(vec2::splat(1))
-                .map(|x| x as f32)
-                .extend_uniform(self.config.margin);
+        let aabb = match Aabb2::points_bounding_box(
+            self.level.entities.iter().map(|entity| entity.pos.cell),
+        ) {
+            Some(aabb) => aabb,
+            None => return,
+        };
+        let aabb = aabb
+            .extend_positive(vec2::splat(1))
+            .map(|x| x as f32)
+            .extend_uniform(self.config.margin);
         self.camera.center = self.camera.center.clamp_aabb({
             let mut aabb = aabb.extend_symmetric(
                 -vec2(self.framebuffer_size.aspect(), 1.0) * self.camera.fov / 2.0,
@@ -322,7 +326,25 @@ impl<'a> State<'a> {
         match &self.tool.tool_type {
             ToolType::Entity(name) => self.level.entities.push(logicsider::level::Entity {
                 identifier: name.to_owned(),
-                index: None,
+                index: if name == "Player" {
+                    let find_free_index = || {
+                        let used_indices: HashSet<i32> = self
+                            .level
+                            .entities
+                            .iter()
+                            .filter_map(|entity| entity.index)
+                            .collect();
+                        for i in 1.. {
+                            if !used_indices.contains(&i) {
+                                return i;
+                            }
+                        }
+                        unreachable!()
+                    };
+                    Some(find_free_index())
+                } else {
+                    None
+                },
                 pos: Position {
                     cell,
                     angle: self.tool.angle,
@@ -635,6 +657,7 @@ impl State<'_> {
                 transform.apply(&mut self.camera, self.framebuffer_size);
                 self.clamp_camera();
             }
+            _ => {}
         }
         ControlFlow::Continue(())
     }
@@ -642,16 +665,23 @@ impl State<'_> {
         &mut self,
         actx: &mut async_states::Context,
         event: geng::Event,
-    ) -> std::ops::ControlFlow<()> {
+    ) -> ControlFlow<()> {
         let controls = &self.config.controls;
         match event {
+            geng::Event::MouseDown {
+                position,
+                button: geng::MouseButton::Right,
+            } => {
+                self.delete(position);
+                return ControlFlow::Continue(());
+            }
             geng::Event::MouseMove { position, .. } => {
                 self.drag_pos = position;
             }
             geng::Event::KeyDown { key }
                 if self.ctx.assets.config.controls.escape.contains(&key) =>
             {
-                return std::ops::ControlFlow::Break(());
+                return ControlFlow::Break(());
             }
             geng::Event::KeyDown { key } if key == controls.grid => {
                 self.show_grid = !self.show_grid;
@@ -791,7 +821,7 @@ impl State<'_> {
                 .any(|button| button.calculated_pos.contains(ui_cursor_pos))
         {
             if self.tool.tool_type.show_preview() {
-                self.ctx.renderer.draw_tile(
+                self.ctx.renderer.draw_game_tile(
                     framebuffer,
                     &self.camera,
                     &self.tool.tool_type.tile_name(),
@@ -802,7 +832,7 @@ impl State<'_> {
                     ) * mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle()),
                 );
             }
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 "EditorSelect",
@@ -815,7 +845,7 @@ impl State<'_> {
         }
 
         if let Some(index) = self.dragged_entity {
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.camera,
                 &self.level.entities[index].identifier,
@@ -857,7 +887,7 @@ impl State<'_> {
                 matrix *= mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle());
             }
             let tool_tile_name = self.tool.tool_type.tile_name();
-            self.ctx.renderer.draw_tile(
+            self.ctx.renderer.draw_game_tile(
                 framebuffer,
                 &self.ui_camera,
                 match button.button_type {
@@ -916,7 +946,7 @@ impl State<'_> {
 }
 
 impl input::Context for State<'_> {
-    fn input(&mut self) -> &mut input::State {
+    fn input(&mut self) -> &mut input::Controller {
         &mut self.input
     }
 

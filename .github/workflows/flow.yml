@@ -21,7 +21,7 @@ jobs:
           target: aarch64-linux-android
           profile: minimal
       - name: Install cargo-apk
-        run: cargo install cargo-apk
+        run: cargo install cargo-apk --git "https://github.com/geng-engine/cargo-apk" --branch dev
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
@@ -44,6 +44,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           CARGO_APK_RELEASE_KEYSTORE: ${{ github.workspace }}/secret.keystore
+
           CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.APK_KEYSTORE_PASSWORD }}
       - name: Copy apk
         run: mkdir android && cp target/release/apk/linksider.apk android/
@@ -91,7 +92,7 @@ jobs:
           toolchain: stable
           profile: minimal
       - name: Install cargo-geng
-        run: cargo install cargo-geng --git https://github.com/kuviman/geng
+        run: cargo install cargo-geng --git https://github.com/geng-engine/geng
       - name: Test
         uses: actions-rs/cargo@v1
         with:
@@ -131,6 +132,7 @@ jobs:
           folder: website/public
           clean-exclude: |
             play
+          single-commit: true
 
   deploy-web:
     name: Deploy web
@@ -150,6 +152,7 @@ jobs:
         with:
           folder: web
           target-folder: play/web
+          single-commit: true
 
   deploy-android:
     name: Deploy android
@@ -169,6 +172,7 @@ jobs:
         with:
           folder: android
           target-folder: play/android
+          single-commit: true
 
   deploy-native:
     name: Deploy native
@@ -196,3 +200,4 @@ jobs:
         with:
           folder: native
           target-folder: play/native
+          single-commit: true
