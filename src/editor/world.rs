@@ -149,7 +149,6 @@ impl State {
 
     async fn insert_level(
         &mut self,
-        actx: &mut async_states::Context,
         group_index: usize,
         level_index: usize,
         level: logicsider::Level,
@@ -157,7 +156,7 @@ impl State {
         if self.groups.get(group_index).is_none() {
             return;
         }
-        let Some(name) = popup::prompt(&self.ctx, actx, "New level name", "").await else {
+        let Some(name) = popup::prompt(&self.ctx, "New level name", "").await else { 
             return;
         };
         let group = &mut self.groups[group_index];
@@ -212,7 +211,7 @@ impl State {
         Some(())
     }
 
-    async fn click_selection(&mut self, actx: &mut async_states::Context, selection: Selection) {
+    async fn click_selection(&mut self, selection: Selection) {
         if let Some(group) = self.groups.get_mut(selection.group) {
             if let Some(level) = group.levels.get_mut(selection.level) {
                 editor::level::State::new(
@@ -221,19 +220,14 @@ impl State {
                     &mut level.state,
                     levels::level_path(&group.name, &level.name),
                 )
-                .run(actx)
+                .run()
                 .await;
                 level.preview = generate_preview(&self.ctx, &level.state);
             } else {
-                self.insert_level(
-                    actx,
-                    selection.group,
-                    selection.level,
-                    logicsider::Level::empty(),
-                )
-                .await;
+                self.insert_level(selection.group, selection.level, logicsider::Level::empty())
+                    .await;
             }
-        } else if let Some(name) = popup::prompt(&self.ctx, actx, "New group name", "").await {
+        } else if let Some(name) = popup::prompt(&self.ctx, "New group name", "").await {
             let group = Group {
                 name,
                 levels: Vec::new(),
@@ -282,15 +276,22 @@ impl input::Context for State {
 }
 
 impl State {
-    async fn run(mut self, actx: &mut async_states::Context) {
-        loop {
-            let flow = match actx.wait().await {
-                async_states::Event::Event(event) => self.handle_event(actx, event).await,
-                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
-                async_states::Event::Draw => {
-                    self.draw(&mut actx.framebuffer());
-                    ControlFlow::Continue(())
+    async fn run(mut self) {
+        let mut timer = Timer::new();
+        let mut events = self.ctx.geng.window().events();
+        while let Some(event) = events.next().await {
+            let flow = match event {
+                geng::Event::Draw => {
+                    self.ctx
+                        .geng
+                        .window()
+                        .clone()
+                        .with_framebuffer(|framebuffer| {
+                            self.draw(framebuffer);
+                        });
+                    self.update(timer.tick().as_secs_f64()).await
                 }
+                _ => self.handle_event(event).await,
             };
             if let ControlFlow::Break(()) = flow {
                 break;
@@ -298,22 +299,14 @@ impl State {
         }
     }
     #[must_use]
-    async fn update(
-        &mut self,
-        actx: &mut async_states::Context,
-        delta_time: f64,
-    ) -> ControlFlow<()> {
+    async fn update(&mut self, delta_time: f64) -> ControlFlow<()> {
         for event in input::Context::update(self, delta_time) {
-            self.handle_input(actx, event).await?;
+            self.handle_input(event).await?;
         }
         ControlFlow::Continue(())
     }
     #[must_use]
-    async fn handle_input(
-        &mut self,
-        actx: &mut async_states::Context,
-        event: input::Event,
-    ) -> ControlFlow<()> {
+    async fn handle_input(&mut self, event: input::Event) -> ControlFlow<()> {
         match event {
             input::Event::DragStart(pos) => {
                 self.start_drag(pos);
@@ -322,9 +315,13 @@ impl State {
             input::Event::DragEnd(pos) => {
                 if let Some(from) = self.drag.take() {
                     if let Some(to) = self.hovered_with_screen_pos(pos) {
-                        if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) {
+                        if self
+                            .ctx
+                            .geng
+                            .window()
+                            .is_key_pressed(geng::Key::ControlLeft)
+                        {
                             self.insert_level(
-                                actx,
                                 to.group,
                                 to.level,
                                 self.groups[from.group].levels[from.level].state.clone(),
@@ -349,7 +346,7 @@ impl State {
                         ButtonType::Exit => return ControlFlow::Break(()),
                     }
                 } else if let Some(selection) = self.hovered_with_screen_pos(pos) {
-                    self.click_selection(actx, selection).await;
+                    self.click_selection(selection).await;
                 }
             }
             input::Event::TransformView(transform) => {
@@ -360,25 +357,22 @@ impl State {
         }
         ControlFlow::Continue(())
     }
-    async fn handle_event(
-        &mut self,
-        actx: &mut async_states::Context,
-        event: geng::Event,
-    ) -> ControlFlow<()> {
+    async fn handle_event(&mut self, event: geng::Event) -> ControlFlow<()> {
         for event in input::Context::handle_event(self, event.clone()) {
-            self.handle_input(actx, event).await?;
+            self.handle_input(event).await?;
         }
         match event {
-            geng::Event::KeyDown { key } => {
-                if let Some(selection) =
-                    self.hovered_with_screen_pos(self.ctx.geng.window().cursor_position())
+            geng::Event::KeyPress { key } => {
+                if let Some(selection) = self
+                    .input
+                    .cursor_pos()
+                    .and_then(|pos| self.hovered_with_screen_pos(pos))
                 {
                     if self.config.controls.rename == key {
                         if let Some(group) = self.groups.get_mut(selection.group) {
                             if let Some(level) = group.levels.get_mut(selection.level) {
                                 if let Some(new_name) =
-                                    popup::prompt(&self.ctx, actx, "Rename level", &level.name)
-                                        .await
+                                    popup::prompt(&self.ctx, "Rename level", &level.name).await
                                 {
                                     std::fs::rename(
                                         levels::level_path(&group.name, &level.name),
@@ -390,8 +384,7 @@ impl State {
                                 }
                             } else {
                                 if let Some(new_name) =
-                                    popup::prompt(&self.ctx, actx, "Rename group", &group.name)
-                                        .await
+                                    popup::prompt(&self.ctx, "Rename group", &group.name).await
                                 {
                                     std::fs::rename(
                                         levels::group_dir(&group.name),
@@ -407,7 +400,6 @@ impl State {
                     if self.config.controls.insert == key {
                         if self.groups.get(selection.group).is_some() {
                             self.insert_level(
-                                actx,
                                 selection.group,
                                 selection.level,
                                 logicsider::Level::empty(),
@@ -420,7 +412,6 @@ impl State {
                             if selection.level < group.levels.len() {
                                 if popup::confirm(
                                     &self.ctx,
-                                    actx,
                                     &format!(
                                         "Are you sure you want to delete level\n{}::{}",
                                         group.name, group.levels[selection.level].name,
@@ -452,7 +443,7 @@ impl State {
                     if self.config.controls.paste == key {
                         if self.groups.get(selection.group).is_some() {
                             if let Some(state) = self.register.clone() {
-                                self.insert_level(actx, selection.group, selection.level, state)
+                                self.insert_level(selection.group, selection.level, state)
                                     .await;
                             }
                         }
@@ -510,14 +501,21 @@ impl State {
                 &self.camera,
                 &draw2d::TexturedQuad::unit(&level.preview)
                     .scale_uniform(0.25)
-                    .translate(self.camera.screen_to_world(
-                        self.framebuffer_size,
-                        self.ctx.geng.window().cursor_position().map(|x| x as f32),
-                    )),
+                    .translate(
+                        self.input
+                            .cursor_pos()
+                            .map(|pos| {
+                                self.camera
+                                    .screen_to_world(self.framebuffer_size, pos.map(|x| x as f32))
+                            })
+                            .unwrap(),
+                    ),
             );
         }
-        if let Some(selection) =
-            self.hovered_with_screen_pos(self.ctx.geng.window().cursor_position())
+        if let Some(selection) = self
+            .input
+            .cursor_pos()
+            .and_then(|pos| self.hovered_with_screen_pos(pos))
         {
             self.ctx.renderer.draw_game_tile(
                 framebuffer,
@@ -556,10 +554,10 @@ impl State {
                 .view_area(self.framebuffer_size)
                 .bounding_box(),
         );
-        let ui_cursor_pos = self.ui_camera.screen_to_world(
-            self.framebuffer_size,
-            self.input.cursor_pos().map(|x| x as f32),
-        );
+        let ui_cursor_pos = self.input.cursor_pos().map(|pos| {
+            self.ui_camera
+                .screen_to_world(self.framebuffer_size, pos.map(|x| x as f32))
+        });
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
             self.ctx.renderer.draw_game_tile(
                 framebuffer,
@@ -598,7 +596,7 @@ fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
 }
 
 impl State {
-    pub async fn load(ctx: &Context, actx: &mut async_states::Context) {
+    pub async fn load(ctx: &Context) {
         let group_names = levels::load_group_names().await;
         let groups = future::join_all(group_names.into_iter().map(|group_name| async {
             let level_names = levels::load_level_names(&group_name).await;
@@ -645,6 +643,6 @@ impl State {
                 ButtonType::Exit,
             )]),
         };
-        state.run(actx).await
+        state.run().await
     }
 }

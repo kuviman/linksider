@@ -19,6 +19,7 @@ pub struct State {
     zzz: bool,
     touch_input: Option<Input>,
     buttons: Box<[Button<ButtonType>]>,
+    cursor_position: Option<vec2<f64>>,
 }
 
 pub enum Transition {
@@ -71,21 +72,29 @@ impl State {
                 Button::square(Anchor::BOTTOM_LEFT, vec2(3, 0), ButtonType::Redo),
                 Button::square(Anchor::TOP_LEFT, vec2(1, -1), ButtonType::SwitchPlayer),
             ]),
+            cursor_position: None,
         }
     }
     pub fn finish(&mut self, finish: Transition) {
         self.transition = Some(finish);
     }
 
-    pub async fn run(mut self, actx: &mut async_states::Context) -> Transition {
-        loop {
-            let flow = match actx.wait().await {
-                async_states::Event::Event(event) => self.handle_event(event),
-                async_states::Event::Update(delta_time) => self.update(delta_time),
-                async_states::Event::Draw => {
-                    self.draw(&mut actx.framebuffer());
-                    ControlFlow::Continue(())
+    pub async fn run(mut self) -> Transition {
+        let mut events = self.ctx.geng.window().events();
+        let mut timer = Timer::new();
+        while let Some(event) = events.next().await {
+            let flow = match event {
+                geng::Event::Draw => {
+                    self.ctx
+                        .geng
+                        .window()
+                        .clone()
+                        .with_framebuffer(|framebuffer| {
+                            self.draw(framebuffer);
+                        });
+                    self.update(timer.tick().as_secs_f64())
                 }
+                _ => self.handle_event(event),
             };
             if let ControlFlow::Break(()) = flow {
                 return Transition::Exit;
@@ -94,6 +103,7 @@ impl State {
                 return transition;
             }
         }
+        unreachable!()
     }
 
     fn update(&mut self, delta_time: f64) -> ControlFlow<()> {
@@ -166,7 +176,7 @@ impl State {
 
         let mut player_input = None;
         match event {
-            geng::Event::KeyDown { key } => {
+            geng::Event::KeyPress { key } => {
                 if key == self.ctx.assets.config.editor.level.controls.toggle {
                     self.finish(Transition::Editor);
                 }
@@ -223,8 +233,13 @@ impl State {
                     }
                 }
             }
-            geng::Event::MouseDown { position, .. } => {
-                self.click(position)?;
+            geng::Event::CursorMove { position } => {
+                self.cursor_position = Some(position);
+            }
+            geng::Event::MousePress { .. } => {
+                if let Some(position) = self.cursor_position {
+                    self.click(position)?;
+                }
             }
             geng::Event::TouchStart(touch) => {
                 if !self.click(touch.position)? {
@@ -271,10 +286,10 @@ impl State {
                 .view_area(self.framebuffer_size)
                 .bounding_box(),
         );
-        let ui_cursor_pos = self.ui_camera.screen_to_world(
-            self.framebuffer_size,
-            self.ctx.geng.window().cursor_position().map(|x| x as f32),
-        );
+        let ui_cursor_pos = self.ctx.geng.window().cursor_position().map(|pos| {
+            self.ui_camera
+                .screen_to_world(self.framebuffer_size, pos.map(|x| x as f32))
+        });
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
             self.ctx.renderer.draw_game_tile(
                 framebuffer,

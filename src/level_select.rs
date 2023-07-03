@@ -24,7 +24,7 @@ pub struct Config {
     controls: Controls,
 }
 
-pub async fn run(ctx: &Context, actx: &mut async_states::Context) {
+pub async fn run(ctx: &Context) {
     let config = &ctx.assets.config.level_select;
     State {
         cursor_position: None,
@@ -62,7 +62,7 @@ pub async fn run(ctx: &Context, actx: &mut async_states::Context) {
             ButtonType::Editor,
         )]),
     }
-    .run(actx)
+    .run()
     .await
 }
 
@@ -158,18 +158,14 @@ impl State {
         None
     }
 
-    async fn play_impl(
-        &mut self,
-        actx: &mut async_states::Context,
-        selection: Selection,
-    ) -> Option<Selection> {
+    async fn play_impl(&mut self, selection: Selection) -> Option<Selection> {
         let group = &self.groups[selection.group];
         let level = &group.levels[selection.level];
         let mut level_state =
             logicsider::Level::load_from_file(levels::level_path(&group.name, &level.name))
                 .await
                 .unwrap();
-        let finish = play::State::new(&self.ctx, &level_state).run(actx).await;
+        let finish = play::State::new(&self.ctx, &level_state).run().await;
         let mut selection = selection;
         match finish {
             play::Transition::NextLevel => {
@@ -191,7 +187,7 @@ impl State {
                     &mut level_state,
                     levels::level_path(&group.name, &level.name),
                 )
-                .run(actx)
+                .run()
                 .await
             }
             play::Transition::Exit => {}
@@ -199,10 +195,10 @@ impl State {
         None
     }
 
-    async fn play(&mut self, actx: &mut async_states::Context, selection: Selection) {
+    async fn play(&mut self, selection: Selection) {
         let mut selection = Some(selection);
         while let Some(current) = selection {
-            selection = self.play_impl(actx, current).await;
+            selection = self.play_impl(current).await;
         }
     }
 
@@ -250,18 +246,28 @@ impl input::Context for State {
 }
 
 impl State {
-    async fn run(mut self, actx: &mut async_states::Context) {
-        loop {
-            match actx.wait().await {
-                async_states::Event::Event(event) => self.handle_event(actx, event).await,
-                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
-                async_states::Event::Draw => self.draw(&mut actx.framebuffer()),
+    async fn run(mut self) {
+        let mut timer = Timer::new();
+        let mut events = self.ctx.geng.window().events();
+        while let Some(event) = events.next().await {
+            match event {
+                geng::Event::Draw => {
+                    self.update(timer.tick().as_secs_f64()).await;
+                    self.ctx
+                        .geng
+                        .window()
+                        .clone()
+                        .with_framebuffer(|framebuffer| {
+                            self.draw(framebuffer);
+                        });
+                }
+                _ => self.handle_event(event).await,
             }
         }
     }
-    async fn update(&mut self, actx: &mut async_states::Context, delta_time: f64) {
+    async fn update(&mut self, delta_time: f64) {
         for event in input::Context::update(self, delta_time) {
-            self.handle_input(actx, event).await;
+            self.handle_input(event).await;
         }
         let delta_time = delta_time as f32;
         if !matches!(self.input.state(), input::State::TransformView) {
@@ -272,14 +278,14 @@ impl State {
             );
         }
     }
-    async fn handle_event(&mut self, actx: &mut async_states::Context, event: geng::Event) {
+    async fn handle_event(&mut self, event: geng::Event) {
         for event in input::Context::handle_event(self, event.clone()) {
-            self.handle_input(actx, event).await;
+            self.handle_input(event).await;
         }
-        if let geng::Event::MouseMove { position, .. } = event {
+        if let geng::Event::CursorMove { position, .. } = event {
             self.cursor_position = Some(position);
         }
-        if let geng::Event::KeyUp { key } = event {
+        if let geng::Event::KeyRelease { key } = event {
             if self.config.controls.left.contains(&key) {
                 if self.selection.level > 0 {
                     self.selection.level -= 1;
@@ -313,11 +319,11 @@ impl State {
                 .level
                 .min(self.groups[self.selection.group].levels.len() - 1);
             if self.config.controls.play.contains(&key) {
-                self.play(actx, self.selection).await;
+                self.play(self.selection).await;
             }
         }
     }
-    async fn handle_input(&mut self, actx: &mut async_states::Context, event: input::Event) {
+    async fn handle_input(&mut self, event: input::Event) {
         match event {
             input::Event::Click(position) => {
                 let ui_pos = self
@@ -330,11 +336,11 @@ impl State {
                 {
                     match button.button_type {
                         ButtonType::Editor => {
-                            editor::world::State::load(&self.ctx, actx).await;
+                            editor::world::State::load(&self.ctx).await;
                         }
                     }
                 } else if let Some(selection) = self.hovered(position) {
-                    self.play(actx, selection).await;
+                    self.play(selection).await;
                 }
             }
             input::Event::TransformView(transform) => {
@@ -467,10 +473,10 @@ impl State {
                 .view_area(self.framebuffer_size)
                 .bounding_box(),
         );
-        let ui_cursor_pos = self.ui_camera.screen_to_world(
-            self.framebuffer_size,
-            self.ctx.geng.window().cursor_position().map(|x| x as f32),
-        );
+        let ui_cursor_pos = self.cursor_position.map(|pos| {
+            self.ui_camera
+                .screen_to_world(self.framebuffer_size, pos.map(|x| x as f32))
+        });
         for (matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
             self.ctx.renderer.draw_game_tile(
                 framebuffer,

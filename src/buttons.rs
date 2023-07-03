@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn matrices<T>(
-    cursor_pos: vec2<f32>,
+    cursor_pos: Option<vec2<f32>>,
     buttons: &[Button<T>],
 ) -> impl Iterator<Item = (mat3<f32>, &Button<T>)> + '_ {
     buttons.iter().map(move |button| {
@@ -9,7 +9,11 @@ pub fn matrices<T>(
             * mat3::scale(button.calculated_pos.size())
             * mat3::scale_uniform_around(
                 vec2::splat(0.5),
-                if button.usable && button.calculated_pos.contains(cursor_pos) {
+                if button.usable
+                    && cursor_pos.map_or(false, |cursor_pos| {
+                        button.calculated_pos.contains(cursor_pos)
+                    })
+                {
                     1.1
                 } else {
                     1.0

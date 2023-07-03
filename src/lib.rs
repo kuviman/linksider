@@ -2,7 +2,6 @@ use geng::prelude::*;
 
 use std::ops::ControlFlow;
 
-mod async_states;
 mod buttons;
 mod config;
 mod editor;
@@ -70,34 +69,38 @@ pub fn main() {
     logger::init();
     geng::setup_panic_handler();
     let cli_args: Opt = cli::parse();
-    let geng = Geng::new_with(geng::ContextOptions {
-        title: "LinkSider".to_owned(),
-        ..geng::ContextOptions::from_args(&cli_args.geng)
-    });
-    geng.clone().run_loading(async move {
-        let geng = &geng;
-        let assets: Assets = geng
-            .asset_manager()
-            .load(run_dir().join("assets"))
-            .await
-            .unwrap();
-        let assets = Rc::new(assets);
-        let assets = &assets;
-        let sound = Rc::new(sound::State::new(geng, assets));
-        let renderer = Rc::new(Renderer::new(geng, assets));
-        let ctx = Rc::new(Context {
-            geng: geng.clone(),
-            assets: assets.clone(),
-            sound,
-            renderer,
-        });
+    Geng::run_with(
+        &{
+            let mut options = geng::ContextOptions {
+                window: geng::window::Options::new("LinkSider"),
+                ..default()
+            };
+            options.with_cli(&cli_args.geng);
+            options
+        },
+        move |geng| async move {
+            let geng = &geng;
+            let assets: Assets = geng
+                .asset_manager()
+                .load(run_dir().join("assets"))
+                .await
+                .unwrap();
+            let assets = Rc::new(assets);
+            let assets = &assets;
+            let sound = Rc::new(sound::State::new(geng, assets));
+            let renderer = Rc::new(Renderer::new(geng, assets));
+            let ctx = Rc::new(Context {
+                geng: geng.clone(),
+                assets: assets.clone(),
+                sound,
+                renderer,
+            });
 
-        Box::new(async_states::as_state(geng, |mut actx| async move {
             if cli_args.editor {
-                editor::world::State::load(&ctx, &mut actx).await;
+                editor::world::State::load(&ctx).await;
             } else {
-                level_select::run(&ctx, &mut actx).await;
+                level_select::run(&ctx).await;
             }
-        })) as Box<dyn geng::State>
-    });
+        },
+    );
 }

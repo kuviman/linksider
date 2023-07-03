@@ -31,10 +31,10 @@ other_group_opacity = 0.5
 select_scale = 1.5
 
 [level_select.controls]
-left = ["Left", "A", "H"]
-right = ["Right", "D", "L"]
-up = ["Up", "W", "K"]
-down = ["Down", "S", "J"]
+left = ["ArrowLeft", "A", "H"]
+right = ["ArrowRight", "D", "L"]
+up = ["ArrowUp", "W", "K"]
+down = ["ArrowDown", "S", "J"]
 play = ["Space", "Enter", "O"]
 
 [render.shadow]
@@ -45,14 +45,14 @@ opacity = 0.2
 volume = 0.1
 
 [controls]
-left = ["Left", "A"]
-right = ["Right", "D"]
+left = ["ArrowLeft", "A"]
+right = ["ArrowRight", "D"]
 skip = ["Space"]
 restart = ["R"]
 undo = ["Z", "U"]
 redo = ["X", "Y"]
-next_player = ["Tab", "Up"]
-prev_player = ["Down"]
+next_player = ["Tab", "ArrowUp"]
+prev_player = ["ArrowDown"]
 escape = ["Escape"]
 
 [controls.cheats]
