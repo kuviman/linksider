@@ -67,10 +67,10 @@ impl State {
             touch_input: None,
             buttons: Box::new([
                 Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Reset),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(2, 0), ButtonType::Undo),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(3, 0), ButtonType::Redo),
-                Button::square(Anchor::TOP_LEFT, vec2(1, -1), ButtonType::SwitchPlayer),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Undo),
+                Button::square(Anchor::BOTTOM_LEFT, vec2(1, 0), ButtonType::Redo),
+                Button::square(Anchor::BOTTOM_RIGHT, vec2(-1, 0), ButtonType::SwitchPlayer),
+                Button::square(Anchor::TOP_LEFT, vec2(0, -1), ButtonType::Reset),
             ]),
             cursor_position: None,
         }
