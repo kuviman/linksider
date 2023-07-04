@@ -5,7 +5,7 @@ pub struct Player {
     moves: Vec<Moves>,
     target_pos: usize,
     playback_pos: f32,
-    animation_time: f32,
+    animation_time: f32, // Time to animate one game tick
     auto_continue: bool,
 }
 
@@ -62,9 +62,10 @@ pub struct Frame<'a> {
 
 impl Player {
     pub fn frame(&self) -> Frame {
+        let end_of_history = self.playback_pos >= self.moves.len() as f32;
         Frame {
             current_state: &self.states[self.playback_pos.ceil() as usize],
-            animation: if self.target_pos as f32 == self.playback_pos {
+            animation: if self.target_pos as f32 == self.playback_pos || end_of_history {
                 None
             } else {
                 Some(Animation {
