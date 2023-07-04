@@ -19,7 +19,7 @@ pub struct Config {
 #[derive(geng::asset::Load)]
 struct Shaders {
     texture: ugli::Program,
-    fullscreen_texture: ugli::Program,
+    background: ugli::Program,
 }
 
 #[derive(geng::asset::Load)]
@@ -530,6 +530,29 @@ impl Renderer {
                 ..default()
             },
         );
+    }
+
+    pub fn draw_lowres(&self, f: impl FnOnce(&mut ugli::Framebuffer)) {
+        self.geng.window().with_framebuffer(|framebuffer| {
+            let mut texture =
+                ugli::Texture::new_uninitialized(self.geng.ugli(), framebuffer.size() / 10);
+            texture.set_filter(ugli::Filter::Nearest);
+            {
+                let mut framebuffer = ugli::Framebuffer::new_color(
+                    self.geng.ugli(),
+                    ugli::ColorAttachment::Texture(&mut texture),
+                );
+                f(&mut framebuffer);
+            }
+            self.geng.draw2d().draw2d(
+                framebuffer,
+                &geng::PixelPerfectCamera,
+                &draw2d::TexturedQuad::new(
+                    Aabb2::ZERO.extend_positive(framebuffer.size().map(|x| x as f32)),
+                    &texture,
+                ),
+            )
+        });
     }
 }
 

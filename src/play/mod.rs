@@ -85,6 +85,10 @@ impl State {
         while let Some(event) = events.next().await {
             let flow = match event {
                 geng::Event::Draw => {
+                    // self.ctx
+                    //     .clone()
+                    //     .renderer
+                    //     .draw_lowres(|framebuffer| self.draw(framebuffer));
                     self.ctx
                         .geng
                         .window()

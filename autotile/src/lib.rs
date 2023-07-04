@@ -277,7 +277,7 @@ impl geng::asset::Load for Tileset {
         async move {
             let (config, def) = TilesetDef::load(path.join("config.ron")).await?;
             let mut texture: ugli::Texture = manager.load(path.join(config.texture)).await?;
-            texture.set_filter(ugli::Filter::Nearest);
+            // texture.set_filter(ugli::Filter::Nearest);
             Ok(Self { texture, def })
         }
         .boxed_local()

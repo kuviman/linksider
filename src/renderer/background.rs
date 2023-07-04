@@ -41,7 +41,7 @@ impl State {
         let mut draw_layer = |texture: &ugli::Texture, k: f32| {
             ugli::draw(
                 framebuffer,
-                &self.assets.renderer.shaders.fullscreen_texture,
+                &self.assets.renderer.shaders.background,
                 ugli::DrawMode::TriangleFan,
                 &self.quad,
                 (
