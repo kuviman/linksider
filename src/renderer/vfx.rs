@@ -129,13 +129,17 @@ impl Vfx {
             let start_vt = frame / frames as f32;
             let end_vt = (frame + 1.0) / frames as f32;
             let (start_vt, end_vt) = (1.0 - end_vt, 1.0 - start_vt);
-            let v = |x, y| draw2d::TexturedVertex {
+            let uv_aabb = Aabb2 {
+                min: vec2(0.0, start_vt),
+                max: vec2(1.0, end_vt),
+            };
+            let v = |x, y| TilesetVertex {
                 a_pos: vec2(x as f32, y as f32),
-                a_vt: vec2(
-                    if cell.flip { 1 - x } else { x } as f32,
-                    start_vt + (end_vt - start_vt) * y as f32,
-                ),
-                a_color: Rgba::WHITE,
+                a_uv: uv_aabb.bottom_left()
+                    + uv_aabb.size()
+                        * vec2(if cell.flip { 1.0 - x as f32 } else { x as f32 }, y as f32),
+                a_tile_uv_bottom_left: uv_aabb.bottom_left(),
+                a_tile_uv_top_right: uv_aabb.top_right(),
             };
             let vertex_data = ugli::VertexBuffer::new_dynamic(
                 self.ctx.geng.ugli(),

@@ -56,10 +56,10 @@ pub struct Renderer {
     geng: Geng,
     assets: Rc<crate::Assets>,
     background: background::State,
-    index_meshes: Vec<ugli::VertexBuffer<draw2d::TexturedVertex>>,
-    game_tile_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
-    ui_tile_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
-    grid_mesh: ugli::VertexBuffer<draw2d::TexturedVertex>,
+    index_meshes: Vec<ugli::VertexBuffer<TilesetVertex>>,
+    game_tile_meshes: HashMap<String, ugli::VertexBuffer<TilesetVertex>>,
+    ui_tile_meshes: HashMap<String, ugli::VertexBuffer<TilesetVertex>>,
+    grid_mesh: ugli::VertexBuffer<TilesetVertex>,
     white_texture: ugli::Texture,
 }
 
@@ -72,13 +72,12 @@ impl Renderer {
                 [
                     corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
                 ]
-                .map(
-                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
-                        a_pos: vec2(pos_x, pos_y),
-                        a_color: Rgba::WHITE,
-                        a_vt: vec2(uv_x, uv_y),
-                    },
-                )
+                .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| TilesetVertex {
+                    a_pos: vec2(pos_x, pos_y),
+                    a_uv: vec2(uv_x, uv_y),
+                    a_tile_uv_bottom_left: uv.bottom_left(),
+                    a_tile_uv_top_right: uv.top_right(),
+                })
                 .to_vec()
             })
         };
@@ -125,30 +124,34 @@ impl Renderer {
         ugli: &Ugli,
         width: usize,
         height: usize,
-    ) -> ugli::VertexBuffer<draw2d::TexturedVertex> {
+    ) -> ugli::VertexBuffer<TilesetVertex> {
         let mut data = Vec::with_capacity(((width + 1) + (height + 1)) * 2);
         for x in 0..=width {
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(x as f32, 0.0),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
+                a_tile_uv_bottom_left: vec2::ZERO,
+                a_tile_uv_top_right: vec2::ZERO,
             });
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(x as f32, height as f32),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
+                a_tile_uv_bottom_left: vec2::ZERO,
+                a_tile_uv_top_right: vec2::ZERO,
             });
         }
         for y in 0..=height {
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(0.0, y as f32),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
+                a_tile_uv_bottom_left: vec2::ZERO,
+                a_tile_uv_top_right: vec2::ZERO,
             });
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(width as f32, y as f32),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
+                a_tile_uv_bottom_left: vec2::ZERO,
+                a_tile_uv_top_right: vec2::ZERO,
             });
         }
         ugli::VertexBuffer::new_static(ugli, data)
@@ -518,6 +521,7 @@ impl Renderer {
                     u_model_matrix: matrix,
                     u_color: color,
                     u_texture: texture,
+                    u_texture_size: texture.size().map(|x| x as f32),
                 },
                 camera.uniforms(framebuffer.size().map(|x| x as f32)),
             ),
@@ -529,7 +533,15 @@ impl Renderer {
     }
 }
 
-pub struct LevelMesh(ugli::VertexBuffer<draw2d::TexturedVertex>);
+#[derive(ugli::Vertex, Clone)]
+struct TilesetVertex {
+    a_uv: vec2<f32>,
+    a_pos: vec2<f32>,
+    a_tile_uv_bottom_left: vec2<f32>,
+    a_tile_uv_top_right: vec2<f32>,
+}
+
+pub struct LevelMesh(ugli::VertexBuffer<TilesetVertex>);
 
 impl Renderer {
     pub fn level_mesh(&self, level: &Level) -> LevelMesh {
@@ -581,14 +593,13 @@ impl Renderer {
                     [
                         corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
                     ]
-                })
-                .map(
-                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
+                    .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| TilesetVertex {
                         a_pos: vec2(pos_x, pos_y),
-                        a_color: Rgba::WHITE,
-                        a_vt: vec2(uv_x, uv_y),
-                    },
-                )
+                        a_uv: vec2(uv_x, uv_y),
+                        a_tile_uv_bottom_left: uv.bottom_left(),
+                        a_tile_uv_top_right: uv.top_right(),
+                    })
+                })
                 .collect(),
         ))
     }
