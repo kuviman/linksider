@@ -65,9 +65,11 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
-        let create_mesh = |uv| {
+        let create_mesh = |border, uv| {
             ugli::VertexBuffer::new_static(geng.ugli(), {
-                let pos = Aabb2::ZERO.extend_positive(vec2::splat(1.0));
+                let pos = Aabb2::ZERO
+                    .extend_positive(vec2::splat(1.0))
+                    .extend_symmetric(border);
                 let corners = pos.zip(uv).corners();
                 [
                     corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
@@ -75,8 +77,6 @@ impl Renderer {
                 .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| TilesetVertex {
                     a_pos: vec2(pos_x, pos_y),
                     a_uv: vec2(uv_x, uv_y),
-                    a_tile_uv_bottom_left: uv.bottom_left(),
-                    a_tile_uv_top_right: uv.top_right(),
                 })
                 .to_vec()
             })
@@ -90,7 +90,16 @@ impl Renderer {
                     tile.default.map(|tileset_pos| {
                         (
                             name.to_owned(),
-                            create_mesh(tileset.def.uv(tileset_pos, tileset.texture.size())),
+                            create_mesh(
+                                vec2::ZERO,
+                                tileset.def.uv(tileset_pos, tileset.texture.size()),
+                            ),
+                            // create_mesh(
+                            //     vec2::splat(1.0) / tileset.def.tile_size.map(|x| x as f32),
+                            //     tileset
+                            //         .def
+                            //         .uv_with_border(tileset_pos, tileset.texture.size()),
+                            // ),
                         )
                     })
                 })
@@ -107,6 +116,7 @@ impl Renderer {
                 (0..len)
                     .map(|i| {
                         create_mesh(
+                            vec2::ZERO,
                             Aabb2::point(vec2(i as f32 / len as f32, 0.0))
                                 .extend_positive(vec2(1.0 / len as f32, 1.0)),
                         )
@@ -130,28 +140,20 @@ impl Renderer {
             data.push(TilesetVertex {
                 a_pos: vec2(x as f32, 0.0),
                 a_uv: vec2::ZERO,
-                a_tile_uv_bottom_left: vec2::ZERO,
-                a_tile_uv_top_right: vec2::ZERO,
             });
             data.push(TilesetVertex {
                 a_pos: vec2(x as f32, height as f32),
                 a_uv: vec2::ZERO,
-                a_tile_uv_bottom_left: vec2::ZERO,
-                a_tile_uv_top_right: vec2::ZERO,
             });
         }
         for y in 0..=height {
             data.push(TilesetVertex {
                 a_pos: vec2(0.0, y as f32),
                 a_uv: vec2::ZERO,
-                a_tile_uv_bottom_left: vec2::ZERO,
-                a_tile_uv_top_right: vec2::ZERO,
             });
             data.push(TilesetVertex {
                 a_pos: vec2(width as f32, y as f32),
                 a_uv: vec2::ZERO,
-                a_tile_uv_bottom_left: vec2::ZERO,
-                a_tile_uv_top_right: vec2::ZERO,
             });
         }
         ugli::VertexBuffer::new_static(ugli, data)
@@ -526,16 +528,21 @@ impl Renderer {
                 camera.uniforms(framebuffer.size().map(|x| x as f32)),
             ),
             ugli::DrawParameters {
-                blend_mode: Some(ugli::BlendMode::straight_alpha()), // TODO premultiplied
+                // blend_mode: Some(ugli::BlendMode::straight_alpha()), // TODO premultiplied
+                blend_mode: Some(ugli::BlendMode::combined(ugli::ChannelBlendMode {
+                    src_factor: ugli::BlendFactor::One,
+                    dst_factor: ugli::BlendFactor::OneMinusSrcAlpha,
+                    equation: ugli::BlendEquation::Add,
+                })),
                 ..default()
             },
         );
     }
 
-    pub fn draw_lowres(&self, f: impl FnOnce(&mut ugli::Framebuffer)) {
+    pub fn draw_lowres(&self, scale: usize, f: impl FnOnce(&mut ugli::Framebuffer)) {
         self.geng.window().with_framebuffer(|framebuffer| {
             let mut texture =
-                ugli::Texture::new_uninitialized(self.geng.ugli(), framebuffer.size() / 10);
+                ugli::Texture::new_uninitialized(self.geng.ugli(), framebuffer.size() / scale);
             texture.set_filter(ugli::Filter::Nearest);
             {
                 let mut framebuffer = ugli::Framebuffer::new_color(
@@ -560,8 +567,6 @@ impl Renderer {
 struct TilesetVertex {
     a_uv: vec2<f32>,
     a_pos: vec2<f32>,
-    a_tile_uv_bottom_left: vec2<f32>,
-    a_tile_uv_top_right: vec2<f32>,
 }
 
 pub struct LevelMesh(ugli::VertexBuffer<TilesetVertex>);
@@ -603,15 +608,14 @@ impl Renderer {
                     level,
                 })
                 .flat_map(|tile| {
-                    let uv = self
-                        .assets
-                        .renderer
-                        .game
-                        .def
-                        .uv(tile.tileset_pos, self.assets.renderer.game.texture.size());
+                    let tileset = &self.assets.renderer.game;
+                    let uv = tileset.def.uv(tile.tileset_pos, tileset.texture.size());
                     let pos = Aabb2::point(tile.pos)
                         .extend_positive(vec2::splat(1))
                         .map(|x| x as f32);
+                    // .extend_symmetric(
+                    //     vec2::splat(0.5) / tileset.def.tile_size.map(|x| x as f32),
+                    // );
                     let corners = pos.zip(uv).corners();
                     [
                         corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
@@ -619,8 +623,6 @@ impl Renderer {
                     .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| TilesetVertex {
                         a_pos: vec2(pos_x, pos_y),
                         a_uv: vec2(uv_x, uv_y),
-                        a_tile_uv_bottom_left: uv.bottom_left(),
-                        a_tile_uv_top_right: uv.top_right(),
                     })
                 })
                 .collect(),

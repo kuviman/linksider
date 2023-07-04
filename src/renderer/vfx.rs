@@ -138,8 +138,6 @@ impl Vfx {
                 a_uv: uv_aabb.bottom_left()
                     + uv_aabb.size()
                         * vec2(if cell.flip { 1.0 - x as f32 } else { x as f32 }, y as f32),
-                a_tile_uv_bottom_left: uv_aabb.bottom_left(),
-                a_tile_uv_top_right: uv_aabb.top_right(),
             };
             let vertex_data = ugli::VertexBuffer::new_dynamic(
                 self.ctx.geng.ugli(),

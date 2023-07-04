@@ -85,17 +85,20 @@ impl State {
         while let Some(event) = events.next().await {
             let flow = match event {
                 geng::Event::Draw => {
-                    // self.ctx
-                    //     .clone()
-                    //     .renderer
-                    //     .draw_lowres(|framebuffer| self.draw(framebuffer));
-                    self.ctx
-                        .geng
-                        .window()
-                        .clone()
-                        .with_framebuffer(|framebuffer| {
-                            self.draw(framebuffer);
-                        });
+                    if let Some(lowres) = self.ctx.assets.config.lowres {
+                        self.ctx
+                            .clone()
+                            .renderer
+                            .draw_lowres(lowres, |framebuffer| self.draw(framebuffer));
+                    } else {
+                        self.ctx
+                            .geng
+                            .window()
+                            .clone()
+                            .with_framebuffer(|framebuffer| {
+                                self.draw(framebuffer);
+                            });
+                    }
                     self.update(timer.tick().as_secs_f64())
                 }
                 _ => self.handle_event(event),

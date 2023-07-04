@@ -45,4 +45,5 @@ pub struct Config {
     pub popup: popup::Config,
     pub zzz_time: f32,
     pub happy: bool,
+    pub lowres: Option<usize>,
 }
