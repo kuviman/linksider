@@ -16,8 +16,8 @@ pub async fn confirm(ctx: &Context, title: &str) -> bool {
         No,
     }
     let mut buttons = [
-        Button::square(Anchor::CENTER, vec2(-1, -1), ButtonType::Yes),
-        Button::square(Anchor::CENTER, vec2(0, -1), ButtonType::No),
+        Button::square(Anchor::Center, vec2(-1, -1), ButtonType::Yes),
+        Button::square(Anchor::Center, vec2(0, -1), ButtonType::No),
     ];
     let ui_camera = geng::Camera2d {
         center: vec2::ZERO,

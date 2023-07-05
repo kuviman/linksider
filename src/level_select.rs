@@ -3,6 +3,7 @@ use super::*;
 #[derive(geng::asset::Load)]
 pub struct Assets {
     pub background: renderer::background::Assets,
+    pub ui: renderer::ui::Assets,
 }
 
 #[derive(Deserialize)]
@@ -62,7 +63,7 @@ pub async fn run(ctx: &Context) {
         },
         input: input::Controller::new(ctx),
         buttons: Box::new([Button::square(
-            Anchor::TOP_RIGHT,
+            Anchor::TopRight,
             vec2(-1, -1),
             ButtonType::Editor,
         )]),
@@ -475,6 +476,12 @@ impl State {
         );
 
         self.ctx.renderer.draw_vignette(framebuffer);
+
+        self.ctx.renderer.draw_ui_background(
+            &self.ctx.assets.level_select.ui,
+            framebuffer,
+            &self.camera,
+        );
 
         buttons::layout(
             &mut self.buttons,

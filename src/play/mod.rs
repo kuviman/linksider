@@ -9,6 +9,7 @@ pub struct Config {
 #[derive(geng::asset::Load)]
 pub struct Assets {
     pub background: renderer::background::Assets,
+    pub ui: renderer::ui::Assets,
 }
 
 pub struct State {
@@ -71,11 +72,11 @@ impl State {
             zzz: false,
             touch_input: None,
             buttons: Box::new([
-                Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Undo),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(1, 0), ButtonType::Redo),
-                Button::square(Anchor::BOTTOM_RIGHT, vec2(-1, 0), ButtonType::SwitchPlayer),
-                Button::square(Anchor::TOP_LEFT, vec2(0, -1), ButtonType::Reset),
+                Button::square(Anchor::TopRight, vec2(-1, -1), ButtonType::Exit),
+                Button::square(Anchor::BottomLeft, vec2(0, 0), ButtonType::Undo),
+                Button::square(Anchor::BottomLeft, vec2(1, 0), ButtonType::Redo),
+                Button::square(Anchor::BottomRight, vec2(-1, 0), ButtonType::SwitchPlayer),
+                Button::square(Anchor::TopLeft, vec2(0, -1), ButtonType::Reset),
             ]),
             cursor_position: None,
         }
@@ -310,6 +311,10 @@ impl State {
         self.vfx.draw(framebuffer, &self.camera);
 
         self.ctx.renderer.draw_vignette(framebuffer);
+
+        self.ctx
+            .renderer
+            .draw_ui_background(&self.ctx.assets.play.ui, framebuffer, &self.camera);
 
         buttons::layout(
             &mut self.buttons,

@@ -643,7 +643,7 @@ impl State {
             drag: None,
             input: input::Controller::new(ctx),
             buttons: Box::new([Button::square(
-                Anchor::TOP_RIGHT,
+                Anchor::TopRight,
                 vec2(-1, -1),
                 ButtonType::Exit,
             )]),

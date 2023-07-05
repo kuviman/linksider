@@ -2,6 +2,7 @@ use super::*;
 
 pub mod background;
 mod spritesheet;
+pub mod ui;
 mod vfx;
 
 pub use spritesheet::SpriteSheet;
