@@ -308,6 +308,9 @@ impl State {
             self.zzz,
         );
         self.vfx.draw(framebuffer, &self.camera);
+
+        self.ctx.renderer.draw_vignette(framebuffer);
+
         buttons::layout(
             &mut self.buttons,
             self.ui_camera

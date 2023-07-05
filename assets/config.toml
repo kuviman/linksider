@@ -42,6 +42,11 @@ play = ["Space", "Enter", "O"]
 offset = [0.125, -0.125]
 opacity = 0.2
 
+[render.vignette]
+color = "#0007"
+inner_radius = 0.5
+outer_radius = 0.8
+
 [sound]
 volume = 0.1
 

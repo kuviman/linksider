@@ -473,8 +473,8 @@ impl State {
             mat3::translate(selection.world_pos().map(|x| x as f32))
                 * mat3::scale_uniform_around(vec2::splat(0.5), self.config.select_scale),
         );
-        let group = &self.groups[selection.group];
-        let _level = &group.levels[selection.level];
+
+        self.ctx.renderer.draw_vignette(framebuffer);
 
         buttons::layout(
             &mut self.buttons,

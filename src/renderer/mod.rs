@@ -12,14 +12,23 @@ pub struct ShadowConfig {
 }
 
 #[derive(Deserialize)]
+pub struct VignetteConfig {
+    color: Rgba<f32>,
+    inner_radius: f32,
+    outer_radius: f32,
+}
+
+#[derive(Deserialize)]
 pub struct Config {
     shadow: ShadowConfig,
+    vignette: VignetteConfig,
 }
 
 #[derive(geng::asset::Load)]
 struct Shaders {
     texture: ugli::Program,
     background: ugli::Program,
+    vignette: ugli::Program,
 }
 
 #[derive(geng::asset::Load)]
@@ -67,6 +76,7 @@ pub struct Renderer {
     ui_tile_meshes: HashMap<String, ugli::VertexBuffer<TilesetVertex>>,
     grid_mesh: ugli::VertexBuffer<TilesetVertex>,
     white_texture: ugli::Texture,
+    quad: ugli::VertexBuffer<draw2d::Vertex>,
 }
 
 impl Renderer {
@@ -133,6 +143,23 @@ impl Renderer {
             ui_tile_meshes: create_tile_meshes(&assets.renderer.ui),
             white_texture: ugli::Texture::new_with(geng.ugli(), vec2(1, 1), |_| Rgba::WHITE),
             grid_mesh: Self::create_grid_mesh(geng.ugli(), 100, 100),
+            quad: ugli::VertexBuffer::new_static(
+                geng.ugli(),
+                vec![
+                    draw2d::Vertex {
+                        a_pos: vec2(-1.0, -1.0),
+                    },
+                    draw2d::Vertex {
+                        a_pos: vec2(1.0, -1.0),
+                    },
+                    draw2d::Vertex {
+                        a_pos: vec2(1.0, 1.0),
+                    },
+                    draw2d::Vertex {
+                        a_pos: vec2(-1.0, 1.0),
+                    },
+                ],
+            ),
         }
     }
 
@@ -191,6 +218,24 @@ impl Renderer {
         camera: &impl geng::AbstractCamera2d,
     ) {
         self.background.draw(assets, framebuffer, camera);
+    }
+
+    pub fn draw_vignette(&self, framebuffer: &mut ugli::Framebuffer) {
+        ugli::draw(
+            framebuffer,
+            &self.assets.renderer.shaders.vignette,
+            ugli::DrawMode::TriangleFan,
+            &self.quad,
+            ugli::uniforms! {
+                u_color: self.assets.config.render.vignette.color,
+                u_inner_radius: self.assets.config.render.vignette.inner_radius,
+                u_outer_radius: self.assets.config.render.vignette.outer_radius,
+            },
+            ugli::DrawParameters {
+                blend_mode: Some(ugli::BlendMode::premultiplied_alpha()),
+                ..default()
+            },
+        );
     }
 
     pub fn draw_level(
