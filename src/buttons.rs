@@ -38,6 +38,10 @@ pub enum Anchor {
     BottomLeft,
     BottomRight,
     Center,
+    TopCenter,
+    BottomCenter,
+    LeftCenter,
+    RightCenter
 }
 
 impl Anchor {
@@ -48,6 +52,10 @@ impl Anchor {
             Self::BottomLeft => vec2(0.0, 0.0),
             Self::BottomRight => vec2(1.0, 0.0),
             Self::Center => vec2(0.5, 0.5),
+            Self::TopCenter => vec2(0.5, 1.0),
+            Self::BottomCenter => vec2(0.5, 0.0),
+            Self::LeftCenter => vec2(0.0, 0.5),
+            Self::RightCenter => vec2(1.0, 0.5),
         }
     }
 }
@@ -71,10 +79,10 @@ impl<T> Button<T> {
         }
     }
 
-    pub fn square(anchor: Anchor, pos: vec2<i32>, button_type: T) -> Self {
+    pub fn square(anchor: Anchor, pos: vec2<f32>, button_type: T) -> Self {
         // TODO configurable?
         let size = 1.0;
-        let padding = 0.1;
+        let padding = 0.0;
         Self::new(
             anchor,
             Aabb2::point(pos.map(|x| x as f32 * (size + padding) + padding + size / 2.0))

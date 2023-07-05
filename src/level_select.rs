@@ -64,7 +64,7 @@ pub async fn run(ctx: &Context) {
         input: input::Controller::new(ctx),
         buttons: Box::new([Button::square(
             Anchor::TopRight,
-            vec2(-1, -1),
+            vec2(-1.2, -1.2),
             ButtonType::Editor,
         )]),
     }

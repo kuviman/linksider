@@ -1,4 +1,12 @@
 [[textures]]
+anchor = "TopCenter"
+texture = "topcenterUIBG.png"
+
+[[textures]]
+anchor = "BottomCenter"
+texture = "bottomcenterUIBG.png"
+
+[[textures]]
 anchor = "TopLeft"
 texture = "topleftUIBG.png"
 
@@ -9,6 +17,7 @@ texture = "toprightUIBG.png"
 [[textures]]
 anchor = "BottomRight"
 texture = "bottomrightUIBG.png"
+
 
 [[textures]]
 anchor = "BottomLeft"

@@ -644,7 +644,7 @@ impl State {
             input: input::Controller::new(ctx),
             buttons: Box::new([Button::square(
                 Anchor::TopRight,
-                vec2(-1, -1),
+                vec2(-1.2, -1.2),
                 ButtonType::Exit,
             )]),
         };

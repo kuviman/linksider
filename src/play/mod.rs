@@ -72,11 +72,11 @@ impl State {
             zzz: false,
             touch_input: None,
             buttons: Box::new([
-                Button::square(Anchor::TopRight, vec2(-1, -1), ButtonType::Exit),
-                Button::square(Anchor::BottomLeft, vec2(0, 0), ButtonType::Undo),
-                Button::square(Anchor::BottomLeft, vec2(1, 0), ButtonType::Redo),
-                Button::square(Anchor::BottomRight, vec2(-1, 0), ButtonType::SwitchPlayer),
-                Button::square(Anchor::TopLeft, vec2(0, -1), ButtonType::Reset),
+                Button::square(Anchor::TopRight, vec2(-1.2, -1.2), ButtonType::Exit),
+                Button::square(Anchor::BottomLeft, vec2(0.2, 0.2), ButtonType::Undo),
+                Button::square(Anchor::BottomLeft, vec2(1.4, 0.2), ButtonType::Redo),
+                Button::square(Anchor::BottomRight, vec2(-1.2, 0.2), ButtonType::SwitchPlayer),
+                Button::square(Anchor::TopLeft, vec2(0.2, -1.2), ButtonType::Reset),
             ]),
             cursor_position: None,
         }
