@@ -41,6 +41,7 @@ play = ["Space", "Enter", "O"]
 [render.shadow]
 offset = [0.125, -0.125]
 opacity = 0.2
+blacklist = ["Cloud", "Goal"]
 
 [render.vignette]
 color = "#0007"

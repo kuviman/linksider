@@ -9,6 +9,7 @@ pub use vfx::Vfx;
 pub struct ShadowConfig {
     offset: vec2<f32>,
     opacity: f32,
+    blacklist: HashSet<String>,
 }
 
 #[derive(Deserialize)]
@@ -320,19 +321,8 @@ impl Renderer {
             mat3::translate(self.assets.config.render.shadow.offset),
             Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity),
             zzz,
+            true,
         );
-
-        for goal in &prev_state.goals {
-            self.draw_game_tile(
-                framebuffer,
-                camera,
-                "Goal",
-                Rgba::WHITE,
-                mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
-                    * goal.pos.angle.to_matrix()
-                    * mat3::translate(vec2::splat(-0.5)),
-            );
-        }
 
         self.draw_colored(
             framebuffer,
@@ -345,6 +335,7 @@ impl Renderer {
             mat3::identity(),
             Rgba::WHITE,
             zzz,
+            false,
         );
     }
 
@@ -360,16 +351,41 @@ impl Renderer {
         transform: mat3<f32>,
         color: Rgba<f32>,
         zzz: bool,
+        shadow: bool,
     ) {
+        let draw_game_tile =
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                if !shadow || !self.assets.config.render.shadow.blacklist.contains(name) {
+                    self.draw_game_tile(framebuffer, camera, name, color, transform);
+                }
+            };
+
         self.draw_mesh_impl(
             framebuffer,
             camera,
-            &level_mesh.0,
+            if shadow {
+                &level_mesh.normal
+            } else {
+                &level_mesh.shadow
+            },
             ugli::DrawMode::Triangles,
             &self.assets.renderer.game.texture,
             color,
             transform,
         );
+
+        for goal in &prev_state.goals {
+            draw_game_tile(
+                framebuffer,
+                camera,
+                "Goal",
+                color,
+                transform
+                    * mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
+                    * goal.pos.angle.to_matrix()
+                    * mat3::translate(vec2::splat(-0.5)),
+            );
+        }
 
         for entity in &prev_state.entities {
             let entity_move = moves.entity_moves.get(&entity.id);
@@ -442,7 +458,7 @@ impl Renderer {
                         color.to_vec4() * self.assets.config.deselected_player_color.to_vec4(),
                     );
                 }
-                self.draw_game_tile(
+                draw_game_tile(
                     framebuffer,
                     camera,
                     if zzz && entity.identifier == "Player" {
@@ -457,7 +473,7 @@ impl Renderer {
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
-                    self.draw_game_tile(
+                    draw_game_tile(
                         framebuffer,
                         camera,
                         &format!("{effect:?}SideEffect"),
@@ -475,7 +491,7 @@ impl Renderer {
             }
         }
         for powerup in &prev_state.powerups {
-            self.draw_game_tile(
+            draw_game_tile(
                 framebuffer,
                 camera,
                 &format!("{:?}Powerup", powerup.effect),
@@ -619,13 +635,28 @@ struct TilesetVertex {
     a_pos: vec2<f32>,
 }
 
-pub struct LevelMesh(ugli::VertexBuffer<TilesetVertex>);
+pub struct LevelMesh {
+    normal: ugli::VertexBuffer<TilesetVertex>,
+    shadow: ugli::VertexBuffer<TilesetVertex>,
+}
 
 impl Renderer {
     pub fn level_mesh(&self, level: &Level) -> LevelMesh {
+        LevelMesh {
+            normal: self.level_mesh_impl(&HashSet::new(), level),
+            shadow: self.level_mesh_impl(&self.assets.config.render.shadow.blacklist, level),
+        }
+    }
+
+    fn level_mesh_impl(
+        &self,
+        blacklist: &HashSet<String>,
+        level: &Level,
+    ) -> ugli::VertexBuffer<TilesetVertex> {
         struct TileMap<'a> {
             config: &'a logicsider::Config,
             level: &'a Level,
+            blacklist: &'a HashSet<String>,
         }
         impl autotile::TileMap for TileMap<'_> {
             type NonEmptyIter<'a> = Box<dyn Iterator<Item = vec2<i32>> + 'a> where Self:'a ;
@@ -634,6 +665,7 @@ impl Renderer {
                     self.level
                         .entities
                         .iter()
+                        .filter(|entity| !self.blacklist.contains(&entity.identifier))
                         .filter(|entity| self.config.entities[&entity.identifier].r#static)
                         .map(|entity| entity.pos.cell),
                 )
@@ -645,9 +677,10 @@ impl Renderer {
                     .iter()
                     .find(|entity| entity.pos.cell == pos)
                     .map(|entity| entity.identifier.as_str())
+                    .filter(|&name| !self.blacklist.contains(name))
             }
         }
-        LevelMesh(ugli::VertexBuffer::new_static(
+        ugli::VertexBuffer::new_static(
             self.geng.ugli(),
             self.assets
                 .renderer
@@ -656,6 +689,7 @@ impl Renderer {
                 .generate_mesh(&TileMap {
                     config: &self.assets.logic_config,
                     level,
+                    blacklist,
                 })
                 .flat_map(|tile| {
                     let tileset = &self.assets.renderer.game;
@@ -676,6 +710,6 @@ impl Renderer {
                     })
                 })
                 .collect(),
-        ))
+        )
     }
 }
