@@ -5,6 +5,7 @@ border_radius_pixels = 4
 deselected_player_color = "#fff7"
 zzz_time = 30
 happy = false
+# lowres = 8
 
 [popup]
 ui_fov = 8
@@ -31,28 +32,34 @@ other_group_opacity = 0.5
 select_scale = 1.5
 
 [level_select.controls]
-left = ["Left", "A", "H"]
-right = ["Right", "D", "L"]
-up = ["Up", "W", "K"]
-down = ["Down", "S", "J"]
+left = ["ArrowLeft", "A", "H"]
+right = ["ArrowRight", "D", "L"]
+up = ["ArrowUp", "W", "K"]
+down = ["ArrowDown", "S", "J"]
 play = ["Space", "Enter", "O"]
 
 [render.shadow]
 offset = [0.125, -0.125]
 opacity = 0.2
+blacklist = ["Cloud", "Goal"]
+
+[render.vignette]
+color = "#0007"
+inner_radius = 0.5
+outer_radius = 0.8
 
 [sound]
 volume = 0.1
 
 [controls]
-left = ["Left", "A"]
-right = ["Right", "D"]
+left = ["ArrowLeft", "A"]
+right = ["ArrowRight", "D"]
 skip = ["Space"]
 restart = ["R"]
 undo = ["Z", "U"]
 redo = ["X", "Y"]
-next_player = ["Tab", "Up"]
-prev_player = ["Down"]
+next_player = ["Tab", "ArrowUp"]
+prev_player = ["ArrowDown"]
 escape = ["Escape"]
 
 [controls.cheats]

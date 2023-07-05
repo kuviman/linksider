@@ -55,14 +55,33 @@ impl TilesetDef {
                 })
             })
     }
-    pub fn uv(&self, tileset_pos: vec2<usize>, texture_size: vec2<usize>) -> Aabb2<f32> {
-        let mut result = Aabb2::point(tileset_pos)
+    fn uv_impl(
+        &self,
+        tileset_pos: vec2<usize>,
+        texture_size: vec2<usize>,
+        shrink: usize,
+    ) -> Aabb2<f32> {
+        let mut pixel_uv = Aabb2::point(tileset_pos)
             .extend_positive(vec2::splat(1))
-            .map_bounds(|v| v * self.tile_size)
+            .map_bounds(|v| v * self.tile_size.map(|x| x + 2));
+        pixel_uv.min += vec2::splat(shrink);
+        pixel_uv.max -= vec2::splat(shrink);
+        let mut result = pixel_uv
             .map_bounds(|v| v.map(|x| x as f32) / texture_size.map(|x| x as f32))
             .map_bounds(|v| vec2(v.x, 1.0 - v.y));
         mem::swap(&mut result.min.y, &mut result.max.y);
         result
+    }
+
+    pub fn uv(&self, tileset_pos: vec2<usize>, texture_size: vec2<usize>) -> Aabb2<f32> {
+        self.uv_impl(tileset_pos, texture_size, 1)
+    }
+    pub fn uv_with_border(
+        &self,
+        tileset_pos: vec2<usize>,
+        texture_size: vec2<usize>,
+    ) -> Aabb2<f32> {
+        self.uv_impl(tileset_pos, texture_size, 0)
     }
 }
 
@@ -271,13 +290,94 @@ impl TilesetDef {
 }
 
 impl geng::asset::Load for Tileset {
-    fn load(manager: &geng::asset::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
+    type Options = ();
+    fn load(
+        manager: &geng::asset::Manager,
+        path: &std::path::Path,
+        _options: &Self::Options,
+    ) -> geng::asset::Future<Self> {
         let manager = manager.to_owned();
         let path = path.to_owned();
         async move {
             let (config, def) = TilesetDef::load(path.join("config.ron")).await?;
-            let mut texture: ugli::Texture = manager.load(path.join(config.texture)).await?;
-            texture.set_filter(ugli::Filter::Nearest);
+            let original_image =
+                image::load_from_memory(&file::load_bytes(path.join(config.texture)).await?)?;
+            assert!(original_image.width() as usize % config.tile_size.x == 0);
+            assert!(original_image.height() as usize % config.tile_size.y == 0);
+            let mut expanded_image = image::RgbaImage::new(
+                (original_image.width() as usize / config.tile_size.x * (config.tile_size.x + 2))
+                    as u32,
+                (original_image.height() as usize / config.tile_size.y * (config.tile_size.y + 2))
+                    as u32,
+            );
+            for tile in def.tiles.values() {
+                #[derive(Copy, Clone)]
+                enum Copy {
+                    Left,
+                    Middle,
+                    Right,
+                }
+                let mut copy = |tileset_pos: vec2<usize>, area: vec2<Copy>| {
+                    let from = |tileset_pos, tile_size, area| {
+                        tileset_pos * tile_size
+                            + match area {
+                                Copy::Left | Copy::Middle => 0,
+                                Copy::Right => tile_size - 1,
+                            }
+                    };
+                    let from_x = from(tileset_pos.x, config.tile_size.x, area.x);
+                    let from_y = from(tileset_pos.y, config.tile_size.y, area.y);
+                    let size = |tile_size, area| match area {
+                        Copy::Left | Copy::Right => 1,
+                        Copy::Middle => tile_size,
+                    };
+                    let size_x = size(config.tile_size.x, area.x);
+                    let size_y = size(config.tile_size.y, area.y);
+                    let to = |tileset_pos, tile_size, area| {
+                        tileset_pos * (tile_size + 2)
+                            + match area {
+                                Copy::Left => 0,
+                                Copy::Middle => 1,
+                                Copy::Right => tile_size + 1,
+                            }
+                    };
+                    let to_x = to(tileset_pos.x, config.tile_size.x, area.x);
+                    let to_y = to(tileset_pos.y, config.tile_size.y, area.y);
+                    use image::GenericImage;
+                    expanded_image
+                        .copy_from(
+                            original_image
+                                .view(from_x as u32, from_y as u32, size_x as u32, size_y as u32)
+                                .deref(),
+                            to_x as u32,
+                            to_y as u32,
+                        )
+                        .unwrap();
+                };
+                if let Some(default) = tile.default {
+                    copy(default, vec2::splat(Copy::Middle));
+                }
+                for rule in &tile.rules {
+                    for dx in -1..=1 {
+                        for dy in -1..=1 {
+                            if let Some(ConnectionFilter::Same) =
+                                rule.connections.get(&vec2(dx, dy))
+                            {
+                                copy(
+                                    rule.tileset_pos,
+                                    vec2(dx, -dy).map(|x| match x {
+                                        -1 => Copy::Left,
+                                        0 => Copy::Middle,
+                                        1 => Copy::Right,
+                                        _ => unreachable!(),
+                                    }),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            let texture = ugli::Texture::from_image_image(manager.ugli(), expanded_image);
             Ok(Self { texture, def })
         }
         .boxed_local()

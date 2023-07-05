@@ -56,8 +56,8 @@ impl ToolType {
     fn tile_name(&self) -> String {
         match self {
             Self::Entity(name) => name.clone(),
-            Self::SideEffect(effect) => format!("{effect:?}Power"),
-            Self::Powerup(effect) => format!("{effect:?}Power"),
+            Self::SideEffect(effect) => format!("{effect:?}SideEffect"),
+            Self::Powerup(effect) => format!("{effect:?}Powerup"),
             Self::Goal => "Goal".to_owned(),
             Self::Eraser => "Eraser".to_owned(),
         }
@@ -247,18 +247,18 @@ impl<'a> State<'a> {
             dragged_entity: None,
             input: input::Controller::new(ctx),
             buttons: Box::new([
-                Button::square(Anchor::TOP_RIGHT, vec2(-1, -1), ButtonType::Exit),
-                Button::square(Anchor::TOP_LEFT, vec2(0, -2), ButtonType::Save),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(0, 0), ButtonType::Undo),
-                Button::square(Anchor::BOTTOM_LEFT, vec2(1, 0), ButtonType::Redo),
+                Button::square(Anchor::TopRight, vec2(-1, -1), ButtonType::Exit),
+                Button::square(Anchor::TopLeft, vec2(0, -2), ButtonType::Save),
+                Button::square(Anchor::BottomLeft, vec2(0, 0), ButtonType::Undo),
+                Button::square(Anchor::BottomLeft, vec2(1, 0), ButtonType::Redo),
                 {
                     let mut button =
-                        Button::square(Anchor::TOP_LEFT, vec2(0, -1), ButtonType::ToolPreview);
+                        Button::square(Anchor::TopLeft, vec2(0, -1), ButtonType::ToolPreview);
                     button.usable = false;
                     button
                 },
-                Button::square(Anchor::TOP_LEFT, vec2(1, -1), ButtonType::ToolRotate),
-                Button::square(Anchor::BOTTOM_RIGHT, vec2(-1, 0), ButtonType::Play),
+                Button::square(Anchor::TopLeft, vec2(1, -1), ButtonType::ToolRotate),
+                Button::square(Anchor::BottomRight, vec2(-1, 0), ButtonType::Play),
             ]),
         }
     }
@@ -528,7 +528,8 @@ impl<'a> State<'a> {
     }
 
     fn assign_index(&mut self, index: Option<i32>) {
-        let cell = self.screen_to_cell(self.ctx.geng.window().cursor_position());
+        let Some(cursor_position) = self.input.cursor_pos() else { return };
+        let cell = self.screen_to_cell(cursor_position);
         if let Some(entity) = self
             .level
             .entities
@@ -551,15 +552,22 @@ impl<'a> State<'a> {
 }
 
 impl State<'_> {
-    pub async fn run(mut self, actx: &mut async_states::Context) {
-        loop {
-            let flow = match actx.wait().await {
-                async_states::Event::Event(event) => self.handle_event(actx, event).await,
-                async_states::Event::Update(delta_time) => self.update(actx, delta_time).await,
-                async_states::Event::Draw => {
-                    self.draw(&mut actx.framebuffer());
-                    ControlFlow::Continue(())
+    pub async fn run(mut self) {
+        let mut events = self.ctx.geng.window().events();
+        let mut timer = Timer::new();
+        while let Some(event) = events.next().await {
+            let flow = match event {
+                geng::Event::Draw => {
+                    self.ctx
+                        .geng
+                        .window()
+                        .clone()
+                        .with_framebuffer(|framebuffer| {
+                            self.draw(framebuffer);
+                        });
+                    self.update(timer.tick().as_secs_f64()).await
                 }
+                _ => self.handle_event(event).await,
             };
             if let ControlFlow::Break(()) = flow {
                 self.autosave_if_enabled();
@@ -568,7 +576,6 @@ impl State<'_> {
                 }
                 if popup::confirm(
                     &self.ctx,
-                    actx,
                     "You have unsaved changes\nAre you sure you want yo exit?",
                 )
                 .await
@@ -579,13 +586,9 @@ impl State<'_> {
             }
         }
     }
-    async fn update(
-        &mut self,
-        actx: &mut async_states::Context,
-        delta_time: f64,
-    ) -> ControlFlow<()> {
+    async fn update(&mut self, delta_time: f64) -> ControlFlow<()> {
         for event in input::Context::update(self, delta_time) {
-            self.handle_input(actx, event).await?;
+            self.handle_input(event).await?;
         }
 
         let _delta_time = delta_time as f32;
@@ -598,11 +601,7 @@ impl State<'_> {
         ControlFlow::Continue(())
     }
 
-    async fn handle_input(
-        &mut self,
-        actx: &mut async_states::Context,
-        event: input::Event,
-    ) -> ControlFlow<()> {
+    async fn handle_input(&mut self, event: input::Event) -> ControlFlow<()> {
         match event {
             input::Event::DragStart(position) => {
                 self.dragged_entity = self
@@ -645,7 +644,7 @@ impl State<'_> {
                             self.tool.angle = self.tool.angle.rotate_clockwise();
                         }
                         ButtonType::Play => {
-                            play::State::new(&self.ctx, &self.level).run(actx).await;
+                            play::State::new(&self.ctx, &self.level).run().await;
                         }
                     }
                 } else {
@@ -661,117 +660,127 @@ impl State<'_> {
         }
         ControlFlow::Continue(())
     }
-    async fn handle_event(
-        &mut self,
-        actx: &mut async_states::Context,
-        event: geng::Event,
-    ) -> ControlFlow<()> {
+    async fn handle_event(&mut self, event: geng::Event) -> ControlFlow<()> {
         let controls = &self.config.controls;
         match event {
-            geng::Event::MouseDown {
-                position,
+            geng::Event::MousePress {
                 button: geng::MouseButton::Right,
             } => {
-                self.delete(position);
+                if let Some(pos) = self.input.cursor_pos() {
+                    self.delete(pos);
+                }
                 return ControlFlow::Continue(());
             }
-            geng::Event::MouseMove { position, .. } => {
+            geng::Event::CursorMove { position, .. } => {
                 self.drag_pos = position;
             }
-            geng::Event::KeyDown { key }
+            geng::Event::KeyPress { key }
                 if self.ctx.assets.config.controls.escape.contains(&key) =>
             {
                 return ControlFlow::Break(());
             }
-            geng::Event::KeyDown { key } if key == controls.grid => {
+            geng::Event::KeyPress { key } if key == controls.grid => {
                 self.show_grid = !self.show_grid;
             }
-            geng::Event::KeyDown { key } if key == controls.reset_to_last_save => {
+            geng::Event::KeyPress { key } if key == controls.reset_to_last_save => {
                 self.reset_to_last_save();
             }
-            geng::Event::KeyDown { key } if key == controls.toggle => {
-                play::State::new(&self.ctx, &self.level).run(actx).await;
+            geng::Event::KeyPress { key } if key == controls.toggle => {
+                play::State::new(&self.ctx, &self.level).run().await;
             }
-            geng::Event::KeyDown { key } if key == controls.choose => {
+            geng::Event::KeyPress { key } if key == controls.choose => {
                 self.open_wheel();
             }
-            geng::Event::KeyUp { key } if key == controls.choose => {
+            geng::Event::KeyRelease { key } if key == controls.choose => {
                 self.close_wheel();
             }
-            geng::Event::KeyDown { key } if key == controls.pick => {
-                if let Some(tool) = Tool::pick(
-                    &self.level,
-                    self.screen_to_cell(self.ctx.geng.window().cursor_position()),
-                ) {
+            geng::Event::KeyPress { key } if key == controls.pick => {
+                if let Some(tool) = self
+                    .input
+                    .cursor_pos()
+                    .and_then(|pos| Tool::pick(&self.level, self.screen_to_cell(pos)))
+                {
                     self.tool = tool;
                 }
             }
-            geng::Event::KeyDown { key } if key == controls.rotate => {
+            geng::Event::KeyPress { key } if key == controls.rotate => {
                 let mut delta = 1;
-                if self.ctx.geng.window().is_key_pressed(geng::Key::LShift) {
+                if self.ctx.geng.window().is_key_pressed(geng::Key::ShiftLeft) {
                     delta = -delta;
                 }
                 self.tool.angle = self.tool.angle.with_input(Input::from_sign(delta));
             }
-            geng::Event::KeyDown { key: geng::Key::S }
-                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            geng::Event::KeyPress { key: geng::Key::S }
+                if self
+                    .ctx
+                    .geng
+                    .window()
+                    .is_key_pressed(geng::Key::ControlLeft) =>
             {
                 self.save();
             }
-            geng::Event::KeyDown { key: geng::Key::Z }
-                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            geng::Event::KeyPress { key: geng::Key::Z }
+                if self
+                    .ctx
+                    .geng
+                    .window()
+                    .is_key_pressed(geng::Key::ControlLeft) =>
             {
                 self.undo();
             }
-            geng::Event::KeyDown { key: geng::Key::Y }
-                if self.ctx.geng.window().is_key_pressed(geng::Key::LCtrl) =>
+            geng::Event::KeyPress { key: geng::Key::Y }
+                if self
+                    .ctx
+                    .geng
+                    .window()
+                    .is_key_pressed(geng::Key::ControlLeft) =>
             {
                 self.redo();
             }
 
             // TODO: macro?
-            geng::Event::KeyDown {
-                key: geng::Key::Num1,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit1,
             } => {
                 self.assign_index(Some(1));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num2,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit2,
             } => {
                 self.assign_index(Some(2));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num3,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit3,
             } => {
                 self.assign_index(Some(3));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num4,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit4,
             } => {
                 self.assign_index(Some(4));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num5,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit5,
             } => {
                 self.assign_index(Some(5));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num6,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit6,
             } => {
                 self.assign_index(Some(6));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num7,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit7,
             } => {
                 self.assign_index(Some(7));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num8,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit8,
             } => {
                 self.assign_index(Some(8));
             }
-            geng::Event::KeyDown {
-                key: geng::Key::Num9,
+            geng::Event::KeyPress {
+                key: geng::Key::Digit9,
             } => {
                 self.assign_index(Some(9));
             }
@@ -779,16 +788,20 @@ impl State<'_> {
             _ => {}
         }
         for event in input::Context::handle_event(self, event.clone()) {
-            self.handle_input(actx, event).await?;
+            self.handle_input(event).await?;
         }
         ControlFlow::Continue(())
     }
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
         self.clamp_camera();
-        self.ctx
-            .renderer
-            .draw_level(framebuffer, &self.camera, &self.level, &self.level_mesh);
+        self.ctx.renderer.draw_level(
+            &self.ctx.assets.play.background,
+            framebuffer,
+            &self.camera,
+            &self.level,
+            &self.level_mesh,
+        );
 
         for entity in &self.level.entities {
             if let Some(index) = entity.index {
@@ -810,6 +823,7 @@ impl State<'_> {
                 .draw_grid(framebuffer, &self.camera, self.config.grid_color);
         }
 
+        // TODO why not optional??
         let ui_cursor_pos = self
             .ui_camera
             .screen_to_world(self.framebuffer_size, self.drag_pos.map(|x| x as f32));
@@ -820,28 +834,25 @@ impl State<'_> {
                 .iter()
                 .any(|button| button.calculated_pos.contains(ui_cursor_pos))
         {
-            if self.tool.tool_type.show_preview() {
+            if let Some(cursor_pos) = self.input.cursor_pos() {
+                if self.tool.tool_type.show_preview() {
+                    self.ctx.renderer.draw_game_tile(
+                        framebuffer,
+                        &self.camera,
+                        &self.tool.tool_type.tile_name(),
+                        Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
+                        mat3::translate(self.screen_to_cell(cursor_pos).map(|x| x as f32))
+                            * mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle()),
+                    );
+                }
                 self.ctx.renderer.draw_game_tile(
                     framebuffer,
                     &self.camera,
-                    &self.tool.tool_type.tile_name(),
-                    Rgba::new(1.0, 1.0, 1.0, self.config.preview_opacity),
-                    mat3::translate(
-                        self.screen_to_cell(self.ctx.geng.window().cursor_position())
-                            .map(|x| x as f32),
-                    ) * mat3::rotate_around(vec2::splat(0.5), self.tool.draw_angle()),
+                    "EditorSelect",
+                    Rgba::WHITE,
+                    mat3::translate(self.screen_to_cell(cursor_pos).map(|x| x as f32)),
                 );
             }
-            self.ctx.renderer.draw_game_tile(
-                framebuffer,
-                &self.camera,
-                "EditorSelect",
-                Rgba::WHITE,
-                mat3::translate(
-                    self.screen_to_cell(self.ctx.geng.window().cursor_position())
-                        .map(|x| x as f32),
-                ),
-            );
         }
 
         if let Some(index) = self.dragged_entity {
@@ -873,7 +884,7 @@ impl State<'_> {
                 .view_area(self.framebuffer_size)
                 .bounding_box(),
         );
-        for (mut matrix, button) in buttons::matrices(ui_cursor_pos, &self.buttons) {
+        for (mut matrix, button) in buttons::matrices(Some(ui_cursor_pos), &self.buttons) {
             if let ButtonType::ToolPreview = button.button_type {
                 self.ctx.geng.draw2d().draw2d(
                     framebuffer,

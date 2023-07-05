@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn matrices<T>(
-    cursor_pos: vec2<f32>,
+    cursor_pos: Option<vec2<f32>>,
     buttons: &[Button<T>],
 ) -> impl Iterator<Item = (mat3<f32>, &Button<T>)> + '_ {
     buttons.iter().map(move |button| {
@@ -9,7 +9,11 @@ pub fn matrices<T>(
             * mat3::scale(button.calculated_pos.size())
             * mat3::scale_uniform_around(
                 vec2::splat(0.5),
-                if button.usable && button.calculated_pos.contains(cursor_pos) {
+                if button.usable
+                    && cursor_pos.map_or(false, |cursor_pos| {
+                        button.calculated_pos.contains(cursor_pos)
+                    })
+                {
                     1.1
                 } else {
                     1.0
@@ -23,19 +27,29 @@ pub fn layout<T>(buttons: &mut [Button<T>], viewport: Aabb2<f32>) {
     for button in buttons {
         button.calculated_pos = button
             .pos
-            .translate(viewport.bottom_left() + viewport.size() * button.anchor.0);
+            .translate(viewport.bottom_left() + viewport.size() * button.anchor.v());
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct Anchor(vec2<f32>);
+#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Anchor {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    Center,
+}
 
 impl Anchor {
-    pub const TOP_LEFT: Self = Self(vec2(0.0, 1.0));
-    pub const TOP_RIGHT: Self = Self(vec2(1.0, 1.0));
-    pub const BOTTOM_LEFT: Self = Self(vec2(0.0, 0.0));
-    pub const BOTTOM_RIGHT: Self = Self(vec2(1.0, 0.0));
-    pub const CENTER: Self = Self(vec2(0.5, 0.5));
+    pub fn v(&self) -> vec2<f32> {
+        match self {
+            Self::TopLeft => vec2(0.0, 1.0),
+            Self::TopRight => vec2(1.0, 1.0),
+            Self::BottomLeft => vec2(0.0, 0.0),
+            Self::BottomRight => vec2(1.0, 0.0),
+            Self::Center => vec2(0.5, 0.5),
+        }
+    }
 }
 
 pub struct Button<T> {

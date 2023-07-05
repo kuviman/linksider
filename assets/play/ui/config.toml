@@ -1,0 +1,5 @@
+textures = []
+
+# [[textures]]
+# anchor = "TopLeft"
+# texture = "top_left.png"

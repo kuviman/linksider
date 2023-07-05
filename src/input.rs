@@ -8,13 +8,14 @@ pub struct Config {
 }
 
 pub struct Controller {
+    ctx: crate::Context,
     config: Rc<Config>,
-    cursor_pos: vec2<f64>,
+    cursor_pos: Option<vec2<f64>>,
     drag: Option<Drag>,
 }
 
 impl Controller {
-    pub fn cursor_pos(&self) -> vec2<f64> {
+    pub fn cursor_pos(&self) -> Option<vec2<f64>> {
         self.cursor_pos
     }
 }
@@ -47,8 +48,9 @@ pub enum State {
 impl Controller {
     pub fn new(ctx: &crate::Context) -> Self {
         Self {
+            ctx: ctx.clone(),
             config: ctx.assets.config.input.clone(),
-            cursor_pos: vec2::ZERO,
+            cursor_pos: None,
             drag: None,
         }
     }
@@ -109,15 +111,14 @@ pub trait Context {
     fn handle_event(&mut self, event: geng::Event) -> Vec<Event> {
         let state = self.input();
         match event {
-            geng::Event::MouseDown {
-                position,
-                button: _,
-            } => {
-                self.input().drag = Some(Drag::DetectPhase {
-                    start_position: position,
-                    timer: Timer::new(),
-                    touch_id: None,
-                });
+            geng::Event::MousePress { button: _ } => {
+                if let Some(position) = self.input().cursor_pos {
+                    self.input().drag = Some(Drag::DetectPhase {
+                        start_position: position,
+                        timer: Timer::new(),
+                        touch_id: None,
+                    });
+                }
             }
             geng::Event::TouchStart(geng::Touch { id, position, .. }) => {
                 if let Some(Drag::DetectPhase {
@@ -143,32 +144,29 @@ pub trait Context {
                     });
                 }
             }
-            geng::Event::MouseMove { position, .. } => {
+            geng::Event::CursorMove { position, .. } => {
                 return self.handle_move(position, None);
             }
             geng::Event::TouchMove(geng::Touch { id, position, .. }) => {
                 return self.handle_move(position, Some(id));
             }
-            geng::Event::MouseUp {
-                position,
-                button: _,
+            geng::Event::MouseRelease { button: _ } => {
+                if let Some(position) = state.cursor_pos {
+                    if let Some(result) = self.handle_release(position) {
+                        return result;
+                    }
+                }
             }
-            | geng::Event::TouchEnd(geng::Touch { position, .. }) => match state.drag.take() {
-                Some(Drag::DetectPhase { .. }) => {
-                    return vec![Event::Click(position)];
+            geng::Event::TouchEnd(geng::Touch { position, .. }) => {
+                if let Some(result) = self.handle_release(position) {
+                    return result;
                 }
-                Some(Drag::Drag) => {
-                    return vec![Event::DragEnd(position)];
-                }
-                Some(Drag::Pinch { .. }) | Some(Drag::Camera) => {
-                    return vec![Event::StopTransformView];
-                }
-                None => {}
-            },
+            }
             geng::Event::Wheel { delta } => {
+                let center = state.ctx.geng.window().size().map(|x| x as f64 / 2.0);
                 return vec![Event::TransformView(TransformView {
-                    from: state.cursor_pos,
-                    to: state.cursor_pos,
+                    from: state.cursor_pos.unwrap_or(center),
+                    to: state.cursor_pos.unwrap_or(center),
                     fov_scale: (-delta * state.config.zoom_speed / 100.0).exp(),
                     rotation: Angle::ZERO,
                 })];
@@ -176,6 +174,20 @@ pub trait Context {
             _ => {}
         }
         vec![]
+    }
+
+    fn handle_release(&mut self, position: vec2<f64>) -> Option<Vec<Event>> {
+        Some(match self.input().drag.take()? {
+            Drag::DetectPhase { .. } => {
+                vec![Event::Click(position)]
+            }
+            Drag::Drag => {
+                vec![Event::DragEnd(position)]
+            }
+            Drag::Pinch { .. } | Drag::Camera => {
+                vec![Event::StopTransformView]
+            }
+        })
     }
 
     fn start_drag(&mut self, position: vec2<f64>) -> Vec<Event> {
@@ -191,7 +203,7 @@ pub trait Context {
     fn handle_move(&mut self, position: vec2<f64>, touch_id: Option<u64>) -> Vec<Event> {
         let input = self.input();
         let prev_pos = input.cursor_pos;
-        input.cursor_pos = position;
+        input.cursor_pos = Some(position);
         let mut events = vec![];
         if let Some(Drag::DetectPhase { start_position, .. }) = input.drag {
             if (start_position - position).len() > input.config.min_drag_distance {
@@ -206,7 +218,7 @@ pub trait Context {
             }
             Some(Drag::Camera) => {
                 events.push(Event::TransformView(TransformView {
-                    from: prev_pos,
+                    from: prev_pos.unwrap(),
                     to: position,
                     fov_scale: 1.0,
                     rotation: Angle::ZERO,

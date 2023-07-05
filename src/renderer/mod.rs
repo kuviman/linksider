@@ -1,47 +1,128 @@
 use super::*;
 
-mod background;
+pub mod background;
+mod spritesheet;
+pub mod ui;
 mod vfx;
 
+pub use spritesheet::SpriteSheet;
 pub use vfx::Vfx;
 
 #[derive(Deserialize)]
-pub struct ShadowConfig {
+struct ShadowConfig {
     offset: vec2<f32>,
     opacity: f32,
+    blacklist: HashSet<String>,
+}
+
+#[derive(Deserialize)]
+struct VignetteConfig {
+    color: Rgba<f32>,
+    inner_radius: f32,
+    outer_radius: f32,
+}
+
+#[derive(Deserialize)]
+struct EntityConfig {
+    background: Option<std::path::PathBuf>,
+    foreground: Option<std::path::PathBuf>,
+}
+
+struct EntityAssets {
+    background: Option<SpriteSheet>,
+    foreground: Option<SpriteSheet>,
+}
+
+#[derive(Deref)]
+struct EntitiesAssets {
+    #[deref]
+    entities: HashMap<String, EntityAssets>,
+}
+
+impl geng::asset::Load for EntitiesAssets {
+    type Options = ();
+    fn load(
+        manager: &geng::asset::Manager,
+        path: &std::path::Path,
+        _options: &Self::Options,
+    ) -> geng::asset::Future<Self> {
+        let manager = manager.clone();
+        let path = path.to_owned();
+        async move {
+            let config: HashMap<String, EntityConfig> =
+                file::load_detect(path.join("config.toml")).await?;
+            Ok(EntitiesAssets {
+                entities: future::join_all(config.into_iter().map(|(name, config)| async {
+                    Ok::<_, anyhow::Error>((
+                        name,
+                        EntityAssets {
+                            background: future::OptionFuture::from(
+                                config
+                                    .background
+                                    .map(|file| manager.load_with(path.join(file), &default())),
+                            )
+                            .await
+                            .transpose()?,
+                            foreground: future::OptionFuture::from(
+                                config
+                                    .foreground
+                                    .map(|file| manager.load_with(path.join(file), &default())),
+                            )
+                            .await
+                            .transpose()?,
+                        },
+                    ))
+                }))
+                .await
+                .into_iter()
+                .collect::<Result<HashMap<_, _>, _>>()?,
+            })
+        }
+        .boxed_local()
+    }
+    const DEFAULT_EXT: Option<&'static str> = None;
 }
 
 #[derive(Deserialize)]
 pub struct Config {
     shadow: ShadowConfig,
+    vignette: VignetteConfig,
 }
 
 #[derive(geng::asset::Load)]
 struct Shaders {
     texture: ugli::Program,
-    fullscreen_texture: ugli::Program,
+    background: ugli::Program,
+    vignette: ugli::Program,
 }
 
 #[derive(geng::asset::Load)]
 pub struct Assets {
+    entities: EntitiesAssets,
     shaders: Shaders,
-    background: background::Assets,
     game: autotile::Tileset,
     ui: autotile::Tileset,
     vfx: vfx::Assets,
-    numbers: Texture,
+    #[load(options(premultiply_alpha = "true"))]
+    numbers: ugli::Texture,
     #[load(load_with = "load_group_icons(&manager)")]
-    group_icons: HashMap<String, Texture>,
+    group_icons: HashMap<String, ugli::Texture>,
 }
 
 async fn load_group_icons(
     manager: &geng::asset::Manager,
-) -> anyhow::Result<HashMap<String, Texture>> {
+) -> anyhow::Result<HashMap<String, ugli::Texture>> {
     let group_names = levels::load_group_names().await;
     Ok(
         future::join_all(group_names.into_iter().map(|name| async move {
-            let texture: Texture = manager
-                .load(levels::group_dir(&name).join("group_icon.png"))
+            let texture: ugli::Texture = manager
+                .load_with(
+                    levels::group_dir(&name).join("group_icon.png"),
+                    &geng::asset::TextureOptions {
+                        filter: ugli::Filter::Nearest,
+                        ..default()
+                    },
+                )
                 .await?;
             Ok::<_, anyhow::Error>((name, texture))
         }))
@@ -56,29 +137,30 @@ pub struct Renderer {
     geng: Geng,
     assets: Rc<crate::Assets>,
     background: background::State,
-    index_meshes: Vec<ugli::VertexBuffer<draw2d::TexturedVertex>>,
-    game_tile_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
-    ui_tile_meshes: HashMap<String, ugli::VertexBuffer<draw2d::TexturedVertex>>,
-    grid_mesh: ugli::VertexBuffer<draw2d::TexturedVertex>,
+    index_meshes: Vec<ugli::VertexBuffer<TilesetVertex>>,
+    game_tile_meshes: HashMap<String, ugli::VertexBuffer<TilesetVertex>>,
+    ui_tile_meshes: HashMap<String, ugli::VertexBuffer<TilesetVertex>>,
+    grid_mesh: ugli::VertexBuffer<TilesetVertex>,
     white_texture: ugli::Texture,
+    quad: ugli::VertexBuffer<draw2d::Vertex>,
+    timer: Timer,
 }
 
 impl Renderer {
     pub fn new(geng: &Geng, assets: &Rc<crate::Assets>) -> Self {
-        let create_mesh = |uv| {
+        let create_mesh = |border, uv| {
             ugli::VertexBuffer::new_static(geng.ugli(), {
-                let pos = Aabb2::ZERO.extend_positive(vec2::splat(1.0));
+                let pos = Aabb2::ZERO
+                    .extend_positive(vec2::splat(1.0))
+                    .extend_symmetric(border);
                 let corners = pos.zip(uv).corners();
                 [
                     corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
                 ]
-                .map(
-                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
-                        a_pos: vec2(pos_x, pos_y),
-                        a_color: Rgba::WHITE,
-                        a_vt: vec2(uv_x, uv_y),
-                    },
-                )
+                .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| TilesetVertex {
+                    a_pos: vec2(pos_x, pos_y),
+                    a_uv: vec2(uv_x, uv_y),
+                })
                 .to_vec()
             })
         };
@@ -91,7 +173,16 @@ impl Renderer {
                     tile.default.map(|tileset_pos| {
                         (
                             name.to_owned(),
-                            create_mesh(tileset.def.uv(tileset_pos, tileset.texture.size())),
+                            create_mesh(
+                                vec2::ZERO,
+                                tileset.def.uv(tileset_pos, tileset.texture.size()),
+                            ),
+                            // create_mesh(
+                            //     vec2::splat(1.0) / tileset.def.tile_size.map(|x| x as f32),
+                            //     tileset
+                            //         .def
+                            //         .uv_with_border(tileset_pos, tileset.texture.size()),
+                            // ),
                         )
                     })
                 })
@@ -108,6 +199,7 @@ impl Renderer {
                 (0..len)
                     .map(|i| {
                         create_mesh(
+                            vec2::ZERO,
                             Aabb2::point(vec2(i as f32 / len as f32, 0.0))
                                 .extend_positive(vec2(1.0 / len as f32, 1.0)),
                         )
@@ -118,6 +210,24 @@ impl Renderer {
             ui_tile_meshes: create_tile_meshes(&assets.renderer.ui),
             white_texture: ugli::Texture::new_with(geng.ugli(), vec2(1, 1), |_| Rgba::WHITE),
             grid_mesh: Self::create_grid_mesh(geng.ugli(), 100, 100),
+            quad: ugli::VertexBuffer::new_static(
+                geng.ugli(),
+                vec![
+                    draw2d::Vertex {
+                        a_pos: vec2(-1.0, -1.0),
+                    },
+                    draw2d::Vertex {
+                        a_pos: vec2(1.0, -1.0),
+                    },
+                    draw2d::Vertex {
+                        a_pos: vec2(1.0, 1.0),
+                    },
+                    draw2d::Vertex {
+                        a_pos: vec2(-1.0, 1.0),
+                    },
+                ],
+            ),
+            timer: Timer::new(),
         }
     }
 
@@ -125,30 +235,26 @@ impl Renderer {
         ugli: &Ugli,
         width: usize,
         height: usize,
-    ) -> ugli::VertexBuffer<draw2d::TexturedVertex> {
+    ) -> ugli::VertexBuffer<TilesetVertex> {
         let mut data = Vec::with_capacity(((width + 1) + (height + 1)) * 2);
         for x in 0..=width {
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(x as f32, 0.0),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
             });
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(x as f32, height as f32),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
             });
         }
         for y in 0..=height {
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(0.0, y as f32),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
             });
-            data.push(draw2d::TexturedVertex {
+            data.push(TilesetVertex {
                 a_pos: vec2(width as f32, y as f32),
-                a_color: Rgba::WHITE,
-                a_vt: vec2::ZERO,
+                a_uv: vec2::ZERO,
             });
         }
         ugli::VertexBuffer::new_static(ugli, data)
@@ -175,14 +281,34 @@ impl Renderer {
 
     pub fn draw_background(
         &self,
+        assets: &background::Assets,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
     ) {
-        self.background.draw(framebuffer, camera);
+        self.background.draw(assets, framebuffer, camera);
+    }
+
+    pub fn draw_vignette(&self, framebuffer: &mut ugli::Framebuffer) {
+        ugli::draw(
+            framebuffer,
+            &self.assets.renderer.shaders.vignette,
+            ugli::DrawMode::TriangleFan,
+            &self.quad,
+            ugli::uniforms! {
+                u_color: self.assets.config.render.vignette.color,
+                u_inner_radius: self.assets.config.render.vignette.inner_radius,
+                u_outer_radius: self.assets.config.render.vignette.outer_radius,
+            },
+            ugli::DrawParameters {
+                blend_mode: Some(ugli::BlendMode::premultiplied_alpha()),
+                ..default()
+            },
+        );
     }
 
     pub fn draw_level(
         &self,
+        background_assets: &background::Assets,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
         level: &Level,
@@ -190,6 +316,7 @@ impl Renderer {
     ) {
         // TODO not generate game state on every frame
         self.draw(
+            background_assets,
             framebuffer,
             camera,
             history::Frame {
@@ -213,7 +340,7 @@ impl Renderer {
             self.geng.draw2d().draw2d(
                 framebuffer,
                 camera,
-                &draw2d::TexturedQuad::unit_colored(&**texture, color).transform(
+                &draw2d::TexturedQuad::unit_colored(texture, color).transform(
                     matrix
                         * mat3::scale(vec2(texture.size().map(|x| x as f32).aspect(), 1.0))
                         * mat3::scale_uniform_around(vec2::splat(1.0), 0.5),
@@ -224,6 +351,7 @@ impl Renderer {
 
     pub fn draw(
         &self,
+        background_assets: &background::Assets,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
         frame: history::Frame,
@@ -246,70 +374,152 @@ impl Renderer {
             t: 0.0,
         });
 
-        self.draw_background(framebuffer, camera);
+        self.draw_background(background_assets, framebuffer, camera);
 
         // Shadow
-        self.draw_colored(
-            framebuffer,
-            camera,
-            current_state,
-            prev_state,
-            moves,
-            t,
-            level_mesh,
-            mat3::translate(self.assets.config.render.shadow.offset),
-            Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity),
-            zzz,
-        );
-
-        for goal in &prev_state.goals {
-            self.draw_game_tile(
+        {
+            let color = Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity);
+            let transform = mat3::translate(self.assets.config.render.shadow.offset);
+            self.draw_mesh_impl(
                 framebuffer,
                 camera,
-                "Goal",
-                Rgba::WHITE,
-                mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
-                    * goal.pos.angle.to_matrix()
-                    * mat3::translate(vec2::splat(-0.5)),
+                &level_mesh.shadow,
+                ugli::DrawMode::Triangles,
+                &self.assets.renderer.game.texture,
+                color,
+                transform,
+            );
+            self.draw_impl(
+                framebuffer,
+                camera,
+                current_state,
+                prev_state,
+                moves,
+                t,
+                transform,
+                color,
+                zzz,
+                |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                    if !self.assets.config.render.shadow.blacklist.contains(name) {
+                        self.draw_game_tile(framebuffer, camera, name, color, transform);
+                    }
+                },
             );
         }
 
-        self.draw_colored(
+        // Background for entities
+        self.draw_impl(
             framebuffer,
             camera,
             current_state,
             prev_state,
             moves,
             t,
-            level_mesh,
             mat3::identity(),
             Rgba::WHITE,
             zzz,
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                if let Some(sprite_sheet) = self
+                    .assets
+                    .renderer
+                    .entities
+                    .get(name)
+                    .and_then(|assets| assets.background.as_ref())
+                {
+                    self.draw_sprite_sheet(
+                        sprite_sheet,
+                        framebuffer,
+                        camera,
+                        color,
+                        self.timer.elapsed().as_secs_f64() as f32,
+                        transform * mat3::translate(vec2::splat(0.5)),
+                    )
+                }
+            },
+        );
+
+        // Actual game layer
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            &level_mesh.normal,
+            ugli::DrawMode::Triangles,
+            &self.assets.renderer.game.texture,
+            Rgba::WHITE,
+            mat3::identity(),
+        );
+        self.draw_impl(
+            framebuffer,
+            camera,
+            current_state,
+            prev_state,
+            moves,
+            t,
+            mat3::identity(),
+            Rgba::WHITE,
+            zzz,
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                self.draw_game_tile(framebuffer, camera, name, color, transform);
+            },
+        );
+
+        // Foreground for entities
+        self.draw_impl(
+            framebuffer,
+            camera,
+            current_state,
+            prev_state,
+            moves,
+            t,
+            mat3::identity(),
+            Rgba::WHITE,
+            zzz,
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                if let Some(sprite_sheet) = self
+                    .assets
+                    .renderer
+                    .entities
+                    .get(name)
+                    .and_then(|assets| assets.foreground.as_ref())
+                {
+                    self.draw_sprite_sheet(
+                        sprite_sheet,
+                        framebuffer,
+                        camera,
+                        color,
+                        self.timer.elapsed().as_secs_f64() as f32,
+                        transform * mat3::translate(vec2::splat(0.5)),
+                    )
+                }
+            },
         );
     }
 
-    fn draw_colored(
+    fn draw_impl<Cam: geng::AbstractCamera2d>(
         &self,
         framebuffer: &mut ugli::Framebuffer,
-        camera: &impl geng::AbstractCamera2d,
+        camera: &Cam,
         current_state: &GameState,
         prev_state: &GameState,
         moves: &Moves,
         t: f32,
-        level_mesh: &LevelMesh,
         transform: mat3<f32>,
         color: Rgba<f32>,
         zzz: bool,
+        draw_game_tile: impl Fn(&mut ugli::Framebuffer, &Cam, &str, Rgba<f32>, mat3<f32>),
     ) {
-        self.draw_mesh_impl(
-            framebuffer,
-            camera,
-            &level_mesh.0,
-            ugli::DrawMode::Triangles,
-            &self.assets.renderer.game.texture,
-            color,
-            transform,
-        );
+        for goal in &prev_state.goals {
+            draw_game_tile(
+                framebuffer,
+                camera,
+                "Goal",
+                color,
+                transform
+                    * mat3::translate(goal.pos.cell.map(|x| x as f32 + 0.5))
+                    * goal.pos.angle.to_matrix()
+                    * mat3::translate(vec2::splat(-0.5)),
+            );
+        }
 
         for entity in &prev_state.entities {
             let entity_move = moves.entity_moves.get(&entity.id);
@@ -382,11 +592,15 @@ impl Renderer {
                         color.to_vec4() * self.assets.config.deselected_player_color.to_vec4(),
                     );
                 }
-                self.draw_game_tile(
+                draw_game_tile(
                     framebuffer,
                     camera,
                     if zzz && entity.identifier == "Player" {
                         "PlayerZzz"
+                    } else if entity.properties.player
+                        && Some(entity.id) != current_state.selected_player
+                    {
+                        "PlayerUnselected"
                     } else {
                         &entity.identifier
                     },
@@ -397,10 +611,10 @@ impl Renderer {
 
             for (side_index, side) in entity.sides.iter().enumerate() {
                 if let Some(effect) = &side.effect {
-                    self.draw_game_tile(
+                    draw_game_tile(
                         framebuffer,
                         camera,
-                        &format!("{effect:?}Power"),
+                        &format!("{effect:?}SideEffect"),
                         color,
                         transform
                             * entity_transform
@@ -415,10 +629,10 @@ impl Renderer {
             }
         }
         for powerup in &prev_state.powerups {
-            self.draw_game_tile(
+            draw_game_tile(
                 framebuffer,
                 camera,
-                &format!("{:?}Power", powerup.effect),
+                &format!("{:?}Powerup", powerup.effect),
                 color,
                 transform
                     * mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))
@@ -518,24 +732,69 @@ impl Renderer {
                     u_model_matrix: matrix,
                     u_color: color,
                     u_texture: texture,
+                    u_texture_size: texture.size(),
                 },
                 camera.uniforms(framebuffer.size().map(|x| x as f32)),
             ),
             ugli::DrawParameters {
-                blend_mode: Some(ugli::BlendMode::straight_alpha()), // TODO premultiplied
+                blend_mode: Some(ugli::BlendMode::premultiplied_alpha()),
                 ..default()
             },
         );
     }
+
+    pub fn draw_lowres(&self, scale: usize, f: impl FnOnce(&mut ugli::Framebuffer)) {
+        self.geng.window().with_framebuffer(|framebuffer| {
+            let mut texture =
+                ugli::Texture::new_uninitialized(self.geng.ugli(), framebuffer.size() / scale);
+            texture.set_filter(ugli::Filter::Nearest);
+            {
+                let mut framebuffer = ugli::Framebuffer::new_color(
+                    self.geng.ugli(),
+                    ugli::ColorAttachment::Texture(&mut texture),
+                );
+                f(&mut framebuffer);
+            }
+            self.geng.draw2d().draw2d(
+                framebuffer,
+                &geng::PixelPerfectCamera,
+                &draw2d::TexturedQuad::new(
+                    Aabb2::ZERO.extend_positive(framebuffer.size().map(|x| x as f32)),
+                    &texture,
+                ),
+            )
+        });
+    }
 }
 
-pub struct LevelMesh(ugli::VertexBuffer<draw2d::TexturedVertex>);
+#[derive(ugli::Vertex, Clone)]
+struct TilesetVertex {
+    a_uv: vec2<f32>,
+    a_pos: vec2<f32>,
+}
+
+pub struct LevelMesh {
+    normal: ugli::VertexBuffer<TilesetVertex>,
+    shadow: ugli::VertexBuffer<TilesetVertex>,
+}
 
 impl Renderer {
     pub fn level_mesh(&self, level: &Level) -> LevelMesh {
+        LevelMesh {
+            normal: self.level_mesh_impl(&HashSet::new(), level),
+            shadow: self.level_mesh_impl(&self.assets.config.render.shadow.blacklist, level),
+        }
+    }
+
+    fn level_mesh_impl(
+        &self,
+        blacklist: &HashSet<String>,
+        level: &Level,
+    ) -> ugli::VertexBuffer<TilesetVertex> {
         struct TileMap<'a> {
             config: &'a logicsider::Config,
             level: &'a Level,
+            blacklist: &'a HashSet<String>,
         }
         impl autotile::TileMap for TileMap<'_> {
             type NonEmptyIter<'a> = Box<dyn Iterator<Item = vec2<i32>> + 'a> where Self:'a ;
@@ -544,6 +803,7 @@ impl Renderer {
                     self.level
                         .entities
                         .iter()
+                        .filter(|entity| !self.blacklist.contains(&entity.identifier))
                         .filter(|entity| self.config.entities[&entity.identifier].r#static)
                         .map(|entity| entity.pos.cell),
                 )
@@ -555,9 +815,10 @@ impl Renderer {
                     .iter()
                     .find(|entity| entity.pos.cell == pos)
                     .map(|entity| entity.identifier.as_str())
+                    .filter(|&name| !self.blacklist.contains(name))
             }
         }
-        LevelMesh(ugli::VertexBuffer::new_static(
+        ugli::VertexBuffer::new_static(
             self.geng.ugli(),
             self.assets
                 .renderer
@@ -566,30 +827,27 @@ impl Renderer {
                 .generate_mesh(&TileMap {
                     config: &self.assets.logic_config,
                     level,
+                    blacklist,
                 })
                 .flat_map(|tile| {
-                    let uv = self
-                        .assets
-                        .renderer
-                        .game
-                        .def
-                        .uv(tile.tileset_pos, self.assets.renderer.game.texture.size());
+                    let tileset = &self.assets.renderer.game;
+                    let uv = tileset.def.uv(tile.tileset_pos, tileset.texture.size());
                     let pos = Aabb2::point(tile.pos)
                         .extend_positive(vec2::splat(1))
                         .map(|x| x as f32);
+                    // .extend_symmetric(
+                    //     vec2::splat(0.5) / tileset.def.tile_size.map(|x| x as f32),
+                    // );
                     let corners = pos.zip(uv).corners();
                     [
                         corners[0], corners[1], corners[2], corners[0], corners[2], corners[3],
                     ]
-                })
-                .map(
-                    |vec2((pos_x, uv_x), (pos_y, uv_y))| draw2d::TexturedVertex {
+                    .map(|vec2((pos_x, uv_x), (pos_y, uv_y))| TilesetVertex {
                         a_pos: vec2(pos_x, pos_y),
-                        a_color: Rgba::WHITE,
-                        a_vt: vec2(uv_x, uv_y),
-                    },
-                )
+                        a_uv: vec2(uv_x, uv_y),
+                    })
+                })
                 .collect(),
-        ))
+        )
     }
 }
