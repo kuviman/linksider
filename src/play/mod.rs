@@ -250,8 +250,19 @@ impl State {
             }
             geng::Event::MousePress { .. } => {
                 if let Some(position) = self.cursor_position {
-                    self.click(position)?;
+                    if !self.click(position)? {
+                        self.touch_input =
+                            Some(if (position.x as f32) < self.framebuffer_size.x / 2.0 {
+                                Input::Left
+                            } else {
+                                Input::Right
+                            });
+                        player_input = self.touch_input;
+                    }
                 }
+            }
+            geng::Event::MouseRelease { .. } => {
+                self.touch_input = None;
             }
             geng::Event::TouchStart(touch) => {
                 if !self.click(touch.position)? {
