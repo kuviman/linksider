@@ -2,9 +2,9 @@
 anchor = "TopCenter"
 texture = "topcenterUIBG.png"
 
-[[textures]]
-anchor = "BottomCenter"
-texture = "bottomcenterUIBG.png"
+#[[textures]]
+#anchor = "BottomCenter"
+#texture = "bottomcenterUIBG.png"
 
 [[textures]]
 anchor = "TopLeft"
