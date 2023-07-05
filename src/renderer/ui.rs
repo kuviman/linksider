@@ -37,6 +37,7 @@ impl geng::asset::Load for Assets {
                             .load_with(
                                 path.join(config.texture),
                                 &geng::asset::TextureOptions {
+                                    filter: ugli::Filter::Nearest,
                                     // premultiply_alpha: true,
                                     ..default()
                                 },
