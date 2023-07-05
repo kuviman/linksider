@@ -596,6 +596,10 @@ impl Renderer {
                     camera,
                     if zzz && entity.identifier == "Player" {
                         "PlayerZzz"
+                    } else if entity.properties.player
+                        && Some(entity.id) != current_state.selected_player
+                    {
+                        "PlayerUnselected"
                     } else {
                         &entity.identifier
                     },

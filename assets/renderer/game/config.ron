@@ -9,6 +9,7 @@
     "disable": At(11, 5),
     "Player": At(0, 5),
     "PlayerZzz": At(2, 5),
+    "PlayerUnselected": At(2, 5),
     "Goal": At(1, 5),
     "JumpPowerup": At(0, 6),
     "SlidePowerup": At(1, 6),
