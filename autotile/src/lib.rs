@@ -290,7 +290,12 @@ impl TilesetDef {
 }
 
 impl geng::asset::Load for Tileset {
-    fn load(manager: &geng::asset::Manager, path: &std::path::Path) -> geng::asset::Future<Self> {
+    type Options = ();
+    fn load(
+        manager: &geng::asset::Manager,
+        path: &std::path::Path,
+        _options: &Self::Options,
+    ) -> geng::asset::Future<Self> {
         let manager = manager.to_owned();
         let path = path.to_owned();
         async move {

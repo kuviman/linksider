@@ -2,17 +2,24 @@ use super::*;
 
 #[derive(geng::asset::Load)]
 pub struct Assets {
-    player_change: Rc<Texture>,
-    walk: Rc<Texture>,
-    hit_wall: Rc<Texture>,
-    jump: Rc<Texture>,
-    happy: Rc<Texture>,
-    slide: Rc<Texture>,
-    zzz: Rc<Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    player_change: Rc<ugli::Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    walk: Rc<ugli::Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    hit_wall: Rc<ugli::Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    jump: Rc<ugli::Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    happy: Rc<ugli::Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    slide: Rc<ugli::Texture>,
+    #[load(options(premultiply_alpha = "true"))]
+    zzz: Rc<ugli::Texture>,
 }
 
 struct Cell {
-    texture: Rc<Texture>,
+    texture: Rc<ugli::Texture>,
     pos: Position,
     flip: bool,
     t: f32,

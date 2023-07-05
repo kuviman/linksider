@@ -29,19 +29,26 @@ pub struct Assets {
     game: autotile::Tileset,
     ui: autotile::Tileset,
     vfx: vfx::Assets,
-    numbers: Texture,
+    #[load(options(premultiply_alpha = "true"))]
+    numbers: ugli::Texture,
     #[load(load_with = "load_group_icons(&manager)")]
-    group_icons: HashMap<String, Texture>,
+    group_icons: HashMap<String, ugli::Texture>,
 }
 
 async fn load_group_icons(
     manager: &geng::asset::Manager,
-) -> anyhow::Result<HashMap<String, Texture>> {
+) -> anyhow::Result<HashMap<String, ugli::Texture>> {
     let group_names = levels::load_group_names().await;
     Ok(
         future::join_all(group_names.into_iter().map(|name| async move {
-            let texture: Texture = manager
-                .load(levels::group_dir(&name).join("group_icon.png"))
+            let texture: ugli::Texture = manager
+                .load_with(
+                    levels::group_dir(&name).join("group_icon.png"),
+                    &geng::asset::TextureOptions {
+                        filter: ugli::Filter::Nearest,
+                        ..default()
+                    },
+                )
                 .await?;
             Ok::<_, anyhow::Error>((name, texture))
         }))
@@ -218,7 +225,7 @@ impl Renderer {
             self.geng.draw2d().draw2d(
                 framebuffer,
                 camera,
-                &draw2d::TexturedQuad::unit_colored(&**texture, color).transform(
+                &draw2d::TexturedQuad::unit_colored(texture, color).transform(
                     matrix
                         * mat3::scale(vec2(texture.size().map(|x| x as f32).aspect(), 1.0))
                         * mat3::scale_uniform_around(vec2::splat(1.0), 0.5),

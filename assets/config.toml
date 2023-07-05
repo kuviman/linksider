@@ -5,14 +5,14 @@ border_radius_pixels = 4
 deselected_player_color = "#fff7"
 zzz_time = 30
 happy = false
-lowres = 8
+# lowres = 8
 
 [popup]
 ui_fov = 6
 
 [play]
 ui_fov = 6
-fov = 4
+fov = 12
 
 [input]
 min_drag_distance = 5
@@ -40,7 +40,7 @@ play = ["Space", "Enter", "O"]
 
 [render.shadow]
 offset = [0.125, -0.125]
-opacity = 0              # 0.2
+opacity = 0.2
 
 [sound]
 volume = 0.1

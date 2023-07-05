@@ -2,9 +2,9 @@ use super::*;
 
 #[derive(geng::asset::Load)]
 pub struct Assets {
-    #[load(postprocess = "process_texture")]
+    #[load(options(wrap_mode = "ugli::WrapMode::Repeat", filter = "ugli::Filter::Nearest"))]
     top: ugli::Texture,
-    #[load(postprocess = "process_texture")]
+    #[load(options(wrap_mode = "ugli::WrapMode::Repeat", filter = "ugli::Filter::Nearest"))]
     bottom: ugli::Texture,
 }
 
