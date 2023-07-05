@@ -7,10 +7,10 @@ zzz_time = 30
 happy = false
 
 [popup]
-ui_fov = 6
+ui_fov = 8
 
 [play]
-ui_fov = 6
+ui_fov = 8
 fov = 12
 
 [input]
@@ -20,7 +20,7 @@ zoom_speed = 1
 
 [level_select]
 fov = 12
-ui_fov = 6
+ui_fov = 8
 level_icon_offset = [0, 0.0625]
 level_icon_size = 0.625
 icon_color = "#46425e"
@@ -64,7 +64,7 @@ effect = { jump = "J", delete = "Delete" }
 default_fov = 15
 min_fov = 5
 max_fov = 30
-ui_fov = 6
+ui_fov = 8
 margin = 15
 index_size = 0.3
 index_color = "white"
