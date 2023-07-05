@@ -19,6 +19,6 @@ uniform vec4 u_color;
 uniform sampler2D u_texture;
 uniform ivec2 u_texture_size;
 void main() {
-    gl_FragColor = u_color * smoothTexture2D(v_uv, u_texture, u_texture_size);
+    gl_FragColor = premultiply_alpha(u_color) * smoothTexture2D(v_uv, u_texture, u_texture_size);
 }
 #endif
