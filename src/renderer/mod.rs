@@ -530,17 +530,12 @@ impl Renderer {
                     u_model_matrix: matrix,
                     u_color: color,
                     u_texture: texture,
-                    u_texture_size: texture.size().map(|x| x as f32),
+                    u_texture_size: texture.size(),
                 },
                 camera.uniforms(framebuffer.size().map(|x| x as f32)),
             ),
             ugli::DrawParameters {
-                // blend_mode: Some(ugli::BlendMode::straight_alpha()), // TODO premultiplied
-                blend_mode: Some(ugli::BlendMode::combined(ugli::ChannelBlendMode {
-                    src_factor: ugli::BlendFactor::One,
-                    dst_factor: ugli::BlendFactor::OneMinusSrcAlpha,
-                    equation: ugli::BlendEquation::Add,
-                })),
+                blend_mode: Some(ugli::BlendMode::premultiplied_alpha()),
                 ..default()
             },
         );

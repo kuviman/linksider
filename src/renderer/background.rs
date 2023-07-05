@@ -2,9 +2,9 @@ use super::*;
 
 #[derive(geng::asset::Load)]
 pub struct Assets {
-    #[load(options(wrap_mode = "ugli::WrapMode::Repeat", filter = "ugli::Filter::Nearest"))]
+    #[load(options(wrap_mode = "ugli::WrapMode::Repeat", premultiply_alpha = "true"))]
     top: ugli::Texture,
-    #[load(options(wrap_mode = "ugli::WrapMode::Repeat", filter = "ugli::Filter::Nearest"))]
+    #[load(options(wrap_mode = "ugli::WrapMode::Repeat", premultiply_alpha = "true"))]
     bottom: ugli::Texture,
 }
 
@@ -49,11 +49,12 @@ impl State {
                         u_scale: texture.size().map(|x| x as f32) / self.assets.config.cell_pixel_size as f32,
                         u_parallax: vec2::splat(k),
                         u_texture: texture,
+                        u_texture_size: texture.size(),
                     },
                     camera.uniforms(framebuffer.size().map(|x| x as f32)),
                 ),
                 ugli::DrawParameters {
-                    blend_mode: Some(ugli::BlendMode::straight_alpha()),
+                    blend_mode: Some(ugli::BlendMode::premultiplied_alpha()),
                     ..default()
                 },
             );
