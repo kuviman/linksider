@@ -415,7 +415,7 @@ impl Renderer {
                     self.draw_game_tile(
                         framebuffer,
                         camera,
-                        &format!("{effect:?}Power"),
+                        &format!("{effect:?}SideEffect"),
                         color,
                         transform
                             * entity_transform
@@ -433,7 +433,7 @@ impl Renderer {
             self.draw_game_tile(
                 framebuffer,
                 camera,
-                &format!("{:?}Power", powerup.effect),
+                &format!("{:?}Powerup", powerup.effect),
                 color,
                 transform
                     * mat3::translate(powerup.pos.cell.map(|x| x as f32 + 0.5))

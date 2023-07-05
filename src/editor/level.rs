@@ -56,8 +56,8 @@ impl ToolType {
     fn tile_name(&self) -> String {
         match self {
             Self::Entity(name) => name.clone(),
-            Self::SideEffect(effect) => format!("{effect:?}Power"),
-            Self::Powerup(effect) => format!("{effect:?}Power"),
+            Self::SideEffect(effect) => format!("{effect:?}SideEffect"),
+            Self::Powerup(effect) => format!("{effect:?}Powerup"),
             Self::Goal => "Goal".to_owned(),
             Self::Eraser => "Eraser".to_owned(),
         }
