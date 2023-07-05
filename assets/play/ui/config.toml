@@ -1,5 +1,15 @@
-textures = []
+[[textures]]
+anchor = "TopLeft"
+texture = "topleftUIBG.png"
 
-# [[textures]]
-# anchor = "TopLeft"
-# texture = "top_left.png"
+[[textures]]
+anchor = "TopRight"
+texture = "toprightUIBG.png"
+
+[[textures]]
+anchor = "BottomRight"
+texture = "bottomrightUIBG.png"
+
+[[textures]]
+anchor = "BottomLeft"
+texture = "bottomleftUIBG.png"

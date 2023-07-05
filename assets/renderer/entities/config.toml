@@ -1,5 +1,5 @@
 [Goal]
-# background = "../../play/background/top.png"
+background = "../../play/sprite/goalBG.png"
 # foreground = "../vfx/zzz.png"
 
 # [Player]
