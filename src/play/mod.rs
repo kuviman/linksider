@@ -312,9 +312,11 @@ impl State {
 
         self.ctx.renderer.draw_vignette(framebuffer);
 
-        self.ctx
-            .renderer
-            .draw_ui_background(&self.ctx.assets.play.ui, framebuffer, &self.camera);
+        self.ctx.renderer.draw_ui_background(
+            &self.ctx.assets.play.ui,
+            framebuffer,
+            &self.ui_camera,
+        );
 
         buttons::layout(
             &mut self.buttons,

@@ -480,7 +480,7 @@ impl State {
         self.ctx.renderer.draw_ui_background(
             &self.ctx.assets.level_select.ui,
             framebuffer,
-            &self.camera,
+            &self.ui_camera,
         );
 
         buttons::layout(
