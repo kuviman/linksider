@@ -1,22 +1,85 @@
 use super::*;
 
 pub mod background;
+mod spritesheet;
 mod vfx;
 
+pub use spritesheet::SpriteSheet;
 pub use vfx::Vfx;
 
 #[derive(Deserialize)]
-pub struct ShadowConfig {
+struct ShadowConfig {
     offset: vec2<f32>,
     opacity: f32,
     blacklist: HashSet<String>,
 }
 
 #[derive(Deserialize)]
-pub struct VignetteConfig {
+struct VignetteConfig {
     color: Rgba<f32>,
     inner_radius: f32,
     outer_radius: f32,
+}
+
+#[derive(Deserialize)]
+struct EntityConfig {
+    background: Option<std::path::PathBuf>,
+    foreground: Option<std::path::PathBuf>,
+}
+
+struct EntityAssets {
+    background: Option<SpriteSheet>,
+    foreground: Option<SpriteSheet>,
+}
+
+#[derive(Deref)]
+struct EntitiesAssets {
+    #[deref]
+    entities: HashMap<String, EntityAssets>,
+}
+
+impl geng::asset::Load for EntitiesAssets {
+    type Options = ();
+    fn load(
+        manager: &geng::asset::Manager,
+        path: &std::path::Path,
+        _options: &Self::Options,
+    ) -> geng::asset::Future<Self> {
+        let manager = manager.clone();
+        let path = path.to_owned();
+        async move {
+            let config: HashMap<String, EntityConfig> =
+                file::load_detect(path.join("config.toml")).await?;
+            Ok(EntitiesAssets {
+                entities: future::join_all(config.into_iter().map(|(name, config)| async {
+                    Ok::<_, anyhow::Error>((
+                        name,
+                        EntityAssets {
+                            background: future::OptionFuture::from(
+                                config
+                                    .background
+                                    .map(|file| manager.load_with(path.join(file), &default())),
+                            )
+                            .await
+                            .transpose()?,
+                            foreground: future::OptionFuture::from(
+                                config
+                                    .foreground
+                                    .map(|file| manager.load_with(path.join(file), &default())),
+                            )
+                            .await
+                            .transpose()?,
+                        },
+                    ))
+                }))
+                .await
+                .into_iter()
+                .collect::<Result<HashMap<_, _>, _>>()?,
+            })
+        }
+        .boxed_local()
+    }
+    const DEFAULT_EXT: Option<&'static str> = None;
 }
 
 #[derive(Deserialize)]
@@ -34,6 +97,7 @@ struct Shaders {
 
 #[derive(geng::asset::Load)]
 pub struct Assets {
+    entities: EntitiesAssets,
     shaders: Shaders,
     game: autotile::Tileset,
     ui: autotile::Tileset,
@@ -78,6 +142,7 @@ pub struct Renderer {
     grid_mesh: ugli::VertexBuffer<TilesetVertex>,
     white_texture: ugli::Texture,
     quad: ugli::VertexBuffer<draw2d::Vertex>,
+    timer: Timer,
 }
 
 impl Renderer {
@@ -161,6 +226,7 @@ impl Renderer {
                     },
                 ],
             ),
+            timer: Timer::new(),
         }
     }
 
@@ -310,70 +376,137 @@ impl Renderer {
         self.draw_background(background_assets, framebuffer, camera);
 
         // Shadow
-        self.draw_colored(
-            framebuffer,
-            camera,
-            current_state,
-            prev_state,
-            moves,
-            t,
-            level_mesh,
-            mat3::translate(self.assets.config.render.shadow.offset),
-            Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity),
-            zzz,
-            true,
-        );
+        {
+            let color = Rgba::new(0.0, 0.0, 0.0, self.assets.config.render.shadow.opacity);
+            let transform = mat3::translate(self.assets.config.render.shadow.offset);
+            self.draw_mesh_impl(
+                framebuffer,
+                camera,
+                &level_mesh.shadow,
+                ugli::DrawMode::Triangles,
+                &self.assets.renderer.game.texture,
+                color,
+                transform,
+            );
+            self.draw_impl(
+                framebuffer,
+                camera,
+                current_state,
+                prev_state,
+                moves,
+                t,
+                transform,
+                color,
+                zzz,
+                |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                    if !self.assets.config.render.shadow.blacklist.contains(name) {
+                        self.draw_game_tile(framebuffer, camera, name, color, transform);
+                    }
+                },
+            );
+        }
 
-        self.draw_colored(
+        // Background for entities
+        self.draw_impl(
             framebuffer,
             camera,
             current_state,
             prev_state,
             moves,
             t,
-            level_mesh,
             mat3::identity(),
             Rgba::WHITE,
             zzz,
-            false,
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                if let Some(sprite_sheet) = self
+                    .assets
+                    .renderer
+                    .entities
+                    .get(name)
+                    .and_then(|assets| assets.background.as_ref())
+                {
+                    self.draw_sprite_sheet(
+                        sprite_sheet,
+                        framebuffer,
+                        camera,
+                        color,
+                        self.timer.elapsed().as_secs_f64() as f32,
+                        transform * mat3::translate(vec2::splat(0.5)),
+                    )
+                }
+            },
+        );
+
+        // Actual game layer
+        self.draw_mesh_impl(
+            framebuffer,
+            camera,
+            &level_mesh.normal,
+            ugli::DrawMode::Triangles,
+            &self.assets.renderer.game.texture,
+            Rgba::WHITE,
+            mat3::identity(),
+        );
+        self.draw_impl(
+            framebuffer,
+            camera,
+            current_state,
+            prev_state,
+            moves,
+            t,
+            mat3::identity(),
+            Rgba::WHITE,
+            zzz,
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                self.draw_game_tile(framebuffer, camera, name, color, transform);
+            },
+        );
+
+        // Foreground for entities
+        self.draw_impl(
+            framebuffer,
+            camera,
+            current_state,
+            prev_state,
+            moves,
+            t,
+            mat3::identity(),
+            Rgba::WHITE,
+            zzz,
+            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
+                if let Some(sprite_sheet) = self
+                    .assets
+                    .renderer
+                    .entities
+                    .get(name)
+                    .and_then(|assets| assets.foreground.as_ref())
+                {
+                    self.draw_sprite_sheet(
+                        sprite_sheet,
+                        framebuffer,
+                        camera,
+                        color,
+                        self.timer.elapsed().as_secs_f64() as f32,
+                        transform * mat3::translate(vec2::splat(0.5)),
+                    )
+                }
+            },
         );
     }
 
-    fn draw_colored(
+    fn draw_impl<Cam: geng::AbstractCamera2d>(
         &self,
         framebuffer: &mut ugli::Framebuffer,
-        camera: &impl geng::AbstractCamera2d,
+        camera: &Cam,
         current_state: &GameState,
         prev_state: &GameState,
         moves: &Moves,
         t: f32,
-        level_mesh: &LevelMesh,
         transform: mat3<f32>,
         color: Rgba<f32>,
         zzz: bool,
-        shadow: bool,
+        draw_game_tile: impl Fn(&mut ugli::Framebuffer, &Cam, &str, Rgba<f32>, mat3<f32>),
     ) {
-        let draw_game_tile =
-            |framebuffer: &mut ugli::Framebuffer, camera, name: &str, color, transform| {
-                if !shadow || !self.assets.config.render.shadow.blacklist.contains(name) {
-                    self.draw_game_tile(framebuffer, camera, name, color, transform);
-                }
-            };
-
-        self.draw_mesh_impl(
-            framebuffer,
-            camera,
-            if shadow {
-                &level_mesh.normal
-            } else {
-                &level_mesh.shadow
-            },
-            ugli::DrawMode::Triangles,
-            &self.assets.renderer.game.texture,
-            color,
-            transform,
-        );
-
         for goal in &prev_state.goals {
             draw_game_tile(
                 framebuffer,

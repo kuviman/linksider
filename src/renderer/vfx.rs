@@ -2,24 +2,17 @@ use super::*;
 
 #[derive(geng::asset::Load)]
 pub struct Assets {
-    #[load(options(premultiply_alpha = "true"))]
-    player_change: Rc<ugli::Texture>,
-    #[load(options(premultiply_alpha = "true"))]
-    walk: Rc<ugli::Texture>,
-    #[load(options(premultiply_alpha = "true"))]
-    hit_wall: Rc<ugli::Texture>,
-    #[load(options(premultiply_alpha = "true"))]
-    jump: Rc<ugli::Texture>,
-    #[load(options(premultiply_alpha = "true"))]
-    happy: Rc<ugli::Texture>,
-    #[load(options(premultiply_alpha = "true"))]
-    slide: Rc<ugli::Texture>,
-    #[load(options(premultiply_alpha = "true"))]
-    zzz: Rc<ugli::Texture>,
+    player_change: Rc<SpriteSheet>,
+    walk: Rc<SpriteSheet>,
+    hit_wall: Rc<SpriteSheet>,
+    jump: Rc<SpriteSheet>,
+    happy: Rc<SpriteSheet>,
+    slide: Rc<SpriteSheet>,
+    zzz: Rc<SpriteSheet>,
 }
 
 struct Cell {
-    texture: Rc<ugli::Texture>,
+    sprite_sheet: Rc<SpriteSheet>,
     pos: Position,
     flip: bool,
     t: f32,
@@ -61,7 +54,7 @@ impl Vfx {
                 } => {
                     if let Some(blocked_angle) = blocked_angle {
                         self.cells.push(Cell {
-                            texture: assets.hit_wall.clone(),
+                            sprite_sheet: assets.hit_wall.clone(),
                             pos: Position {
                                 cell: entity_move.new_pos.cell,
                                 angle: blocked_angle.rotate_clockwise(),
@@ -82,7 +75,7 @@ impl Vfx {
                 EntityMoveType::MagnetContinue => continue,
             };
             self.cells.push(Cell {
-                texture: texture.clone(),
+                sprite_sheet: texture.clone(),
                 pos: Position {
                     cell: entity_move.prev_pos.cell,
                     angle: angle.rotate_counter_clockwise(),
@@ -95,7 +88,7 @@ impl Vfx {
 
     pub fn zzz(&mut self, cell: vec2<i32>) {
         self.cells.push(Cell {
-            texture: self.ctx.assets.renderer.vfx.zzz.clone(),
+            sprite_sheet: self.ctx.assets.renderer.vfx.zzz.clone(),
             pos: Position {
                 cell,
                 angle: IntAngle::ZERO,
@@ -107,7 +100,7 @@ impl Vfx {
 
     pub fn change_player(&mut self, pos: Position) {
         self.cells.push(Cell {
-            texture: self.ctx.assets.renderer.vfx.player_change.clone(),
+            sprite_sheet: self.ctx.assets.renderer.vfx.player_change.clone(),
             pos: Position {
                 cell: pos.cell,
                 angle: IntAngle::ZERO,
@@ -129,40 +122,15 @@ impl Vfx {
             if cell.t < 0.0 {
                 continue;
             }
-            let texture: &ugli::Texture = &cell.texture;
-            assert!(texture.size().y % texture.size().x == 0);
-            let frames = texture.size().y / texture.size().x;
-            let frame = (cell.t * frames as f32).floor();
-            let start_vt = frame / frames as f32;
-            let end_vt = (frame + 1.0) / frames as f32;
-            let (start_vt, end_vt) = (1.0 - end_vt, 1.0 - start_vt);
-            let uv_aabb = Aabb2 {
-                min: vec2(0.0, start_vt),
-                max: vec2(1.0, end_vt),
-            };
-            let v = |x, y| TilesetVertex {
-                a_pos: vec2(x as f32, y as f32),
-                a_uv: uv_aabb.bottom_left()
-                    + uv_aabb.size()
-                        * vec2(if cell.flip { 1.0 - x as f32 } else { x as f32 }, y as f32),
-            };
-            let vertex_data = ugli::VertexBuffer::new_dynamic(
-                self.ctx.geng.ugli(),
-                vec![v(0, 0), v(1, 0), v(1, 1), v(0, 1)],
-            );
-            self.ctx.renderer.draw_mesh_impl(
+            self.ctx.renderer.draw_sprite_sheet(
+                &cell.sprite_sheet,
                 framebuffer,
                 camera,
-                &vertex_data,
-                ugli::DrawMode::TriangleFan,
-                texture,
                 Rgba::WHITE,
+                cell.t,
                 mat3::translate(cell.pos.cell.map(|x| x as f32 + 0.5))
-                    * mat3::scale_uniform(
-                        texture.size().x as f32 / self.ctx.assets.config.cell_pixel_size as f32,
-                    )
                     * mat3::rotate(cell.pos.angle.to_angle())
-                    * mat3::translate(vec2::splat(-0.5)),
+                    * mat3::scale(vec2(if cell.flip { -1.0 } else { 1.0 }, 1.0)),
             );
         }
     }
