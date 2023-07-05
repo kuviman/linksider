@@ -1,6 +1,6 @@
 use super::*;
 
-mod background;
+pub mod background;
 mod vfx;
 
 pub use vfx::Vfx;
@@ -25,7 +25,6 @@ struct Shaders {
 #[derive(geng::asset::Load)]
 pub struct Assets {
     shaders: Shaders,
-    background: background::Assets,
     game: autotile::Tileset,
     ui: autotile::Tileset,
     vfx: vfx::Assets,
@@ -187,14 +186,16 @@ impl Renderer {
 
     pub fn draw_background(
         &self,
+        assets: &background::Assets,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
     ) {
-        self.background.draw(framebuffer, camera);
+        self.background.draw(assets, framebuffer, camera);
     }
 
     pub fn draw_level(
         &self,
+        background_assets: &background::Assets,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
         level: &Level,
@@ -202,6 +203,7 @@ impl Renderer {
     ) {
         // TODO not generate game state on every frame
         self.draw(
+            background_assets,
             framebuffer,
             camera,
             history::Frame {
@@ -236,6 +238,7 @@ impl Renderer {
 
     pub fn draw(
         &self,
+        background_assets: &background::Assets,
         framebuffer: &mut ugli::Framebuffer,
         camera: &impl geng::AbstractCamera2d,
         frame: history::Frame,
@@ -258,7 +261,7 @@ impl Renderer {
             t: 0.0,
         });
 
-        self.draw_background(framebuffer, camera);
+        self.draw_background(background_assets, framebuffer, camera);
 
         // Shadow
         self.draw_colored(

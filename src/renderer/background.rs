@@ -37,7 +37,12 @@ impl State {
         }
     }
 
-    pub fn draw(&self, framebuffer: &mut ugli::Framebuffer, camera: &impl geng::AbstractCamera2d) {
+    pub fn draw(
+        &self,
+        assets: &Assets,
+        framebuffer: &mut ugli::Framebuffer,
+        camera: &impl geng::AbstractCamera2d,
+    ) {
         let mut draw_layer = |texture: &ugli::Texture, k: f32| {
             ugli::draw(
                 framebuffer,
@@ -59,7 +64,7 @@ impl State {
                 },
             );
         };
-        draw_layer(&self.assets.renderer.background.bottom, 0.75);
-        draw_layer(&self.assets.renderer.background.top, 0.5);
+        draw_layer(&assets.bottom, 0.75);
+        draw_layer(&assets.top, 0.5);
     }
 }

@@ -795,9 +795,13 @@ impl State<'_> {
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
         self.clamp_camera();
-        self.ctx
-            .renderer
-            .draw_level(framebuffer, &self.camera, &self.level, &self.level_mesh);
+        self.ctx.renderer.draw_level(
+            &self.ctx.assets.play.background,
+            framebuffer,
+            &self.camera,
+            &self.level,
+            &self.level_mesh,
+        );
 
         for entity in &self.level.entities {
             if let Some(index) = entity.index {

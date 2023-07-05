@@ -457,7 +457,11 @@ impl State {
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
         self.clamp_camera();
-        self.ctx.renderer.draw_background(framebuffer, &self.camera);
+        self.ctx.renderer.draw_background(
+            &self.ctx.assets.level_select.background,
+            framebuffer,
+            &self.camera,
+        );
         for (group_index, group) in self.groups.iter().enumerate() {
             for (level_index, level) in group.levels.iter().enumerate() {
                 if let Some(drag) = &self.drag {
@@ -580,6 +584,7 @@ fn generate_preview(ctx: &Context, level: &logicsider::Level) -> ugli::Texture {
     texture.set_filter(ugli::Filter::Nearest);
     let bb = level.bounding_box().map(|x| x as f32);
     ctx.renderer.draw_level(
+        &ctx.assets.play.background,
         &mut ugli::Framebuffer::new_color(
             ctx.geng.ugli(),
             ugli::ColorAttachment::Texture(&mut texture),

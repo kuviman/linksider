@@ -26,6 +26,8 @@ pub struct Assets {
     pub config: Config,
     #[load(serde, path = "logic.toml")]
     pub logic_config: logicsider::Config,
+    pub play: play::Assets,
+    pub level_select: level_select::Assets,
     pub renderer: renderer::Assets,
     pub sound: sound::Assets,
 }

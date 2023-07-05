@@ -1,5 +1,10 @@
 use super::*;
 
+#[derive(geng::asset::Load)]
+pub struct Assets {
+    pub background: renderer::background::Assets,
+}
+
 #[derive(Deserialize)]
 pub struct Controls {
     up: Vec<geng::Key>,
@@ -367,7 +372,11 @@ impl State {
                 .unwrap_or(self.selection)
         };
 
-        self.ctx.renderer.draw_background(framebuffer, &self.camera);
+        self.ctx.renderer.draw_background(
+            &self.ctx.assets.level_select.background,
+            framebuffer,
+            &self.camera,
+        );
         // TODO not create this texture every frame KEKW
         let mut other_groups =
             ugli::Texture::new_uninitialized(self.ctx.geng.ugli(), framebuffer.size());

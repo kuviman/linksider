@@ -6,6 +6,11 @@ pub struct Config {
     ui_fov: f32,
 }
 
+#[derive(geng::asset::Load)]
+pub struct Assets {
+    pub background: renderer::background::Assets,
+}
+
 pub struct State {
     ctx: Context,
     framebuffer_size: vec2<f32>,
@@ -283,9 +288,14 @@ impl State {
     fn draw(&mut self, framebuffer: &mut ugli::Framebuffer) {
         self.framebuffer_size = framebuffer.size().map(|x| x as f32);
         let frame = self.history_player.frame();
-        self.ctx
-            .renderer
-            .draw(framebuffer, &self.camera, frame, &self.level_mesh, self.zzz);
+        self.ctx.renderer.draw(
+            &self.ctx.assets.play.background,
+            framebuffer,
+            &self.camera,
+            frame,
+            &self.level_mesh,
+            self.zzz,
+        );
         self.vfx.draw(framebuffer, &self.camera);
         buttons::layout(
             &mut self.buttons,
