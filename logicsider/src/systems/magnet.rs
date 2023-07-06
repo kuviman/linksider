@@ -83,6 +83,7 @@ pub fn continue_move(
     if prev_input != input && config.magnet.r#continue == ContinueConfig::Input {
         return None;
     }
+    let prev_pos = entity.pos;
     let new_pos = Position {
         cell: entity.pos.cell + magnet_angle.to_vec(),
         angle: entity.pos.angle.with_input(prev_input),
@@ -93,8 +94,11 @@ pub fn continue_move(
     Some(EntityMove {
         entity_id: entity.id,
         used_input: prev_input,
-        prev_pos: entity.pos,
+        prev_pos,
         new_pos,
         move_type: EntityMoveType::MagnetContinue, // Can not continue magnet move more than 180 degrees
+        cells_reserved: [prev_pos.cell, new_pos.cell].into_iter().collect(),
+        start_time: state.current_time,
+        end_time: state.current_time + Time::ONE,
     })
 }

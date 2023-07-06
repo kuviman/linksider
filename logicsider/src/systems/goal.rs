@@ -21,6 +21,9 @@ pub fn system(
             prev_pos: entity.pos,
             new_pos: entity.pos,
             move_type: EntityMoveType::EnterGoal { goal_id: goal.id },
+            start_time: state.current_time,
+            end_time: state.current_time + Time::ONE,
+            cells_reserved: HashSet::from_iter([entity.pos.cell]),
         });
     }
 

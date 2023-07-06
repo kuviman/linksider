@@ -65,7 +65,7 @@ impl State {
             history_player: history::Player::new(
                 game_state,
                 &ctx.assets.logic_config,
-                ctx.assets.config.animation_time,
+                ctx.assets.config.animation_speed,
             ),
             vfx: renderer::Vfx::new(ctx),
             next_zzz: ctx.assets.config.zzz_time,
@@ -75,7 +75,11 @@ impl State {
                 Button::square(Anchor::TopRight, vec2(-1.2, -1.2), ButtonType::Exit),
                 Button::square(Anchor::BottomLeft, vec2(0.2, 0.2), ButtonType::Undo),
                 Button::square(Anchor::BottomLeft, vec2(1.4, 0.2), ButtonType::Redo),
-                Button::square(Anchor::BottomRight, vec2(-1.2, 0.2), ButtonType::SwitchPlayer),
+                Button::square(
+                    Anchor::BottomRight,
+                    vec2(-1.2, 0.2),
+                    ButtonType::SwitchPlayer,
+                ),
                 Button::square(Anchor::TopLeft, vec2(0.2, -1.2), ButtonType::Reset),
             ]),
             cursor_position: None,
@@ -139,41 +143,28 @@ impl State {
         } else {
             None
         };
-        let update = self.history_player.update(
-            delta_time,
-            &self.ctx.assets.logic_config,
-            input,
-            timeline_input,
-        );
-        if let Some(moves) = update.started {
-            // TODO copypasta
-            self.ctx.sound.play_turn_start_sounds(moves);
-            self.vfx.add_moves(moves);
-        }
-        if let Some(moves) = update.finished {
-            self.ctx.sound.play_turn_end_sounds(moves);
-        }
-        if let Some(entity) = self.history_player.frame().current_state.selected_entity() {
+        self.update_player(input, delta_time);
+        if let Some(entity) = self.history_player.frame().state.selected_entity() {
             self.camera.center = lerp(
                 self.camera.center,
                 entity.pos.cell.map(|x| x as f32 + 0.5),
                 (delta_time * self.ctx.assets.config.camera_speed).min(1.0),
             );
         }
-        if self.history_player.frame().current_state.finished() {
+        if self.history_player.frame().state.finished() {
             self.finish(Transition::NextLevel);
         }
 
         self.vfx.update(delta_time);
         self.ctx
             .sound
-            .update_game_tick_time(delta_time / self.ctx.assets.config.animation_time);
+            .update_game_tick_time(delta_time * self.ctx.assets.config.animation_speed);
 
         self.next_zzz -= delta_time;
         if self.next_zzz < 0.0 {
             self.zzz = true;
-            self.next_zzz += self.ctx.assets.config.animation_time;
-            for entity in &self.history_player.frame().current_state.entities {
+            self.next_zzz += 1.0 / self.ctx.assets.config.animation_speed;
+            for entity in &self.history_player.frame().state.entities {
                 if entity.properties.player {
                     self.vfx.zzz(entity.pos.cell + vec2(0, 1));
                 }
@@ -228,9 +219,7 @@ impl State {
                 if self.ctx.assets.config.controls.next_player.contains(&key) {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, 1);
-                    if let Some(player) =
-                        self.history_player.frame().current_state.selected_entity()
-                    {
+                    if let Some(player) = self.history_player.frame().state.selected_entity() {
                         self.vfx.change_player(player.pos);
                         self.ctx.sound.player_change();
                     }
@@ -238,9 +227,7 @@ impl State {
                 if self.ctx.assets.config.controls.prev_player.contains(&key) {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, -1);
-                    if let Some(player) =
-                        self.history_player.frame().current_state.selected_entity()
-                    {
+                    if let Some(player) = self.history_player.frame().state.selected_entity() {
                         self.vfx.change_player(player.pos);
                         self.ctx.sound.player_change();
                     }
@@ -285,15 +272,7 @@ impl State {
         if let Some(input) = player_input {
             self.zzz = false;
             self.next_zzz = self.ctx.assets.config.zzz_time;
-            if self.history_player.frame().animation.is_none() {
-                if let Some(moves) = self
-                    .history_player
-                    .process_move(&self.ctx.assets.logic_config, input)
-                {
-                    self.ctx.sound.play_turn_start_sounds(moves);
-                    self.vfx.add_moves(moves);
-                }
-            }
+            self.update_player(Some(input), 0.0);
         }
         ControlFlow::Continue(())
     }
@@ -362,9 +341,7 @@ impl State {
                 ButtonType::SwitchPlayer => {
                     self.history_player
                         .change_player_selection(&self.ctx.assets.logic_config, 1);
-                    if let Some(player) =
-                        self.history_player.frame().current_state.selected_entity()
-                    {
+                    if let Some(player) = self.history_player.frame().state.selected_entity() {
                         self.vfx.change_player(player.pos);
                         self.ctx.sound.player_change();
                     }
@@ -373,5 +350,13 @@ impl State {
             return ControlFlow::Continue(true);
         }
         ControlFlow::Continue(false)
+    }
+
+    fn update_player(&mut self, input: Option<Input>, delta_time: f32) {
+        self.history_player
+            .update(&self.ctx.assets.logic_config, input, delta_time, |event| {
+                self.vfx.handle_game_event(&event);
+                self.ctx.sound.handle_game_event(&event);
+            });
     }
 }

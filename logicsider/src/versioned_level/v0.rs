@@ -84,6 +84,16 @@ pub enum Tile {
     Cloud,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, HasId, Serialize, Deserialize)]
+pub struct EntityMove {
+    #[has_id(id)]
+    pub entity_id: Id,
+    pub used_input: Input,
+    pub prev_pos: Position,
+    pub new_pos: Position,
+    pub move_type: EntityMoveType,
+}
+
 #[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Id,

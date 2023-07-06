@@ -320,8 +320,8 @@ impl Renderer {
             framebuffer,
             camera,
             history::Frame {
-                current_state: &GameState::init(&self.assets.logic_config, level),
-                animation: None,
+                state: &GameState::init(&self.assets.logic_config, level),
+                time_since: 0.0,
             },
             level_mesh,
             false,
@@ -358,22 +358,6 @@ impl Renderer {
         level_mesh: &LevelMesh,
         zzz: bool,
     ) {
-        let history::Frame {
-            current_state,
-            animation,
-        } = frame;
-
-        let no_moves = Moves::default();
-        let history::Animation {
-            prev_state,
-            moves,
-            t,
-        } = animation.unwrap_or(history::Animation {
-            prev_state: current_state,
-            moves: &no_moves,
-            t: 0.0,
-        });
-
         self.draw_background(background_assets, framebuffer, camera);
 
         // Shadow
@@ -392,10 +376,7 @@ impl Renderer {
             self.draw_impl(
                 framebuffer,
                 camera,
-                current_state,
-                prev_state,
-                moves,
-                t,
+                frame,
                 transform,
                 color,
                 zzz,
@@ -411,10 +392,7 @@ impl Renderer {
         self.draw_impl(
             framebuffer,
             camera,
-            current_state,
-            prev_state,
-            moves,
-            t,
+            frame,
             mat3::identity(),
             Rgba::WHITE,
             zzz,
@@ -451,10 +429,7 @@ impl Renderer {
         self.draw_impl(
             framebuffer,
             camera,
-            current_state,
-            prev_state,
-            moves,
-            t,
+            frame,
             mat3::identity(),
             Rgba::WHITE,
             zzz,
@@ -467,10 +442,7 @@ impl Renderer {
         self.draw_impl(
             framebuffer,
             camera,
-            current_state,
-            prev_state,
-            moves,
-            t,
+            frame,
             mat3::identity(),
             Rgba::WHITE,
             zzz,
@@ -499,16 +471,13 @@ impl Renderer {
         &self,
         framebuffer: &mut ugli::Framebuffer,
         camera: &Cam,
-        current_state: &GameState,
-        prev_state: &GameState,
-        moves: &Moves,
-        t: f32,
+        frame: history::Frame<'_>,
         transform: mat3<f32>,
         color: Rgba<f32>,
         zzz: bool,
         draw_game_tile: impl Fn(&mut ugli::Framebuffer, &Cam, &str, Rgba<f32>, mat3<f32>),
     ) {
-        for goal in &prev_state.goals {
+        for goal in &frame.state.goals {
             draw_game_tile(
                 framebuffer,
                 camera,
@@ -521,10 +490,9 @@ impl Renderer {
             );
         }
 
-        for entity in &prev_state.entities {
-            let entity_move = moves.entity_moves.get(&entity.id);
+        for entity in &frame.state.entities {
             let mut animation_time = 1.0;
-            let (from, to) = match entity_move {
+            let (from, to, t) = match &entity.current_move {
                 Some(entity_move) => {
                     if let EntityMoveType::Jump {
                         cells_traveled,
@@ -534,11 +502,17 @@ impl Renderer {
                     {
                         animation_time = cells_traveled as f32 / jump_force as f32;
                     }
-                    (entity_move.prev_pos, entity_move.new_pos)
+                    (
+                        entity_move.prev_pos,
+                        entity_move.new_pos,
+                        (frame.state.current_time.as_secs_f32()
+                            - entity_move.start_time.as_secs_f32())
+                            / (entity_move.end_time.as_secs_f32()
+                                - entity_move.start_time.as_secs_f32()),
+                    )
                 }
-                None => (entity.pos, entity.pos),
+                None => (entity.pos, entity.pos, 0.0),
             };
-            let t = (t / animation_time).min(1.0);
 
             fn cube_move_transform(
                 from: Position,
@@ -587,7 +561,7 @@ impl Renderer {
             // Static entities are cached in level mesh
             if !entity.properties.r#static {
                 let mut color = color;
-                if entity.properties.player && Some(entity.id) != current_state.selected_player {
+                if entity.properties.player && Some(entity.id) != frame.state.selected_player {
                     color = Rgba::from_vec4(
                         color.to_vec4() * self.assets.config.deselected_player_color.to_vec4(),
                     );
@@ -598,7 +572,7 @@ impl Renderer {
                     if zzz && entity.identifier == "Player" {
                         "PlayerZzz"
                     } else if entity.properties.player
-                        && Some(entity.id) != current_state.selected_player
+                        && Some(entity.id) != frame.state.selected_player
                     {
                         "PlayerUnselected"
                     } else {
@@ -628,7 +602,7 @@ impl Renderer {
                 }
             }
         }
-        for powerup in &prev_state.powerups {
+        for powerup in &frame.state.powerups {
             draw_game_tile(
                 framebuffer,
                 camera,

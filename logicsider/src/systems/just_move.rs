@@ -103,6 +103,9 @@ pub fn system(
                             .angle
                             .with_input(Input::from_sign(direction.move_dir.x)),
                     },
+                    start_time: state.current_time,
+                    end_time: state.current_time + Time::ONE,
+                    cells_reserved: HashSet::from_iter([next_next_cell]),
                     move_type: EntityMoveType::Pushed,
                 });
             }
@@ -122,6 +125,9 @@ pub fn system(
         } else {
             EntityMoveType::Move
         },
+        start_time: state.current_time,
+        end_time: state.current_time + Time::ONE,
+        cells_reserved: HashSet::from_iter([entity.pos.cell, new_pos.cell]),
     });
     Some(result)
 }

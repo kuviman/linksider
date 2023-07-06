@@ -30,59 +30,67 @@ impl Vfx {
             cells: default(),
         }
     }
-    pub fn add_moves(&mut self, moves: &Moves) {
+    pub fn handle_game_event(&mut self, event: &Event) {
         let assets = &self.ctx.assets.renderer.vfx;
-        for entity_move in &moves.entity_moves {
-            let (angle, texture) = match entity_move.move_type {
-                EntityMoveType::Magnet { magnet_angle, .. } => (magnet_angle, &assets.walk),
-                EntityMoveType::EnterGoal { .. } => continue,
-                EntityMoveType::Gravity => continue,
-                EntityMoveType::Move => {
-                    if entity_move.prev_pos.cell == entity_move.new_pos.cell {
-                        continue;
+        match event {
+            Event::MoveStarted(entity_move) => {
+                let (angle, texture) = match entity_move.move_type {
+                    EntityMoveType::Magnet { magnet_angle, .. } => (magnet_angle, &assets.walk),
+                    EntityMoveType::EnterGoal { .. } => return,
+                    EntityMoveType::Gravity => return,
+                    EntityMoveType::Move => {
+                        if entity_move.prev_pos.cell == entity_move.new_pos.cell {
+                            return;
+                        }
+                        (IntAngle::DOWN, &assets.walk)
                     }
-                    (IntAngle::DOWN, &assets.walk)
-                }
-                EntityMoveType::Pushed => continue,
-                EntityMoveType::SlideStart => (IntAngle::DOWN, &assets.slide),
-                EntityMoveType::SlideContinue => (IntAngle::DOWN, &assets.slide),
-                EntityMoveType::Jump {
-                    from,
-                    blocked_angle,
-                    cells_traveled: cells_travelled,
-                    jump_force,
-                } => {
-                    if let Some(blocked_angle) = blocked_angle {
-                        self.cells.push(Cell {
-                            sprite_sheet: assets.hit_wall.clone(),
-                            pos: Position {
-                                cell: entity_move.new_pos.cell,
-                                angle: blocked_angle.rotate_clockwise(),
-                            },
-                            flip: false,
-                            t: -(cells_travelled as f32 / jump_force as f32),
-                        });
-                    }
-                    (
+                    EntityMoveType::Pushed => return,
+                    EntityMoveType::SlideStart => (IntAngle::DOWN, &assets.slide),
+                    EntityMoveType::SlideContinue => (IntAngle::DOWN, &assets.slide),
+                    EntityMoveType::Jump {
                         from,
-                        if self.ctx.assets.config.happy {
-                            &assets.happy
-                        } else {
-                            &assets.jump
-                        },
-                    )
-                }
-                EntityMoveType::MagnetContinue => continue,
-            };
-            self.cells.push(Cell {
-                sprite_sheet: texture.clone(),
-                pos: Position {
-                    cell: entity_move.prev_pos.cell,
-                    angle: angle.rotate_counter_clockwise(),
-                },
-                flip: entity_move.used_input == Input::Left,
-                t: 0.0,
-            });
+                        blocked_angle,
+                        cells_traveled: cells_travelled,
+                        jump_force,
+                    } => {
+                        if let Some(blocked_angle) = blocked_angle {
+                            self.cells.push(Cell {
+                                sprite_sheet: assets.hit_wall.clone(),
+                                pos: Position {
+                                    cell: entity_move.new_pos.cell,
+                                    angle: blocked_angle.rotate_clockwise(),
+                                },
+                                flip: false,
+                                t: -(cells_travelled as f32 / jump_force as f32),
+                            });
+                        }
+                        (
+                            from,
+                            if self.ctx.assets.config.happy {
+                                &assets.happy
+                            } else {
+                                &assets.jump
+                            },
+                        )
+                    }
+                    EntityMoveType::MagnetContinue => return,
+                };
+                self.cells.push(Cell {
+                    sprite_sheet: texture.clone(),
+                    pos: Position {
+                        cell: entity_move.prev_pos.cell,
+                        angle: angle.rotate_counter_clockwise(),
+                    },
+                    flip: entity_move.used_input == Input::Left,
+                    t: 0.0,
+                });
+            }
+            Event::CollectedPowerup {
+                entity,
+                entity_side,
+                powerup,
+            } => {}
+            Event::MoveEnded(entity_move) => {}
         }
     }
 
@@ -112,7 +120,7 @@ impl Vfx {
 
     pub fn update(&mut self, delta_time: f32) {
         for cell in &mut self.cells {
-            cell.t += delta_time / self.ctx.assets.config.animation_time;
+            cell.t += delta_time * self.ctx.assets.config.animation_speed;
         }
         self.cells.retain(|cell| cell.t < 1.0);
     }

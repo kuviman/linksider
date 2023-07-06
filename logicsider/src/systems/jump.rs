@@ -17,17 +17,19 @@ pub fn system(
     if jump_to.is_up() {
         path.push(vec2(input.delta(), 2));
     }
-    let path = path
+    let mut path: Vec<_> = path
         .iter()
-        .map(|&p| pos.cell + (jump_to - IntAngle::UP).rotate_vec(p));
+        .map(|&p| pos.cell + (jump_to - IntAngle::UP).rotate_vec(p))
+        .collect();
 
     let mut new_pos = None;
     let mut cells_traveled = 0;
     let mut blocked_angle = None;
     let mut prev_cell = entity.pos.cell;
-    for p in path {
+    for (i, &p) in path.iter().enumerate() {
         if is_blocked(state, p) {
             blocked_angle = Some(IntAngle::from_vec(p - prev_cell));
+            path.truncate(i);
             break;
         }
         prev_cell = p;
@@ -53,6 +55,9 @@ pub fn system(
                 cells_traveled,
                 jump_force: 3,
             },
+            start_time: state.current_time,
+            end_time: state.current_time + Time::ONE,
+            cells_reserved: path.into_iter().collect(),
         })
     } else {
         None

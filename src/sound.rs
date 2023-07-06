@@ -86,18 +86,23 @@ impl State {
         sound.play();
     }
 
-    pub fn play_turn_start_sounds(&self, moves: &Moves) {
+    pub fn handle_game_event(&self, event: &Event) {
         let assets = &self.assets.sound;
-        for entity_move in &moves.entity_moves {
-            self.play(match entity_move.move_type {
+        match event {
+            Event::CollectedPowerup {
+                entity,
+                entity_side,
+                powerup,
+            } => self.play(&assets.powerup),
+            Event::MoveStarted(entity_move) => self.play(match entity_move.move_type {
                 EntityMoveType::Magnet { .. } => &assets.magnet,
-                EntityMoveType::MagnetContinue => continue,
+                EntityMoveType::MagnetContinue => return,
                 EntityMoveType::EnterGoal { .. } => &assets.enter_goal,
-                EntityMoveType::Gravity => continue,
+                EntityMoveType::Gravity => return,
                 EntityMoveType::Move => &assets.r#move,
-                EntityMoveType::Pushed => continue,
+                EntityMoveType::Pushed => return,
                 EntityMoveType::SlideStart => &assets.slide,
-                EntityMoveType::SlideContinue => continue,
+                EntityMoveType::SlideContinue => return,
                 EntityMoveType::Jump {
                     blocked_angle,
                     cells_traveled,
@@ -118,14 +123,8 @@ impl State {
                         &assets.jump
                     }
                 }
-            });
-        }
-    }
-
-    pub fn play_turn_end_sounds(&self, moves: &Moves) {
-        let assets = &self.assets.sound;
-        if !moves.collected_powerups.is_empty() {
-            self.play(&assets.powerup);
+            }),
+            Event::MoveEnded(entity_move) => {}
         }
     }
 

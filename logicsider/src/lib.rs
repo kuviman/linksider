@@ -11,6 +11,7 @@ mod moves;
 mod players;
 mod position;
 mod systems;
+mod time;
 mod versioned_level;
 
 pub use config::Config;
@@ -21,3 +22,4 @@ pub use level::Level;
 pub use model::*;
 pub use moves::*;
 pub use position::Position;
+pub use time::Time;

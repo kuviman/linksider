@@ -32,7 +32,7 @@ pub struct Controls {
 pub struct Config {
     pub play: Rc<play::Config>,
     pub camera_speed: f32,
-    pub animation_time: f32,
+    pub animation_speed: f32,
     pub render: renderer::Config,
     pub controls: Controls,
     pub cell_pixel_size: usize,

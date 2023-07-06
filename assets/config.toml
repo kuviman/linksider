@@ -1,5 +1,5 @@
 camera_speed = 2
-animation_time = 0.2
+animation_speed = 5
 cell_pixel_size = 16
 border_radius_pixels = 4
 deselected_player_color = "#fff7"

@@ -7,6 +7,9 @@ pub struct GameState {
     pub powerups: Collection<Powerup>,
     pub selected_player: Option<Id>,
     pub goals: Collection<Goal>,
+    pub current_time: Time,
+    pub moves: std::collections::BinaryHeap<EntityMove>,
+    pub reserved_cells: HashSet<vec2<i32>>,
     pub stable: bool,
 }
 
@@ -18,63 +21,54 @@ impl GameState {
             powerups: default(),
             selected_player: None,
             goals: default(),
+            current_time: Time::ZERO,
+            moves: default(),
+            reserved_cells: default(),
             stable: false,
         }
     }
 
     pub fn init(config: &Config, level: &Level) -> Self {
-        let mut id_gen = id::Gen::new();
-        let entities = level
-            .entities
-            .iter()
-            .map(
-                |&level::Entity {
-                     index,
-                     ref identifier,
-                     pos,
-                     ref sides,
-                 }| Entity {
-                    id: id_gen.gen(),
-                    index,
-                    identifier: identifier.clone(),
-                    properties: config.entities.get(identifier).unwrap().clone(),
-                    pos,
-                    prev_pos: pos,
-                    prev_move: None,
-                    sides: sides.clone(),
-                },
-            )
-            .collect();
-        let powerups = level
-            .powerups
-            .iter()
-            .map(|&level::Powerup { pos, ref effect }| Powerup {
-                id: id_gen.gen(),
+        let mut state = Self::empty();
+        for &level::Entity {
+            index,
+            ref identifier,
+            pos,
+            ref sides,
+        } in &level.entities
+        {
+            state.entities.insert(Entity {
+                id: state.id_gen.gen(),
+                index,
+                identifier: identifier.clone(),
+                properties: config.entities.get(identifier).unwrap().clone(),
+                pos,
+                prev_pos: pos,
+                prev_move: None,
+                current_move: None,
+                sides: sides.clone(),
+            });
+        }
+        for &level::Powerup { pos, ref effect } in &level.powerups {
+            state.powerups.insert(Powerup {
+                id: state.id_gen.gen(),
                 pos,
                 effect: effect.clone(),
-            })
-            .collect();
-        let goals = level
-            .goals
-            .iter()
-            .map(|&level::Goal { pos }| Goal {
-                id: id_gen.gen(),
+            });
+        }
+        for &level::Goal { pos } in &level.goals {
+            state.goals.insert(Goal {
+                id: state.id_gen.gen(),
                 pos,
-            })
-            .collect();
-        let mut result = Self {
-            id_gen,
-            entities,
-            powerups,
-            selected_player: None,
-            goals,
-            stable: false,
-        };
-        let first_player = result.player_ids().next();
-        result.selected_player = first_player;
-        result
+            });
+        }
+        let first_player = state.player_ids().next();
+        state.selected_player = first_player;
+        state
     }
+}
 
+impl GameState {
     pub fn bounding_box(&self) -> Aabb2<i32> {
         Aabb2::points_bounding_box(self.entities.iter().map(|entity| entity.pos.cell))
             .unwrap_or(Aabb2::ZERO)
@@ -84,23 +78,10 @@ impl GameState {
     pub fn center(&self) -> vec2<f32> {
         self.bounding_box().map(|x| x as f32).center()
     }
-
-    pub fn add_entity(&mut self, identifier: &str, properties: &Properties, pos: Position) {
-        self.entities.insert(Entity {
-            id: self.id_gen.gen(),
-            index: None,
-            identifier: identifier.to_owned(),
-            properties: properties.clone(),
-            sides: std::array::from_fn(|_| Side { effect: None }),
-            pos,
-            prev_pos: pos,
-            prev_move: None,
-        });
-    }
 }
 
 /// Box entity
-#[derive(Clone, PartialEq, Eq, HasId, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, HasId)]
 pub struct Entity {
     pub id: Id,
     pub index: Option<i32>, // for sorting
@@ -109,7 +90,17 @@ pub struct Entity {
     pub pos: Position,
     pub prev_pos: Position,
     pub prev_move: Option<EntityMove>,
+    pub current_move: Option<EntityMove>,
     pub sides: [Side; 4],
+}
+
+impl GameState {
+    /// Entities that are not currently moving
+    pub fn stable_entities(&self) -> impl Iterator<Item = &Entity> + '_ {
+        self.entities
+            .iter()
+            .filter(|entity| entity.current_move.is_none())
+    }
 }
 
 impl Entity {
