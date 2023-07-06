@@ -8,10 +8,10 @@ happy = false
 # lowres = 8
 
 [popup]
-ui_fov = 6
+ui_fov = 8
 
 [play]
-ui_fov = 6
+ui_fov = 8
 fov = 12
 
 [input]
@@ -21,7 +21,7 @@ zoom_speed = 1
 
 [level_select]
 fov = 12
-ui_fov = 6
+ui_fov = 8
 level_icon_offset = [0, 0.0625]
 level_icon_size = 0.625
 icon_color = "#46425e"
@@ -41,12 +41,12 @@ play = ["Space", "Enter", "O"]
 [render.shadow]
 offset = [0.125, -0.125]
 opacity = 0.2
-blacklist = ["Cloud", "Goal"]
+blacklist = ["Goal"]
 
 [render.vignette]
 color = "#0007"
-inner_radius = 0.5
-outer_radius = 0.8
+inner_radius = 0.8
+outer_radius = 1.8
 
 [sound]
 volume = 0.1
@@ -71,7 +71,7 @@ effect = { jump = "J", delete = "Delete" }
 default_fov = 15
 min_fov = 5
 max_fov = 30
-ui_fov = 6
+ui_fov = 8
 margin = 15
 index_size = 0.3
 index_color = "white"
@@ -99,7 +99,7 @@ reset_to_last_save = "F7"
 default_fov = 15
 min_fov = 5
 max_fov = 30
-ui_fov = 6
+ui_fov = 8
 level_icon_size = 0.9
 margin = 5
 preview_texture_size = 128
