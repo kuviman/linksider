@@ -1959,7 +1959,7 @@ V1((
     powerups: [
         (
             pos: (
-                cell: (7, -4),
+                cell: (7, -9),
                 angle: (3),
             ),
             effect: Jump,
@@ -1967,13 +1967,6 @@ V1((
         (
             pos: (
                 cell: (4, -6),
-                angle: (3),
-            ),
-            effect: Jump,
-        ),
-        (
-            pos: (
-                cell: (7, -9),
                 angle: (3),
             ),
             effect: Jump,
