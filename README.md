@@ -4,6 +4,8 @@
 
 Game made for Bevy Jam 3 🦀 in 9 days
 
+**The game is now being continued in a private repository, follow on itch for updates.**
+
 Some refactorings have happened since the jam, you may see the jam version on the [jam-version branch](https://github.com/kuviman/linksider/tree/jam-version).
 
 [🎮 PLAY THE GAME ON ITCH.IO](https://kuviman.itch.io/linksider)
