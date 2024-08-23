@@ -1,4 +1,4 @@
 User-agent: *
 Disallow:
 Allow: /
-Sitemap: https://linksider.kuviman.com/sitemap.xml
+Sitemap: https://kuviman.github.io/linksider/sitemap.xml
