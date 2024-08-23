@@ -91,7 +91,7 @@ I was working on my game and was not very happy about the code quality so I was 
 <h2 id="day-1">Day 1</h2>
 <p>On day 1 we were starting out with bevy for the first time ever, so we went ahead and read the bevy book. Surprisingly it was very short.</p>
 <p>One of the first things to notice was very long compilation time.
-Which wouldn't really matter too much for me since building of the dependencies is only supposed to happen once. But, almost every time I added a new dependency to the project (like <code>bevy_rapier</code> or <code>bevy_ecs_ldtk</code>) it was recompiling the entire world from scratch again, making me wait for 20 minutes which made me not want to add new dependencies ever even if I would benefit from them. It would be faster if I didn't use <code>--jobs 2</code> for compilation, but that would cause unpleasant lagging of the system.</p>
+Which wouldnt really matter too much for me since building of the dependencies is only supposed to happen once. But, almost every time I added a new dependency to the project (like <code>bevy_rapier</code> or <code>bevy_ecs_ldtk</code>) it was recompiling the entire world from scratch again, making me wait for 20 minutes which made me not want to add new dependencies ever even if I would benefit from them. It would be faster if I didn't use <code>--jobs 2</code> for compilation, but that would cause unpleasant lagging of the system.</p>
 <p>Also dynamic linking was set up from beginning, like shown in the book.
 But I was getting a lot of linker errors (about unresolved symbols) from time to time for some reason. Only full recompilation was solving that issue, so we ended up using regular static linking instead which made us wait for 20-40 secs for every small change in game code.</p>
 <p>Using <a href="https://trunkrs.dev/">trunk</a> was really nice, the only issue with it was making it work using relative urls for itch/github pages: <a href="https://github.com/thedodd/trunk/issues/395">issue #395</a></p>
@@ -110,7 +110,7 @@ Also using <a href="https://crates.io/crates/bevy-inspector-egui">bevy-inspector
 <h2 id="ldtk">Ldtk</h2>
 <p>In order to make levels we decided to try out <a href="https://ldtk.io/">LDTK</a>.
 We never used it before but heard good things about it, and there was an existing <a href="https://crates.io/crates/bevy_ecs_ldtk">plugin for bevy</a>.</p>
-<p>It was very simple to load the level tilemap and have it drawn on the screen (although initially I had to realize that I should not put my camera at z=0).</p>
+<p>It was very simple to load the level tilemap and have it drawn on the screen (although initially I had to realise that I should not put my camera at z=0).</p>
 <p>For spawning the entities &amp; int grid cells <code>bevy_ecs_ldtk</code> uses the derive macro approach which I was not really a big fan of.
 I think it would be easier to use if instead of writing logic in derive attributes I could simple use any regular Rust function/closure returning a bundle, so like instead of:</p>
 <pre data-lang="rs" style="background-color:#2b303b;color:#c0c5ce;" class="language-rs "><code class="language-rs" data-lang="rs"><span>app.register_ldtk_entity::&lt;PlayerBundle&gt;(&quot;</span><span style="color:#a3be8c;">Player</span><span>&quot;)
@@ -129,7 +129,7 @@ This made player hit point between two tiles, even though it is flat ground.</p>
 <p>One of the examples involved combining tiles together if they form a line, but that was still not good enough, so we had to implement another way of spawning the colliders.</p>
 <p>The way it worked was spawning a polyline for every tile, and then despawning a segment if it was present twice - which means that the segment is between two tiles.</p>
 <p>One other thing I missed from <code>bevy_ecs_ldtk</code> was registering int cells by name instead of by actual int value, since there is an option to specify names in ldtk itself.</p>
-<!-- cheeseburger -->
+<!-- cheeseburge -->
 <h2 id="rewrite-from-scratch">Rewrite from scratch</h2>
 <p>So, at some point, we had working level loading, working physics with jump and slide side effects. But the game was not fun to play, it was very hard to control your character. So we needed to think about how to change the gameplay.</p>
 <p>We had a couple ideas, but the one we decided to try out was removing the physics aspect of the game completely and turning it into a &quot;turn based&quot; puzzle game instead.</p>
