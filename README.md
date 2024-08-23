@@ -2,9 +2,13 @@
 
 ![logo](website/content/Lpko5O-transparent.png)
 
-Game made for Bevy Jam 3 🦀 in 9 days
+**The game is now being continued in a private repository**
 
-**The game is now being continued in a private repository, follow on itch for updates.**
+**You can [wishlist the upcoming release on Steam](https://store.steampowered.com/app/2995150/Linksider/)**
+
+## In this repo
+
+Game made for Bevy Jam 3 🦀 in 9 days
 
 Some refactorings have happened since the jam, you may see the jam version on the [jam-version branch](https://github.com/kuviman/linksider/tree/jam-version).
 
