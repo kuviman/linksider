@@ -4,3 +4,17 @@ body {
     margin: 0;
     overflow: hidden;
 }
+
+#steam-link {
+    position: absolute;
+    z-index: 1;
+    top: 5vh;
+    left: 5vh;
+    font-weight: bold;
+    color: black;
+    font-size: 5vh;
+}
+
+#steam-link:visited {
+    color: black !important;
+}
