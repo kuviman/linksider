@@ -1,15 +1,17 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs-stable.url = "nixpkgs/release-23.11";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = { self, nixpkgs, rust-overlay }:
+  outputs = { self, nixpkgs, nixpkgs-stable, rust-overlay }:
     let
       overlays = [ (import rust-overlay) ];
       pkgs = import nixpkgs {
         inherit system overlays;
       };
+      pkgs-stable = import nixpkgs-stable { inherit system; };
 
       system = "x86_64-linux";
       app = "linksider";
@@ -19,6 +21,7 @@
         clang
         trunk
         just
+        pkgs-stable.butler
       ];
       appNativeBuildInputs = with pkgs; [
         pkg-config
