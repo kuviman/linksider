@@ -2,7 +2,7 @@ name: Release
 on:
   push:
     branches:
-      - main
+      - jam-version
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: jetli/trunk-action@v0.4.0
       - run: rustup target add wasm32-unknown-unknown
-      - run: trunk build --release
+      - run: trunk --config Trunk.itch-io.toml build --release
       - uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist

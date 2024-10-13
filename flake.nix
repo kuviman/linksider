@@ -18,6 +18,7 @@
         (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; targets = [ "wasm32-unknown-unknown" ]; })
         clang
         trunk
+        just
       ];
       appNativeBuildInputs = with pkgs; [
         pkg-config
