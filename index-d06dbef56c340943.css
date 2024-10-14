@@ -1,0 +1,26 @@
+body {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+#steam-link {
+    position: absolute;
+    z-index: 1;
+    top: 2vh;
+    left: 2vh;
+    font-weight: bold;
+    font-family: "04b_03";
+    color: #ff6973;
+    font-size: 3vh;
+}
+
+@font-face {
+    font-family: "04b_03";
+    src: url("assets/04b03/04B_03__.TTF");
+}
+
+#steam-link:visited {
+    color: #ff6973 !important;
+}
