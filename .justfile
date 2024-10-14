@@ -4,8 +4,8 @@ run *OPTIONS:
 web *OPTIONS:
     trunk serve --open {{OPTIONS}}
 
-publish-web *OPTIONS:
-    trunk --config Trunk.itch-io.toml build {{OPTIONS}}
+publish-web:
+    trunk --config Trunk.itch-io.toml build --release
     butler push dist kuviman/linksider:html5
 
 publish-native *OPTIONS:

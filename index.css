@@ -8,13 +8,19 @@ body {
 #steam-link {
     position: absolute;
     z-index: 1;
-    top: 5vh;
-    left: 5vh;
+    top: 2vh;
+    left: 2vh;
     font-weight: bold;
-    color: black;
-    font-size: 5vh;
+    font-family: "04b_03";
+    color: #ff6973;
+    font-size: 3vh;
+}
+
+@font-face {
+    font-family: "04b_03";
+    src: url("assets/04b03/04B_03__.TTF");
 }
 
 #steam-link:visited {
-    color: black !important;
+    color: #ff6973 !important;
 }
